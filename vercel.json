@@ -2,10 +2,12 @@
   "version": 2,
   "builds": [
     {
-      "src": "dist/main.js",
+      "src": "package.json",
       "use": "@vercel/node"
     }
   ],
+  "installCommand": "yarn install",
+  "buildCommand": "yarn build",
   "routes": [
     {
       "src": "/(.*)",
