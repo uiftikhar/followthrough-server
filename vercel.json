@@ -6,8 +6,8 @@
       "use": "@vercel/node"
     }
   ],
-  "installCommand": "yarn install",
   "buildCommand": "yarn build",
+  "installCommand": "yarn install",
   "routes": [
     {
       "src": "/(.*)",

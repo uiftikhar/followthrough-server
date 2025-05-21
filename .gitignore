@@ -46,3 +46,4 @@ uploads/
 !uploads/.gitkeep
 
 data/
+.vercel
