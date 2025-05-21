@@ -1,11 +1,6 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/node"
-    }
-  ],
+  "outputDirectory": "dist",
   "buildCommand": "yarn build",
   "installCommand": "yarn install",
   "routes": [
