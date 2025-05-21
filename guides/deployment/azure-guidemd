@@ -1,0 +1,197 @@
+
+# Deploying Your Application to Azure App Service
+
+Based on the Azure App Service documentation, I'll outline a comprehensive plan to deploy your application using Docker Compose to Azure. 
+
+## Understanding Your Current Setup
+
+Your application consists of:
+- A Next.js client
+- A NestJS server with MongoDB
+- Docker Compose for container orchestration
+- Integration with external services (Pinecone for vector storage)
+
+## Deployment Plan
+
+### 1. Choose the Right Azure Service
+
+For Docker Compose applications, you have two main options:
+
+- **Azure App Service with Multi-container support**: Supports Docker Compose files directly, but with some limitations
+- **Azure Container Apps**: Better suited for microservices architecture with more advanced orchestration needs
+
+Given your current architecture, **Azure App Service with Multi-container support** is likely the best fit.
+
+### 2. Prepare Your Deployment Source
+
+Create a GitHub repository (if not already using one) containing:
+- Your application code
+- Docker Compose file
+- Dockerfiles for each service
+- Azure-specific configuration files
+
+### 3. Configure Container Registry
+
+1. Create an Azure Container Registry (ACR) to store your container images
+2. Configure authentication between ACR and App Service
+
+```bash
+# Create Azure Container Registry
+az acr create --resource-group YourResourceGroup --name yourRegistryName --sku Basic
+
+# Enable admin user for simple authentication
+az acr update --name yourRegistryName --admin-enabled true
+```
+
+### 4. Modify Docker Compose for Azure
+
+Your Docker Compose file needs adjustments for Azure App Service:
+
+```yaml
+version: '3.8'
+
+services:
+  server:
+    image: ${REGISTRY_URL}/productive-ai-server:${TAG}
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+      - MONGO_DB_URI=${MONGO_DB_URI}
+      # other env variables
+
+  client:
+    image: ${REGISTRY_URL}/productive-ai-client:${TAG}
+    ports:
+      - "8080:8080"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://server:3000
+      - NEXT_PUBLIC_BROWSER_API_URL=https://${WEBSITE_HOSTNAME}/api
+      # other env variables
+```
+
+### 5. Set Up CI/CD Pipeline with GitHub Actions
+
+Create a GitHub Actions workflow file (`.github/workflows/azure-deploy.yml`):
+
+```yaml
+name: Deploy to Azure App Service
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Log in to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Log in to ACR
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ secrets.REGISTRY_URL }}
+        username: ${{ secrets.REGISTRY_USERNAME }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+    
+    - name: Build and push server image
+      run: |
+        docker build -t ${{ secrets.REGISTRY_URL }}/productive-ai-server:${{ github.sha }} ./server
+        docker push ${{ secrets.REGISTRY_URL }}/productive-ai-server:${{ github.sha }}
+    
+    - name: Build and push client image
+      run: |
+        docker build -t ${{ secrets.REGISTRY_URL }}/productive-ai-client:${{ github.sha }} ./client
+        docker push ${{ secrets.REGISTRY_URL }}/productive-ai-client:${{ github.sha }}
+    
+    - name: Deploy to Azure App Service
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: 'your-app-service-name'
+        slot-name: 'staging'
+        images: |
+          ${{ secrets.REGISTRY_URL }}/productive-ai-server:${{ github.sha }}
+          ${{ secrets.REGISTRY_URL }}/productive-ai-client:${{ github.sha }}
+        configuration-file: docker-compose.yml
+```
+
+### 6. Create Azure Resources
+
+```bash
+# Create App Service Plan (at least Premium tier for multi-container)
+az appservice plan create --name YourAppServicePlan --resource-group YourResourceGroup --sku P1V2 --is-linux
+
+# Create Web App for Containers
+az webapp create --resource-group YourResourceGroup --plan YourAppServicePlan --name YourAppName --multicontainer-config-type compose --multicontainer-config-file docker-compose.yml
+```
+
+### 7. Configure MongoDB
+
+Option A: Use Azure CosmosDB with MongoDB API:
+```bash
+# Create CosmosDB account with MongoDB API
+az cosmosdb create --name YourCosmosAccount --resource-group YourResourceGroup --kind MongoDB
+```
+
+Option B: Use MongoDB Atlas (SaaS offering)
+
+### 8. Configure App Settings and Secrets
+
+```bash
+# Set environment variables
+az webapp config appsettings set --resource-group YourResourceGroup --name YourAppName \
+  --settings \
+  WEBSITES_ENABLE_APP_SERVICE_STORAGE=true \
+  REGISTRY_URL=yourregistry.azurecr.io \
+  TAG=latest \
+  MONGO_DB_URI=mongodb://your-connection-string \
+  JWT_SECRET=your-secret \
+  DOCKER_REGISTRY_SERVER_URL=https://yourregistry.azurecr.io \
+  DOCKER_REGISTRY_SERVER_USERNAME=yourusername \
+  DOCKER_REGISTRY_SERVER_PASSWORD=yourpassword
+```
+
+### 9. Set Up Deployment Slots
+
+Following Azure best practices, use deployment slots for zero-downtime deployments:
+
+```bash
+# Create a staging slot
+az webapp deployment slot create --name YourAppName --resource-group YourResourceGroup --slot staging
+
+# After testing, swap slots
+az webapp deployment slot swap --name YourAppName --resource-group YourResourceGroup --slot staging --target-slot production
+```
+
+### 10. Configure Monitoring
+
+```bash
+# Enable Application Insights
+az webapp config appsettings set --resource-group YourResourceGroup --name YourAppName --settings APPINSIGHTS_INSTRUMENTATIONKEY=your-key
+```
+
+## Key Best Practices Applied
+
+1. **Using deployment slots** for zero-downtime deployments
+2. **Continuous deployment** with GitHub Actions
+3. **Container tagging** with commit SHA for traceability
+4. **Local cache** configuration for performance (if needed)
+5. **Environment-specific configuration** via App Settings
+
+## Next Steps
+
+1. Adjust your MongoDB configuration for Azure
+2. Configure Pinecone API access in your application
+3. Set up Application Insights for monitoring
+4. Consider implementing Azure Key Vault for sensitive credentials
+5. Test the deployment process in a development environment first
+
+This plan leverages the Azure App Service multi-container capability while following deployment best practices. The GitHub Actions pipeline ensures automated deployment with proper testing in staging before production release.

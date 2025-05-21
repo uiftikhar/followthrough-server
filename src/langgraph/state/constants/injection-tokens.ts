@@ -1,0 +1,1 @@
+export const STATE_SERVICE = 'STATE_SERVICE';
