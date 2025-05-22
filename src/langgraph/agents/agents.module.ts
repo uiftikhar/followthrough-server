@@ -8,10 +8,16 @@ import { SummaryAgent } from './summary.agent';
 import { ParticipationAgent } from './participation.agent';
 import { ContextIntegrationAgent } from './context-integration.agent';
 import { MasterSupervisorAgent } from './master-supervisor.agent';
+import { SupervisorAgent } from './supervisor/supervisor.agent';
+import { TeamFormationService } from './team/team-formation.service';
 
+/**
+ * Consolidated agents module that includes all agent-related functionality
+ */
 @Module({
   imports: [LlmModule],
   providers: [
+    // Base agents
     AgentFactory,
     TopicExtractionAgent,
     ActionItemAgent,
@@ -20,8 +26,15 @@ import { MasterSupervisorAgent } from './master-supervisor.agent';
     ParticipationAgent,
     ContextIntegrationAgent,
     MasterSupervisorAgent,
+    
+    // Supervisor agents
+    SupervisorAgent,
+    
+    // Team services
+    TeamFormationService,
   ],
   exports: [
+    // Base agents
     AgentFactory,
     TopicExtractionAgent,
     ActionItemAgent,
@@ -30,6 +43,12 @@ import { MasterSupervisorAgent } from './master-supervisor.agent';
     ParticipationAgent,
     ContextIntegrationAgent,
     MasterSupervisorAgent,
+    
+    // Supervisor agents
+    SupervisorAgent,
+    
+    // Team services
+    TeamFormationService,
   ],
 })
-export class AgentModule {}
+export class AgentsModule {} 

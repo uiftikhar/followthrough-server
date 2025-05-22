@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GraphService } from './graph/graph.service';
 import { StateService } from './state/state.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { v4 as uuidv4 } from 'uuid';
 import { SessionRepository } from '../database/repositories/session.repository';
 import { Session } from '../database/schemas/session.schema';
+import { EnhancedGraphService } from './core/enhanced-graph.service';
 
 /**
  * Event type for workflow progress updates
@@ -27,10 +27,10 @@ export class UnifiedWorkflowService {
   private readonly progressMap: Map<string, number> = new Map();
 
   constructor(
-    private readonly graphService: GraphService,
     private readonly stateService: StateService,
     private readonly eventEmitter: EventEmitter2,
     private readonly sessionRepository: SessionRepository,
+    private readonly enhancedGraphService: EnhancedGraphService,
   ) {
     this.logger.log('UnifiedWorkflowService initialized');
   }
@@ -51,7 +51,7 @@ export class UnifiedWorkflowService {
     const actualUserId = userId || 'system';
     
     this.logger.log(`Created new workflow session: ${sessionId} for user: ${actualUserId}`);
-
+    
     try {
       // Create initial session object for MongoDB
       const sessionData: Partial<Session> = {
@@ -61,6 +61,13 @@ export class UnifiedWorkflowService {
         startTime: new Date(),
         metadata: metadata || {},
       };
+
+      // Add transcript to session if available
+      if (input.transcript) {
+        sessionData.transcript = input.transcript;
+      } else if (typeof input === 'string') {
+        sessionData.transcript = input;
+      }
 
       // Store the session in MongoDB
       await this.sessionRepository.createSession(sessionData);
@@ -78,20 +85,14 @@ export class UnifiedWorkflowService {
         'Starting workflow',
       );
       
-      // Initialize state
-      const initialState = await this.stateService.createInitialState({
-        transcript: input.transcript || JSON.stringify(input),
+      // Always use the enhanced graph service for processing
+      this.logger.log('Using enhanced graph service for hierarchical agent analysis');
+      this.runEnhancedGraphAnalysis(
         sessionId,
-        userId: actualUserId,
-        startTime: new Date().toISOString(),
-        metadata: metadata || {},
-      });
-      initialState.input = input;
-      
-      this.logger.log(` *******************\n Created initial state for graph execution:\n ${JSON.parse(JSON.stringify(Object.keys(initialState)))}\n *******************`);
-      
-      // Start processing (non-blocking)
-      this.runSupervisorGraph(sessionId, initialState);
+        typeof input === 'string' ? input : input.transcript,
+        metadata,
+        actualUserId
+      );
 
       return {
         sessionId,
@@ -104,135 +105,124 @@ export class UnifiedWorkflowService {
   }
 
   /**
-   * Run the supervisor graph to route the input
+   * Run analysis using enhanced graph service
    */
-  private async runSupervisorGraph(sessionId: string, initialState: any): Promise<void> {
+  private async runEnhancedGraphAnalysis(
+    sessionId: string, 
+    transcript: string,
+    metadata?: Record<string, any>,
+    userId?: string
+  ): Promise<void> {
     try {
+      this.logger.log(`Executing hierarchical agent analysis for session ${sessionId}`);
+      
       // Update session status to in_progress
       await this.sessionRepository.updateSession(sessionId, {
         status: 'in_progress',
       });
       
+      // Publish progress update - starting analysis
       this.publishProgressUpdate(
         sessionId,
-        'routing',
-        5,
+        'initialization',
+        10,
         'in_progress',
-        'Building supervisor graph',
+        'Starting hierarchical agent analysis',
       );
       
-      // Build the master supervisor graph
-      const graph = await this.graphService.buildMasterSupervisorGraph();
+      // Execute the analysis using the enhanced graph service
+      const result = await this.enhancedGraphService.analyzeMeeting(transcript);
       
-      // Add state transition handler for progress tracking
-      this.attachProgressTracker(graph, sessionId);
-      
-      this.publishProgressUpdate(
-        sessionId,
-        'routing',
-        15,
-        'in_progress',
-        'Starting supervisor execution',
-      );
-      
-      // Execute the graph with initial state
-      this.logger.log(`Executing supervisor graph for session ${sessionId}`);
-      const finalState = await this.graphService.executeGraph(graph, initialState);
-      
-      this.logger.log(`Graph execution completed for session ${sessionId}`);
-      this.logger.log(`Final state keys: ${Object.keys(finalState).join(', ')}`);
-      
-      // Add more detailed logging for debugging
-      this.logger.log(`Result type: ${finalState.resultType}`);
-      this.logger.log(`Routing: ${JSON.stringify(finalState.routing || {})}`);
-      
-      if (finalState.result) {
-        this.logger.log(`Result keys: ${Object.keys(finalState.result).join(', ')}`);
-        
-        if (finalState.resultType === 'meeting_analysis') {
-          this.logger.log(`Topics count: ${finalState.result.topics?.length || 0}`);
-          this.logger.log(`Action items count: ${finalState.result.actionItems?.length || 0}`);
-          this.logger.log(`Has summary: ${!!finalState.result.summary}`);
-          this.logger.log(`Has sentiment: ${!!finalState.result.sentiment}`);
-        }
-      } else {
-        this.logger.log(`Result is null or undefined`);
-      }
+      this.logger.log(`Analysis completed for session ${sessionId}`);
       
       // Update session with results
-      await this.saveResults(sessionId, finalState);
+      const updates: any = {
+        status: 'completed',
+        endTime: new Date(),
+        transcript: transcript,
+        topics: result.topics || [],
+        actionItems: result.actionItems || [],
+        sentiment: result.sentiment || null,
+        summary: result.summary || null,
+        metadata: { 
+          ...metadata,
+          results: result,
+        },
+      };
+      
+      // Add errors if any
+      if (result.errors && result.errors.length > 0) {
+        updates.errors = result.errors;
+      }
+      
+      await this.sessionRepository.updateSession(sessionId, updates);
       
       // Final progress update
       this.publishProgressUpdate(
         sessionId,
-        'completion',
+        'completed',
         100,
         'completed',
-        `Workflow completed with result type: ${finalState.resultType || 'unknown'}`,
+        'Analysis completed successfully',
       );
     } catch (error) {
-      this.logger.error(`Error in supervisor graph execution: ${error.message}`, error.stack);
+      this.logger.error(`Error executing hierarchical agent analysis: ${error.message}`, error.stack);
       
       // Update session with error
       await this.sessionRepository.updateSession(sessionId, {
         status: 'failed',
-        errors: [
-          {
-            step: 'supervisor_graph',
-            error: error.message,
-            timestamp: new Date().toISOString(),
-          },
-        ],
+        endTime: new Date(),
+        errors: [{
+          step: 'hierarchical_agent_analysis',
+          error: error.message,
+          timestamp: new Date().toISOString(),
+        }],
       });
       
-      // Error progress update
+      // Final error progress update
       this.publishProgressUpdate(
         sessionId,
-        'error',
+        'failed',
         100,
         'failed',
-        `Workflow failed: ${error.message}`,
+        `Analysis failed: ${error.message}`,
       );
     }
   }
 
   /**
-   * Save workflow results to database
+   * Get results for a session
    */
-  private async saveResults(sessionId: string, state: any): Promise<void> {
-    this.logger.log(`Saving results for session ${sessionId}`);
+  async getResults(sessionId: string, userId?: string): Promise<any> {
+    this.logger.log(`Retrieving workflow results for session: ${sessionId}`);
     
     try {
-      const updates: Partial<Session> = {
-        status: 'completed',
-        endTime: new Date(),
+      let session;
+      
+      if (userId) {
+        // Get session with user verification
+        session = await this.sessionRepository.getSessionByIdAndUserId(sessionId, userId);
+      } else {
+        // Get session without user verification
+        session = await this.sessionRepository.getSessionById(sessionId);
+      }
+      
+      // Format the results to match the expected format
+      return {
+        sessionId: session.sessionId,
+        status: session.status,
+        createdAt: session.startTime,
+        completedAt: session.endTime,
+        transcript: session.transcript,
+        topics: session.topics,
+        actionItems: session.actionItems,
+        summary: session.summary,
+        sentiment: session.sentiment,
+        errors: session.errors,
+        metadata: session.metadata,
       };
-      
-      // Add result-specific fields based on result type
-      if (state.resultType === 'meeting_analysis') {
-        updates.transcript = state.result?.transcript;
-        updates.topics = state.result?.topics;
-        updates.actionItems = state.result?.actionItems;
-        updates.sentiment = state.result?.sentiment;
-        updates.summary = state.result?.summary;
-      } else if (state.resultType === 'email_triage') {
-        // We'll add email-specific fields later
-        updates.metadata = {
-          ...(updates.metadata || {}),
-          emailTriageResult: state.result,
-        };
-      }
-      
-      // Add any errors
-      if (state.errors && state.errors.length > 0) {
-        updates.errors = state.errors;
-      }
-      
-      // Update the session in the database
-      await this.sessionRepository.updateSession(sessionId, updates);
-      this.logger.log(`Results saved for session ${sessionId}`);
     } catch (error) {
-      this.logger.error(`Error saving results: ${error.message}`, error.stack);
+      this.logger.error(`Error retrieving workflow results: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -282,6 +272,14 @@ export class UnifiedWorkflowService {
       'meeting_analysis_team': 75,
       'email_triage_team': 75,
       '__end__': 95,
+      'initialization': 5,
+      'routing': 15,
+      'processing': 50,
+      'finalization': 90,
+      'topic_extraction': 35,
+      'action_item_extraction': 55,
+      'sentiment_analysis': 70,
+      'summary_generation': 85,
     };
     
     return progressMap[nodeName] || 50;
@@ -309,6 +307,14 @@ export class UnifiedWorkflowService {
       message,
       timestamp: new Date().toISOString(),
     };
+    
+    // Update session in database with progress
+    this.sessionRepository.updateSession(sessionId, {
+      progress: progress,
+      status: status
+    }).catch(error => {
+      this.logger.error(`Error updating session progress: ${error.message}`, error.stack);
+    });
     
     // Emit event
     this.eventEmitter.emit('workflow.progress', event);

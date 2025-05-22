@@ -6,7 +6,7 @@ import { LlmModule } from '../langgraph/llm/llm.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { StateModule } from '../langgraph/state/state.module';
 import { MeetingAnalysisModule } from '../langgraph/meeting-analysis/meeting-analysis.module';
-import { GraphModule } from '../langgraph/graph/graph.module';
+import { LanggraphCoreModule } from '../langgraph/core/core.module';
 import { AdaptiveRagService } from './adaptive-rag.service';
 import { RetrievalService } from './retrieval.service';
 import { RagService } from './rag.service';
@@ -25,7 +25,7 @@ import {
     LlmModule,
     StateModule,
     MeetingAnalysisModule,
-    GraphModule,
+    LanggraphCoreModule,
     CacheModule.register({
       ttl: 1800, // 30 minutes
       max: 100,

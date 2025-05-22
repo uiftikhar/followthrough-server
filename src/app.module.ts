@@ -8,7 +8,7 @@ import { ConfigModule as AppConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { LoggingModule } from './logging/logging.module';
 import { StorageModule } from './storage/storage.module';
-import { LangGraphModule } from './langgraph/langgraph.module';
+import { LanggraphModule } from './langgraph/langgraph.module';
 import { PineconeModule } from './pinecone/pinecone.module';
 import { EmbeddingModule } from './embedding/embedding.module';
 import { RagModule } from './rag/rag.module';
@@ -26,7 +26,7 @@ import { ZapierModule } from './zapier/zapier.module';
     DatabaseModule,
     AuthModule,
     StorageModule,
-    LangGraphModule,
+    LanggraphModule,
     PineconeModule,
     EmbeddingModule,
     RagModule,

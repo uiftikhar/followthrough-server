@@ -1,50 +1,47 @@
 import { Module } from '@nestjs/common';
-import { LlmModule } from './llm/llm.module';
-import { ToolModule } from './tools/tool.module';
-import { StateModule } from './state/state.module';
-import { AgentModule } from './agents/agent.module';
-import { SupervisorModule } from './agents/supervisor/supervisor.module';
-import { TeamModule } from './agents/team/team.module';
-import { GraphModule } from './graph/graph.module';
-import { MeetingAnalysisModule } from './meeting-analysis/meeting-analysis.module';
-import { ExternalIntegrationModule } from './tools/external-integration.module';
-import { AgenticMeetingAnalysisModule } from './agentic-meeting-analysis/agentic-meeting-analysis.module';
+import { LanggraphCoreModule } from './core/core.module';
+import { MeetingAnalysisGraphBuilder } from './meeting-analysis/meeting-analysis-graph.builder';
+import { SupervisorGraphBuilder } from './supervisor/supervisor-graph.builder';
 import { UnifiedWorkflowService } from './unified-workflow.service';
-import { UnifiedWorkflowController } from './unified-workflow.controller';
+import { EmbeddingModule } from '../embedding/embedding.module';
 import { DatabaseModule } from '../database/database.module';
+import { LlmModule } from './llm/llm.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { AgentsModule } from './agents/agents.module';
 
 @Module({
   imports: [
-    LlmModule,
-    ToolModule,
-    StateModule,
-    AgentModule,
-    SupervisorModule,
-    TeamModule,
-    GraphModule,
-    MeetingAnalysisModule,
-    ExternalIntegrationModule,
-    AgenticMeetingAnalysisModule,
+    LanggraphCoreModule,
+    EmbeddingModule,
     DatabaseModule,
+    LlmModule,
+    AgentsModule,
+    EventEmitterModule.forRoot({
+      // Configure event emitter for progress tracking
+      wildcard: true,
+      delimiter: '.',
+      maxListeners: 100,
+      verboseMemoryLeak: true,
+    }),
   ],
   providers: [
+    // Graph builders
+    MeetingAnalysisGraphBuilder,
+    SupervisorGraphBuilder,
+    
+    // Workflow service
     UnifiedWorkflowService,
-  ],
-  controllers: [
-    UnifiedWorkflowController,
   ],
   exports: [
-    LlmModule,
-    ToolModule,
-    StateModule,
-    AgentModule,
-    SupervisorModule,
-    TeamModule,
-    GraphModule,
-    MeetingAnalysisModule,
-    ExternalIntegrationModule,
-    AgenticMeetingAnalysisModule,
+    // Export core module instead of individual services
+    LanggraphCoreModule,
+    
+    // Export workflow service
     UnifiedWorkflowService,
+    
+    // Export graph builders
+    MeetingAnalysisGraphBuilder,
+    SupervisorGraphBuilder,
   ],
 })
-export class LangGraphModule {}
+export class LanggraphModule {}

@@ -3,30 +3,32 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { MeetingAnalysisController } from './meeting-analysis.controller';
 import { MeetingAnalysisService } from './meeting-analysis.service';
 import { MeetingAnalysisGateway } from './meeting-analysis.gateway';
-import { GraphModule } from '../graph/graph.module';
-import { StateModule } from '../state/state.module';
-import { AgentModule } from '../agents/agent.module';
-import { SupervisorModule } from '../agents/supervisor/supervisor.module';
-import { TeamModule } from '../agents/team/team.module';
 import { DatabaseModule } from '../../database/database.module';
-import { UnifiedWorkflowService } from '../unified-workflow.service';
+import { AnalysisDelegationService } from './analysis-delegation.service';
+import { LanggraphModule } from '../langgraph.module';
+import { AgentsModule } from '../agents/agents.module';
+import { MeetingAnalysisGraphBuilder } from './meeting-analysis-graph.builder';
+import { LlmModule } from '../llm/llm.module';
 
 @Module({
   imports: [
-    GraphModule,
-    StateModule,
-    AgentModule,
-    SupervisorModule,
-    TeamModule,
     DatabaseModule,
     EventEmitterModule.forRoot(),
+    LanggraphModule,
+    AgentsModule,
+    LlmModule,
   ],
   controllers: [MeetingAnalysisController],
   providers: [
     MeetingAnalysisService, 
     MeetingAnalysisGateway,
-    UnifiedWorkflowService,
+    AnalysisDelegationService,
+    MeetingAnalysisGraphBuilder,
   ],
-  exports: [MeetingAnalysisService],
+  exports: [
+    MeetingAnalysisService,
+    AnalysisDelegationService,
+    MeetingAnalysisGraphBuilder,
+  ],
 })
 export class MeetingAnalysisModule {}

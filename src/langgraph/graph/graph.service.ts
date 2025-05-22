@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { StateGraph } from '@langchain/langgraph';
 import { StateService } from '../state/state.service';
 import { AgentFactory } from '../agents/agent.factory';
@@ -14,6 +14,7 @@ import {
 import { SupervisorAgent } from '../agents/supervisor/supervisor.agent';
 import { ConfigService } from '@nestjs/config';
 import { CustomGraph } from '../createGraph';
+import { AnalysisDelegationService } from '../meeting-analysis/analysis-delegation.service';
 
 /**
  * Result interface for meeting analysis
@@ -71,6 +72,8 @@ export class GraphService {
     private readonly agentFactory: AgentFactory,
     private readonly supervisorAgent: SupervisorAgent,
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => AnalysisDelegationService))
+    private readonly analysisDelegationService: AnalysisDelegationService,
   ) {
     this.logger.log('GraphService initialized');
   }
@@ -472,36 +475,9 @@ export class GraphService {
         this.logger.log(`Meeting Analysis Team input state keys: ${Object.keys(state).join(', ')}`);
         this.logger.log(`Input transcript length: ${state.input?.transcript?.length || state.transcript?.length || 0}`);
         
-        // Create the meeting analysis state from the input
-        const meetingInput = {
-          transcript: state.input?.transcript || state.transcript,
-          sessionId: state.sessionId,
-          userId: state.userId,
-          startTime: new Date().toISOString(),
-          metadata: state.metadata || {},
-        };
-        
-        this.logger.log(`Meeting input created with transcript length: ${meetingInput.transcript?.length || 0}`);
-        
-        // Build and execute the meeting analysis graph
-        this.logger.log(`Building meeting analysis graph for session ${state.sessionId}`);
-        const meetingGraph = await this.buildMeetingAnalysisGraph();
-        
-        // Create a clean state for the meeting analysis graph
-        const meetingState = await this.stateService.createInitialState(meetingInput);
-        
-        // Execute the meeting analysis graph
-        this.logger.log(`Executing meeting analysis graph for session ${state.sessionId}`);
-        const meetingResult = await this.executeGraph(meetingGraph, meetingState);
-        
-        this.logger.log(`Meeting analysis completed, result keys: ${Object.keys(meetingResult).join(', ')}`);
-        
-        // Return the meeting analysis result
-        return {
-          ...state,
-          result: meetingResult,
-          resultType: 'meeting_analysis',
-        };
+        // Delegate to the MeetingAnalysisService via AnalysisDelegationService
+        // This breaks the circular dependency and properly uses RAG
+        return await this.analysisDelegationService.delegateMeetingAnalysis(state);
       } catch (error) {
         this.logger.error(`Error in meeting analysis team node: ${error.message}`, error.stack);
         return {

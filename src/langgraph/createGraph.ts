@@ -1,173 +1,144 @@
 import { Logger } from '@nestjs/common';
 
 /**
- * Custom graph implementation that supports conditional edges
+ * Implementation of a simple custom graph
  */
 export class CustomGraph {
   private readonly logger = new Logger('CustomGraph');
-  private nodes: Record<string, Function> = {};
-  private edges: Array<{
+  nodes: Record<string, Function> = {};
+  edges: Array<{
     source: string;
-    target?: string;
-    condition?: (state: any) => string;
-    isConditional: boolean;
+    target: string;
+    isConditional?: boolean;
+    condition?: Function;
   }> = [];
-  private stateTransitionHandlers: Array<(prevState: any, newState: any, nodeName: string) => Promise<any>> = [];
-
+  stateTransitionHandlers: Array<Function> = [];
+  
   /**
    * Add a node to the graph
+   * @param name Name of the node
+   * @param handler Handler function for the node
    */
-  addNode(name: string, fn: Function): CustomGraph {
-    this.nodes[name] = fn;
-    return this;
+  addNode(name: string, handler: Function): void {
+    this.nodes[name] = handler;
   }
-
+  
   /**
-   * Add a direct edge between nodes
+   * Add an edge between two nodes
+   * @param source Source node name
+   * @param target Target node name
+   * @param condition Optional condition function
    */
-  addEdge(from: string, to: string): CustomGraph {
+  addEdge(source: string, target: string, condition?: Function): void {
     this.edges.push({
-      source: from,
-      target: to,
-      isConditional: false,
+      source,
+      target,
+      isConditional: !!condition,
+      condition,
     });
-    return this;
   }
-
+  
   /**
-   * Add a conditional edge that determines the next node based on state
+   * Add a state transition handler
+   * @param handler Handler function
    */
-  addConditionalEdge(from: string, conditionFn: (state: any) => string): CustomGraph {
-    this.edges.push({
-      source: from,
-      condition: conditionFn,
-      isConditional: true,
-    });
-    return this;
-  }
-
-  /**
-   * Add a handler that will be called on every state transition
-   */
-  addStateTransitionHandler(handler: (prevState: any, newState: any, nodeName: string) => Promise<any>): CustomGraph {
+  addStateTransitionHandler(handler: Function): void {
     this.stateTransitionHandlers.push(handler);
-    return this;
   }
-
-  /**
-   * Compile the graph (not needed in this implementation but kept for compatibility)
-   */
-  compile(): CustomGraph {
-    return this;
-  }
-
+  
   /**
    * Execute the graph with the given initial state
+   * @param initialState Initial state
+   * @returns Final state
    */
   async execute(initialState: any): Promise<any> {
-    this.logger.log('CustomGraph: Starting graph execution');
     let currentState = { ...initialState };
     let currentNode = '__start__';
     
     // Keep track of visited nodes to prevent infinite loops
     const visitedPaths = new Set<string>();
-    const visitedNodes = new Set<string>();
     
-    // Execute the graph until we reach the end node or hit an error
+    // Execute the graph until we reach the END node or hit an error
     while (currentNode !== '__end__') {
-      this.logger.log(`CustomGraph: Processing node: ${currentNode}`);
+      this.logger.debug(`Processing node: ${currentNode}`);
       
-      // Skip processing for START node
-      if (currentNode !== '__start__') {
-        // Execute the current node
-        const nodeFn = this.nodes[currentNode];
-        if (nodeFn) {
-          try {
-            this.logger.log(`CustomGraph: Executing node: ${currentNode}`);
-            const prevState = { ...currentState };
-            currentState = await nodeFn(currentState);
-            
-            // Call state transition handlers
-            for (const handler of this.stateTransitionHandlers) {
-              currentState = await handler(prevState, currentState, currentNode);
-            }
-          } catch (error) {
-            this.logger.error(`CustomGraph: Error executing node ${currentNode}: ${error.message}`);
-            this.logger.error(`CustomGraph: Error stack: ${error.stack}`);
-            // Add error to state
-            currentState.errors = currentState.errors || [];
-            currentState.errors.push({
-              step: currentNode,
-              error: error.message,
-              timestamp: new Date().toISOString()
-            });
-          }
-        } else {
-          this.logger.error(`CustomGraph: Node function not found for ${currentNode}`);
-        }
+      // Create a path signature to detect loops
+      const pathSignature = `${currentNode}`;
+      
+      // Check for infinite loops
+      if (visitedPaths.has(pathSignature)) {
+        throw new Error(`Infinite loop detected at node ${currentNode}`);
       }
       
-      // Mark this node as visited
-      visitedNodes.add(currentNode);
+      visitedPaths.add(pathSignature);
       
-      // Find the next node based on edges
+      // Get the next node
       const nextNodeInfo = this.findNextNode(currentNode, currentState);
       
       if (!nextNodeInfo) {
-        this.logger.error(`CustomGraph: No edge found from node ${currentNode}`);
-        break;
+        throw new Error(`No edge found from node ${currentNode}`);
       }
-      
-      this.logger.log(`CustomGraph: Next node will be: ${nextNodeInfo.target}`);
-      
-      // Create a path identifier to detect loops
-      const pathId = `${currentNode}->${nextNodeInfo.target}`;
-      
-      // Prevent infinite loops
-      if (visitedPaths.has(pathId) && visitedNodes.has(nextNodeInfo.target)) {
-        this.logger.warn(`CustomGraph: Loop detected in graph execution at path ${pathId}`);
-        break;
-      }
-      visitedPaths.add(pathId);
       
       // Update current node
       currentNode = nextNodeInfo.target;
+      
+      // Skip execution for START node
+      if (currentNode === '__start__') {
+        continue;
+      }
+      
+      // Skip execution for END node
+      if (currentNode === '__end__') {
+        break;
+      }
+      
+      // Execute the current node
+      const nodeFn = this.nodes[currentNode];
+      if (!nodeFn) {
+        throw new Error(`Node ${currentNode} not found in graph`);
+      }
+      
+      try {
+        this.logger.debug(`Executing node: ${currentNode}`);
+        const prevState = { ...currentState };
+        currentState = await nodeFn(currentState);
+        
+        // Run state transition handlers
+        for (const handler of this.stateTransitionHandlers) {
+          currentState = await handler(prevState, currentState, currentNode);
+        }
+      } catch (error) {
+        this.logger.error(`Error executing node ${currentNode}: ${error.message}`);
+        throw error;
+      }
     }
     
-    this.logger.log('CustomGraph: Graph execution completed');
     return currentState;
   }
-
+  
   /**
-   * Find the next node based on the current node and state
+   * Find the next node in the graph
+   * @param currentNode Current node name
+   * @param state Current state
+   * @returns Next node information
    */
-  private findNextNode(currentNode: string, state: any): { target: string } | null {
-    // Find all edges from the current node
-    const relevantEdges = this.edges.filter(edge => edge.source === currentNode);
+  findNextNode(currentNode: string, state: any): { target: string } | null {
+    const edges = this.edges.filter(edge => edge.source === currentNode);
     
-    if (relevantEdges.length === 0) {
+    if (!edges || edges.length === 0) {
       return null;
     }
     
     // Handle conditional edges
-    for (const edge of relevantEdges) {
+    for (const edge of edges) {
       if (edge.isConditional && edge.condition) {
-        // Get the target from the condition function
         const target = edge.condition(state);
         if (target) {
-          this.logger.log(`Conditional routing from ${currentNode} to ${target}`);
           return { target };
         }
-      } else if (!edge.isConditional && edge.target) {
-        // Direct edge
+      } else {
         return { target: edge.target };
       }
-    }
-    
-    // Add fallback to log and return empty result for debugging
-    this.logger.error(`Failed to find next node for ${currentNode}. State keys: ${Object.keys(state).join(', ')}`);
-    if (state.routing) {
-      this.logger.error(`Routing info: ${JSON.stringify(state.routing)}`);
     }
     
     return null;

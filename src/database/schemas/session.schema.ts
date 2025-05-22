@@ -25,6 +25,14 @@ export class Session {
   })
   status: string;
 
+  @Prop({ type: Number, default: 0 })
+  @ApiProperty({ 
+    description: 'Progress percentage of the analysis (0-100)',
+    minimum: 0,
+    maximum: 100
+  })
+  progress?: number;
+
   @Prop({ type: Date, required: true })
   @ApiProperty({ description: 'When the session was created' })
   startTime: Date;
