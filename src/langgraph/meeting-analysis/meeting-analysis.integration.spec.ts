@@ -1,7 +1,7 @@
 //  @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { MeetingAnalysisService } from './meeting-analysis.service';
-import { GraphService } from '../graph/graph.service';
+
 import { StateService } from '../state/state.service';
 import { WorkflowService } from '../graph/workflow.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -72,7 +72,6 @@ describe('Meeting Analysis Integration', () => {
   let llmService: LlmService;
   let stateService: StateService;
   let workflowService: WorkflowService;
-  let graphService: GraphService;
   let agentFactory: AgentFactory;
   let moduleRef: TestingModule;
 
@@ -676,7 +675,6 @@ Alice (CEO): Great. Let's wrap up here and reconvene next week.
     moduleRef = await Test.createTestingModule({
       providers: [
         MeetingAnalysisService,
-        GraphService,
         StateService,
         WorkflowService,
         EventEmitter2,
@@ -833,7 +831,6 @@ Alice (CEO): Great. Let's wrap up here and reconvene next week.
     llmService = moduleRef.get<LlmService>(LlmService);
     stateService = moduleRef.get<StateService>(StateService);
     workflowService = moduleRef.get<WorkflowService>(WorkflowService);
-    graphService = moduleRef.get<GraphService>(GraphService);
     agentFactory = moduleRef.get<AgentFactory>(AgentFactory);
 
     // Spy on RAG service methods

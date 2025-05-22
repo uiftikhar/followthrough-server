@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { StateService } from '../state/state.service';
 import { ConfigService } from '@nestjs/config';
 import { TeamHandlerRegistry } from './team-handler-registry.service';
@@ -8,8 +8,9 @@ import { TeamHandlerRegistry } from './team-handler-registry.service';
  * This service handles graph building and management
  */
 @Injectable()
-export class EnhancedGraphService {
+export class EnhancedGraphService implements OnModuleInit {
   private readonly logger = new Logger(EnhancedGraphService.name);
+  private supervisorGraph: any;
 
   // Node names for graph execution
   private readonly nodeNames = {
@@ -40,6 +41,15 @@ export class EnhancedGraphService {
     private readonly teamHandlerRegistry: TeamHandlerRegistry,
   ) {
     this.logger.log('EnhancedGraphService initialized');
+  }
+
+  /**
+   * Initialize the service and build the supervisor graph once during startup
+   */
+  async onModuleInit() {
+    this.logger.log('Building supervisor graph during initialization');
+    this.supervisorGraph = await this.buildMasterSupervisorGraph();
+    this.logger.log('Supervisor graph built and ready for use');
   }
 
   /**
@@ -165,6 +175,7 @@ export class EnhancedGraphService {
 
   /**
    * Build a master supervisor graph for routing between different teams
+   * This is called during initialization and stored for reuse
    */
   async buildMasterSupervisorGraph(): Promise<any> {
     this.logger.log('Building master supervisor graph');
@@ -390,10 +401,13 @@ export class EnhancedGraphService {
       errors: [],
     };
     
-    // Build and execute the graph
-    const supervisorGraph = await this.buildMasterSupervisorGraph();
+    // Use the pre-built supervisor graph instead of building it for each request
+    if (!this.supervisorGraph) {
+      this.logger.warn('Supervisor graph not initialized, building it now');
+      this.supervisorGraph = await this.buildMasterSupervisorGraph();
+    }
     
-    const finalState = await supervisorGraph.execute(initialState);
+    const finalState = await this.supervisorGraph.execute(initialState);
     
     // Ensure we return a properly formatted MeetingAnalysisResult
     if (finalState.result) {

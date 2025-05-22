@@ -85,7 +85,7 @@ export class UnifiedWorkflowService {
         'Starting workflow',
       );
       
-      // Always use the enhanced graph service for processing
+      // Use the enhanced graph service which now has a pre-built supervisor graph
       this.logger.log('Using enhanced graph service for hierarchical agent analysis');
       this.runEnhancedGraphAnalysis(
         sessionId,
@@ -105,7 +105,7 @@ export class UnifiedWorkflowService {
   }
 
   /**
-   * Run analysis using enhanced graph service
+   * Run analysis using enhanced graph service with pre-built supervisor graph
    */
   private async runEnhancedGraphAnalysis(
     sessionId: string, 
@@ -131,6 +131,8 @@ export class UnifiedWorkflowService {
       );
       
       // Execute the analysis using the enhanced graph service
+      // The supervisor graph is now pre-built during application initialization
+      // which improves performance by eliminating redundant graph construction
       const result = await this.enhancedGraphService.analyzeMeeting(transcript);
       
       this.logger.log(`Analysis completed for session ${sessionId}`);
