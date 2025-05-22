@@ -57,10 +57,11 @@ async function bootstrap() {
 
   // Get config
   const configService = app.get(ConfigService);
-  const port = configService.get<number>('server.port') || 3001; // Set default port to 3001
-  const host = configService.get<string>('server.host') || '0.0.0.0';
+  const port = configService.get<number>('server.port') || 3000;
+  const host = configService.get<string>('server.host');
 
-  await app.listen(port, host);
+  // await app.listen(port, host);
+  await app.listen(port);
   console.log(`Application is running on: http://${host}:${port}`);
   console.log(
     `Swagger documentation available at: http://localhost:${port}/api/docs`,
