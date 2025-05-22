@@ -7,6 +7,7 @@ import { SentimentAnalysisAgent } from './sentiment-analysis.agent';
 import { SummaryAgent } from './summary.agent';
 import { ParticipationAgent } from './participation.agent';
 import { ContextIntegrationAgent } from './context-integration.agent';
+import { MasterSupervisorAgent } from './master-supervisor.agent';
 
 @Module({
   imports: [LlmModule],
@@ -18,6 +19,7 @@ import { ContextIntegrationAgent } from './context-integration.agent';
     SummaryAgent,
     ParticipationAgent,
     ContextIntegrationAgent,
+    MasterSupervisorAgent,
   ],
   exports: [
     AgentFactory,
@@ -27,6 +29,7 @@ import { ContextIntegrationAgent } from './context-integration.agent';
     SummaryAgent,
     ParticipationAgent,
     ContextIntegrationAgent,
+    MasterSupervisorAgent,
   ],
 })
 export class AgentModule {}

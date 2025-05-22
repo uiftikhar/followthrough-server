@@ -9,6 +9,7 @@ import { AgentModule } from '../agents/agent.module';
 import { SupervisorModule } from '../agents/supervisor/supervisor.module';
 import { TeamModule } from '../agents/team/team.module';
 import { DatabaseModule } from '../../database/database.module';
+import { UnifiedWorkflowService } from '../unified-workflow.service';
 
 @Module({
   imports: [
@@ -21,7 +22,11 @@ import { DatabaseModule } from '../../database/database.module';
     EventEmitterModule.forRoot(),
   ],
   controllers: [MeetingAnalysisController],
-  providers: [MeetingAnalysisService, MeetingAnalysisGateway],
+  providers: [
+    MeetingAnalysisService, 
+    MeetingAnalysisGateway,
+    UnifiedWorkflowService,
+  ],
   exports: [MeetingAnalysisService],
 })
 export class MeetingAnalysisModule {}

@@ -13,6 +13,7 @@ import {
 } from './state/meeting-analysis-state';
 import { SupervisorAgent } from '../agents/supervisor/supervisor.agent';
 import { ConfigService } from '@nestjs/config';
+import { CustomGraph } from '../createGraph';
 
 /**
  * Result interface for meeting analysis
@@ -56,6 +57,15 @@ export class GraphService {
     END: '__end__',
   };
 
+  // Node names for master supervisor graph
+  private readonly masterNodeNames = {
+    START: '__start__',
+    SUPERVISOR: 'supervisor',
+    MEETING_ANALYSIS_TEAM: 'meeting_analysis_team',
+    EMAIL_TRIAGE_TEAM: 'email_triage_team',
+    END: '__end__',
+  };
+
   constructor(
     private readonly stateService: StateService,
     private readonly agentFactory: AgentFactory,
@@ -71,32 +81,8 @@ export class GraphService {
   createGraph(): any {
     this.logger.log('Creating a new agent graph');
     
-    // Create a simple graph object with nodes and edges
-    return {
-      nodes: {},
-      edges: [],
-      
-      // Methods to modify the graph
-      addNode(name: string, fn: Function) {
-        this.nodes[name] = fn;
-        return this;
-      },
-      
-      addEdge(from: string, to: string) {
-        this.edges.push({ source: from, target: to });
-        return this;
-      },
-      
-      addConditionalEdge(from: string, conditionFn: Function) {
-        this.edges.push({ source: from, targetFn: conditionFn, isConditional: true });
-        return this;
-      },
-      
-      addStateTransitionHandler(handler: Function) {
-        this.stateTransitionHandler = handler;
-        return this;
-      }
-    };
+    // Use the CustomGraph implementation
+    return new CustomGraph();
   }
   
   /**
@@ -105,6 +91,13 @@ export class GraphService {
   async executeGraph(graph: any, initialState: any): Promise<any> {
     this.logger.log('Executing agent graph');
     
+    // Check if the graph is a CustomGraph
+    if (graph.execute && typeof graph.execute === 'function') {
+      this.logger.log('Using CustomGraph execute method');
+      return await graph.execute(initialState);
+    }
+    
+    // Original implementation for backward compatibility
     let currentState = { ...initialState };
     let currentNode = this.nodeNames.START;
     
@@ -402,5 +395,178 @@ export class GraphService {
     
     this.logger.log('Meeting analysis completed');
     return result;
+  }
+
+  /**
+   * Build the master supervisor graph that routes between different workflows
+   */
+  async buildMasterSupervisorGraph(): Promise<any> {
+    this.logger.log('Building master supervisor graph');
+    
+    // Create a new graph
+    const graph = this.createGraph();
+    
+    // Add nodes to the graph
+    graph.addNode(this.masterNodeNames.SUPERVISOR, async (state: any) => {
+      try {
+        const masterSupervisorAgent = this.agentFactory.getMasterSupervisorAgent();
+        
+        // Ensure state.input exists, use transcript if available
+        if (!state.input && state.transcript) {
+          state.input = {
+            type: 'meeting_transcript',
+            transcript: state.transcript,
+            metadata: state.metadata || {}
+          };
+          this.logger.log(`Created input object from transcript: ${state.input.transcript.length} characters`);
+        }
+        
+        if (!state.input) {
+          this.logger.error('No input found in state for supervisor');
+          return {
+            ...state,
+            routing: {
+              team: 'unknown',
+              reason: 'No input provided',
+              priority: 'low'
+            }
+          };
+        }
+        
+        // Get routing decision from master supervisor
+        this.logger.log(`Getting routing decision for input of type: ${state.input.type || 'unknown'}`);
+        const routingDecision = await masterSupervisorAgent.determineTeam(state.input);
+        this.logger.log(`Master Supervisor decision: ${JSON.stringify(routingDecision)}`);
+        
+        // Return updated state with routing information
+        return {
+          ...state,
+          routing: routingDecision
+        };
+      } catch (error) {
+        this.logger.error(`Error in supervisor node: ${error.message}`, error.stack);
+        return {
+          ...state,
+          routing: {
+            team: 'unknown',
+            reason: `Error: ${error.message}`,
+            priority: 'low'
+          },
+          errors: [
+            ...(state.errors || []),
+            {
+              step: 'supervisor',
+              error: error.message,
+              timestamp: new Date().toISOString()
+            }
+          ]
+        };
+      }
+    });
+    
+    graph.addNode(this.masterNodeNames.MEETING_ANALYSIS_TEAM, async (state: any) => {
+      try {
+        this.logger.log('Routing to Meeting Analysis Team');
+        
+        // Debug state contents
+        this.logger.log(`Meeting Analysis Team input state keys: ${Object.keys(state).join(', ')}`);
+        this.logger.log(`Input transcript length: ${state.input?.transcript?.length || state.transcript?.length || 0}`);
+        
+        // Create the meeting analysis state from the input
+        const meetingInput = {
+          transcript: state.input?.transcript || state.transcript,
+          sessionId: state.sessionId,
+          userId: state.userId,
+          startTime: new Date().toISOString(),
+          metadata: state.metadata || {},
+        };
+        
+        this.logger.log(`Meeting input created with transcript length: ${meetingInput.transcript?.length || 0}`);
+        
+        // Build and execute the meeting analysis graph
+        this.logger.log(`Building meeting analysis graph for session ${state.sessionId}`);
+        const meetingGraph = await this.buildMeetingAnalysisGraph();
+        
+        // Create a clean state for the meeting analysis graph
+        const meetingState = await this.stateService.createInitialState(meetingInput);
+        
+        // Execute the meeting analysis graph
+        this.logger.log(`Executing meeting analysis graph for session ${state.sessionId}`);
+        const meetingResult = await this.executeGraph(meetingGraph, meetingState);
+        
+        this.logger.log(`Meeting analysis completed, result keys: ${Object.keys(meetingResult).join(', ')}`);
+        
+        // Return the meeting analysis result
+        return {
+          ...state,
+          result: meetingResult,
+          resultType: 'meeting_analysis',
+        };
+      } catch (error) {
+        this.logger.error(`Error in meeting analysis team node: ${error.message}`, error.stack);
+        return {
+          ...state,
+          result: null,
+          resultType: 'meeting_analysis',
+          errors: [
+            ...(state.errors || []),
+            {
+              step: 'meeting_analysis_team',
+              error: error.message,
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        };
+      }
+    });
+    
+    graph.addNode(this.masterNodeNames.EMAIL_TRIAGE_TEAM, async (state: any) => {
+      // Email triage implementation will be added later
+      this.logger.log('Routing to Email Triage Team (not implemented yet)');
+      return {
+        ...state,
+        result: {
+          message: 'Email triage team not implemented yet',
+          timestamp: new Date().toISOString(),
+        },
+        resultType: 'email_triage',
+      };
+    });
+    
+    // Add edges with explicit logging
+    this.logger.log(`Adding edge from ${this.masterNodeNames.START} to ${this.masterNodeNames.SUPERVISOR}`);
+    graph.addEdge(this.masterNodeNames.START, this.masterNodeNames.SUPERVISOR);
+    
+    // Add conditional edge from SUPERVISOR based on routing decision
+    this.logger.log(`Adding conditional edge from ${this.masterNodeNames.SUPERVISOR}`);
+    graph.addConditionalEdge(
+      this.masterNodeNames.SUPERVISOR,
+      (state: any) => {
+        const team = state.routing?.team;
+        this.logger.log(`Evaluating routing decision: team=${team}`);
+        
+        if (team === 'meeting_analysis') {
+          this.logger.log(`Routing to ${this.masterNodeNames.MEETING_ANALYSIS_TEAM}`);
+          return this.masterNodeNames.MEETING_ANALYSIS_TEAM;
+        } else if (team === 'email_triage') {
+          this.logger.log(`Routing to ${this.masterNodeNames.EMAIL_TRIAGE_TEAM}`);
+          return this.masterNodeNames.EMAIL_TRIAGE_TEAM;
+        } else {
+          // Unknown team, go to END
+          this.logger.log(`Unknown team, routing to ${this.masterNodeNames.END}`);
+          return this.masterNodeNames.END;
+        }
+      }
+    );
+    
+    // Add final edges
+    this.logger.log(`Adding edge from ${this.masterNodeNames.MEETING_ANALYSIS_TEAM} to ${this.masterNodeNames.END}`);
+    graph.addEdge(this.masterNodeNames.MEETING_ANALYSIS_TEAM, this.masterNodeNames.END);
+    
+    this.logger.log(`Adding edge from ${this.masterNodeNames.EMAIL_TRIAGE_TEAM} to ${this.masterNodeNames.END}`);
+    graph.addEdge(this.masterNodeNames.EMAIL_TRIAGE_TEAM, this.masterNodeNames.END);
+    
+    this.logger.log('Master supervisor graph built successfully');
+    return graph;
   }
 }

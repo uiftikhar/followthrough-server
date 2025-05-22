@@ -23,6 +23,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { MeetingAnalysisService } from './meeting-analysis.service';
 import { AnalyzeTranscriptDto } from './dto/analyze-transcript.dto';
 import { AnalysisResultDto } from './dto/analysis-result.dto';
+import { UnifiedWorkflowService } from '../unified-workflow.service';
+import { SessionRepository } from '../../database/repositories/session.repository';
 
 /**
  * Controller for meeting analysis endpoints
@@ -35,6 +37,8 @@ export class MeetingAnalysisController {
 
   constructor(
     private readonly meetingAnalysisService: MeetingAnalysisService,
+    private readonly unifiedWorkflowService: UnifiedWorkflowService,
+    private readonly sessionRepository: SessionRepository,
   ) {}
 
   /**
@@ -76,10 +80,26 @@ export class MeetingAnalysisController {
     const userId = req.user?.userId || req.user?.id || req.user?.sub;
     this.logger.log(`User ID from token: ${userId}`);
     
-    return this.meetingAnalysisService.analyzeTranscript(
-      dto.transcript,
+    // Use the unified workflow service for new requests
+    const input = {
+      type: 'meeting_transcript',
+      transcript: dto.transcript,
+      participants: dto.metadata?.participants || [],
+      meetingTitle: dto.metadata?.title || dto.metadata?.meetingTitle || 'Untitled Meeting',
+      date: dto.metadata?.date || new Date().toISOString(),
+      metadata: dto.metadata || {}
+    };
+    
+    this.logger.log(`Preparing input for unified workflow: ${JSON.stringify({
+      type: input.type,
+      transcriptLength: input.transcript?.length || 0,
+      hasMetadata: !!dto.metadata
+    })}`);
+    
+    return this.unifiedWorkflowService.processInput(
+      input,
       dto.metadata,
-      userId, // Pass the userId to the service
+      userId,
     );
   }
 
@@ -106,6 +126,27 @@ export class MeetingAnalysisController {
     const userId = req.user?.userId || req.user?.id || req.user?.sub;
     this.logger.log(`User ID from token: ${userId}`);
     
-    return this.meetingAnalysisService.getAnalysisResults(sessionId, userId);
+    // Check if this session exists in the repository
+    const session = await this.sessionRepository.getSessionById(sessionId);
+    
+    if (!session) {
+      // Fall back to the old service for backward compatibility
+      return this.meetingAnalysisService.getAnalysisResults(sessionId, userId);
+    }
+    
+    // Format the response to match the expected AnalysisResultDto
+    return {
+      sessionId: session.sessionId,
+      status: session.status as 'pending' | 'in_progress' | 'completed' | 'failed',
+      createdAt: session.startTime,
+      completedAt: session.endTime,
+      transcript: session.transcript,
+      topics: session.topics,
+      actionItems: session.actionItems,
+      summary: session.summary,
+      sentiment: session.sentiment,
+      errors: session.errors,
+      ...session.metadata,
+    };
   }
 }

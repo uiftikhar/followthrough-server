@@ -9,6 +9,9 @@ import { GraphModule } from './graph/graph.module';
 import { MeetingAnalysisModule } from './meeting-analysis/meeting-analysis.module';
 import { ExternalIntegrationModule } from './tools/external-integration.module';
 import { AgenticMeetingAnalysisModule } from './agentic-meeting-analysis/agentic-meeting-analysis.module';
+import { UnifiedWorkflowService } from './unified-workflow.service';
+import { UnifiedWorkflowController } from './unified-workflow.controller';
+import { DatabaseModule } from '../database/database.module';
 
 @Module({
   imports: [
@@ -22,6 +25,13 @@ import { AgenticMeetingAnalysisModule } from './agentic-meeting-analysis/agentic
     MeetingAnalysisModule,
     ExternalIntegrationModule,
     AgenticMeetingAnalysisModule,
+    DatabaseModule,
+  ],
+  providers: [
+    UnifiedWorkflowService,
+  ],
+  controllers: [
+    UnifiedWorkflowController,
   ],
   exports: [
     LlmModule,
@@ -34,6 +44,7 @@ import { AgenticMeetingAnalysisModule } from './agentic-meeting-analysis/agentic
     MeetingAnalysisModule,
     ExternalIntegrationModule,
     AgenticMeetingAnalysisModule,
+    UnifiedWorkflowService,
   ],
 })
 export class LangGraphModule {}
