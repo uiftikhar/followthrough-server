@@ -24,7 +24,13 @@ async function bootstrap() {
   // Enable CORS
   app.use(
     cors({
-    origin: ['http://localhost:3000', 'http://localhost:8080'], // Allow both Next.js and other clients
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:8080',
+      'https://followthrough-client.vercel.app',
+      'https://followthrough-client-uiftikhars-projects.vercel.app',
+      'https://followthrough-client-uiftikhar-uiftikhars-projects.vercel.app',
+    ], // Allow both Next.js and other clients
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true, // Allow cookies and authentication headers
     allowedHeaders: 'Origin,X-Requested-With,Content-Type,Accept,Authorization',
