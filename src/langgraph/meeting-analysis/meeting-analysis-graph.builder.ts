@@ -74,8 +74,20 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
       
       const prompt = `
         Please extract the main topics discussed in the following meeting transcript.
-        For each topic, provide a short phrase (3-7 words) that captures the essence of the topic.
-        Return the topics as a JSON array of strings.
+        For each topic, provide:
+        1. A name (short phrase, 3-7 words)
+        2. Subtopics if applicable (array of strings)
+        3. Participants involved in this topic (if identifiable)
+        
+        Return the topics as a JSON array of objects with this structure:
+        [
+          {
+            "name": "Topic name here",
+            "subtopics": ["Subtopic 1", "Subtopic 2"],
+            "participants": ["Person 1", "Person 2"],
+            "relevance": 8
+          }
+        ]
         
         Transcript:
         ${state.transcript}
@@ -91,27 +103,70 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
         { role: 'user', content: prompt }
       ]);
       
-      let topics: string[] = [];
+      let formattedTopics: Array<{
+        name: string;
+        subtopics?: string[];
+        participants?: string[];
+        relevance?: number;
+      }> = [];
+      
       try {
         // Try to parse JSON from the content
         const content = response.content.toString();
         // Extract the JSON array from the response if it's wrapped in markdown or explanations
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
-          topics = JSON.parse(jsonMatch[0]);
+          const parsedTopics = JSON.parse(jsonMatch[0]);
+          formattedTopics = parsedTopics.map(topic => ({
+            name: topic.name || topic.title || "Untitled Topic",
+            subtopics: topic.subtopics || [],
+            participants: topic.participants || [],
+            relevance: topic.relevance || 5
+          }));
         } else {
-          // If not a direct JSON array, try to parse the entire response
+          // If we couldn't find a proper JSON array, convert simple string topics to structured topics
           const parsed = JSON.parse(content);
-          topics = Array.isArray(parsed) ? parsed : parsed.topics || [];
+          if (Array.isArray(parsed) && typeof parsed[0] === 'string') {
+            formattedTopics = parsed.map(topicName => ({
+              name: topicName,
+              subtopics: [],
+              participants: [],
+              relevance: 5
+            }));
+          } else if (parsed.topics && Array.isArray(parsed.topics)) {
+            if (typeof parsed.topics[0] === 'string') {
+              formattedTopics = parsed.topics.map(topicName => ({
+                name: topicName,
+                subtopics: [],
+                participants: [],
+                relevance: 5
+              }));
+            } else {
+              formattedTopics = parsed.topics;
+            }
+          }
         }
       } catch (err) {
         this.logger.error(`Failed to parse topics: ${err.message}`);
-        topics = [];
+        // Create a fallback by converting any existing topics that might be strings
+        if (state.topics && Array.isArray(state.topics)) {
+          if (typeof state.topics[0] === 'string') {
+            
+            formattedTopics = state.topics.map(topic => ({
+              name: topic.name || "Untitled Topic",
+              subtopics: topic.subtopics || [],
+              participants: topic.participants || [],
+              relevance: topic.relevance || 5
+            }));
+          } else {
+            formattedTopics = state.topics as any;
+          }
+        }
       }
       
       return {
         ...state,
-        topics,
+        topics: formattedTopics,
         stage: 'topic_extraction',
       };
     } catch (error) {
@@ -269,7 +324,11 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
     try {
       this.logger.log(`Generating summary for meeting ${state.meetingId}`);
       
-      const topicsString = state.topics?.join(', ') || 'No topics identified';
+      // Safely extract topic names
+      const topicsString = state.topics && state.topics.length > 0
+        ? state.topics.map(topic => typeof topic === 'string' ? topic : topic.name).join(', ')
+        : 'No topics identified';
+      
       const actionItemsString = state.actionItems?.length 
         ? state.actionItems.map(item => 
             `- ${item.description}${item.assignee ? ` (Assigned to: ${item.assignee})` : ''}${item.dueDate ? ` (Due: ${item.dueDate})` : ''}`
@@ -277,8 +336,20 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
         : 'No action items identified';
       
       const prompt = `
-        Please generate a concise summary (250-350 words) of the following meeting transcript.
-        Focus on the key discussions, decisions made, and noteworthy interactions.
+        Please generate a comprehensive summary of the following meeting transcript.
+        
+        Create a response in this JSON format:
+        {
+          "meetingTitle": "A concise title for the meeting",
+          "summary": "A detailed 250-350 word summary of the key discussions and outcomes",
+          "decisions": [
+            {
+              "title": "Short name for decision",
+              "content": "Details about the decision made"
+            }
+          ],
+          "next_steps": ["Next step 1", "Next step 2"]
+        }
         
         Here are the main topics discussed:
         ${topicsString}
@@ -300,11 +371,39 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
         { role: 'user', content: prompt }
       ]);
       
-      const summary = response.content.toString();
+      let summaryObj = {
+        meetingTitle: "Meeting Summary",
+        summary: "",
+        decisions: [],
+        next_steps: []
+      };
+      
+      try {
+        // Try to parse JSON from the content
+        const content = response.content.toString();
+        // Extract JSON object from the response
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          summaryObj = {
+            meetingTitle: parsed.meetingTitle || "Meeting Summary",
+            summary: parsed.summary || content,
+            decisions: parsed.decisions || [],
+            next_steps: parsed.next_steps || []
+          };
+        } else {
+          // If no JSON object found, use the entire content as summary
+          summaryObj.summary = content;
+        }
+      } catch (error) {
+        this.logger.error(`Failed to parse summary as JSON: ${error.message}`);
+        // Use the raw content as the summary if parsing fails
+        summaryObj.summary = response.content.toString();
+      }
       
       return {
         ...state,
-        summary,
+        summary: summaryObj,
         stage: 'completed',
       };
     } catch (error) {

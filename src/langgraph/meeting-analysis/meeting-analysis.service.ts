@@ -11,7 +11,6 @@ import { Session } from '../../database/schemas/session.schema';
 import { AnalysisResultDto } from './dto/analysis-result.dto';
 import { SentimentAnalysis } from '../agents/sentiment-analysis.agent';
 import { AgentFactory } from '../agents/agent.factory';
-import { SupervisorAgent } from '../agents/supervisor/supervisor.agent';
 import { GraphExecutionService } from '../core/graph-execution.service';
 import { TeamHandler } from '../core/interfaces/team-handler.interface';
 import { MeetingAnalysisGraphBuilder } from './meeting-analysis-graph.builder';
@@ -61,7 +60,6 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     private readonly eventEmitter: EventEmitter2,
     private readonly sessionRepository: SessionRepository,
     private readonly agentFactory: AgentFactory,
-    private readonly supervisorAgent: SupervisorAgent,
     private readonly graphExecutionService: GraphExecutionService,
     private readonly meetingAnalysisGraphBuilder: MeetingAnalysisGraphBuilder,
     private readonly teamHandlerRegistry: TeamHandlerRegistry,
@@ -143,11 +141,28 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       );
       
       this.logger.log(`Completed meeting analysis for meeting ${meetingId}`);
-      return result;
+      
+      // Ensure we return a properly formatted state with correct types
+      return {
+        ...result,
+        // Make sure all fields are properly typed
+        transcript: result.transcript || input.content,
+        topics: result.topics || [],
+        actionItems: result.actionItems || [],
+        sentiment: result.sentiment,
+        summary: result.summary,
+        stage: 'completed',
+        error: result.error
+      };
     } catch (error) {
       this.logger.error(`Error analyzing meeting ${meetingId}: ${error.message}`, error.stack);
       return {
         ...initialState,
+        topics: [],
+        actionItems: [],
+        sentiment: undefined,
+        summary: undefined,
+        stage: 'completed',
         error: {
           message: error.message,
           stage: 'execution',

@@ -15,7 +15,13 @@ export interface MeetingAnalysisState {
   /**
    * Extracted topics from the meeting
    */
-  topics?: string[];
+  topics?: Array<{
+    name: string;
+    subtopics?: string[];
+    participants?: string[];
+    relevance?: number;
+    duration?: number;
+  }>;
   
   /**
    * Extracted action items from the meeting
@@ -41,7 +47,15 @@ export interface MeetingAnalysisState {
   /**
    * Summary of the meeting
    */
-  summary?: string;
+  summary?: {
+    meetingTitle: string;
+    summary: string;
+    decisions: Array<{
+      title: string;
+      content: string;
+    }>;
+    next_steps?: string[];
+  };
   
   /**
    * Additional context or metadata for the meeting

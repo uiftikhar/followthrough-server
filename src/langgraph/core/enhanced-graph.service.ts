@@ -382,11 +382,11 @@ export class EnhancedGraphService {
     const initialState = {
       transcript,
       startTime: new Date().toISOString(),
-      currentPhase: 'initialization',
+      stage: 'initialization',
       topics: [],
       actionItems: [],
-      sentiment: null,
-      summary: null,
+      sentiment: undefined,
+      summary: undefined,
       errors: [],
     };
     
@@ -395,10 +395,27 @@ export class EnhancedGraphService {
     
     const finalState = await supervisorGraph.execute(initialState);
     
-    return finalState.result || {
+    // Ensure we return a properly formatted MeetingAnalysisResult
+    if (finalState.result) {
+      // Make sure result has the correct structure and types
+      return {
+        transcript: finalState.result.transcript || transcript,
+        topics: finalState.result.topics || [],
+        actionItems: finalState.result.actionItems || [],
+        sentiment: finalState.result.sentiment,
+        summary: finalState.result.summary,
+        stage: 'completed',
+        errors: finalState.result.errors || [],
+      };
+    }
+    
+    return {
       transcript,
       topics: [],
       actionItems: [],
+      sentiment: undefined,
+      summary: undefined,
+      stage: 'failed',
       errors: [{
         step: 'analysis',
         error: 'No result produced by the graph',

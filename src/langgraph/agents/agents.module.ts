@@ -8,7 +8,6 @@ import { SummaryAgent } from './summary.agent';
 import { ParticipationAgent } from './participation.agent';
 import { ContextIntegrationAgent } from './context-integration.agent';
 import { MasterSupervisorAgent } from './master-supervisor.agent';
-import { SupervisorAgent } from './supervisor/supervisor.agent';
 import { TeamFormationService } from './team/team-formation.service';
 
 /**
@@ -27,8 +26,6 @@ import { TeamFormationService } from './team/team-formation.service';
     ContextIntegrationAgent,
     MasterSupervisorAgent,
     
-    // Supervisor agents
-    SupervisorAgent,
     
     // Team services
     TeamFormationService,
@@ -44,8 +41,6 @@ import { TeamFormationService } from './team/team-formation.service';
     ContextIntegrationAgent,
     MasterSupervisorAgent,
     
-    // Supervisor agents
-    SupervisorAgent,
     
     // Team services
     TeamFormationService,

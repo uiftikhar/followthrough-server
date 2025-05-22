@@ -135,18 +135,29 @@ export class UnifiedWorkflowService {
       
       this.logger.log(`Analysis completed for session ${sessionId}`);
       
-      // Update session with results
+      // Update session with results - ensure proper typing
       const updates: any = {
         status: 'completed',
         endTime: new Date(),
         transcript: transcript,
+        // Store properly typed objects
         topics: result.topics || [],
         actionItems: result.actionItems || [],
-        sentiment: result.sentiment || null,
-        summary: result.summary || null,
+        sentiment: result.sentiment,
+        summary: result.summary,
         metadata: { 
           ...metadata,
-          results: result,
+          results: {
+            // Include all details in the results
+            meetingId: sessionId,
+            transcript: transcript,
+            context: metadata || {},
+            topics: result.topics || [],
+            stage: result.stage || 'completed',
+            actionItems: result.actionItems || [],
+            sentiment: result.sentiment,
+            summary: result.summary
+          },
         },
       };
       

@@ -1,17 +1,10 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
-import { StateGraph } from '@langchain/langgraph';
 import { StateService } from '../state/state.service';
 import { AgentFactory } from '../agents/agent.factory';
 import { Topic } from '../agents/topic-extraction.agent';
 import { ActionItem } from '../agents/action-item.agent';
 import { SentimentAnalysis } from '../agents/sentiment-analysis.agent';
 import { MeetingSummary } from '../agents/summary.agent';
-import {
-  MeetingAnalysisState,
-  MeetingAnalysisStateType,
-  createInitialState,
-} from './state/meeting-analysis-state';
-import { SupervisorAgent } from '../agents/supervisor/supervisor.agent';
 import { ConfigService } from '@nestjs/config';
 import { CustomGraph } from '../createGraph';
 import { AnalysisDelegationService } from '../meeting-analysis/analysis-delegation.service';
@@ -70,7 +63,6 @@ export class GraphService {
   constructor(
     private readonly stateService: StateService,
     private readonly agentFactory: AgentFactory,
-    private readonly supervisorAgent: SupervisorAgent,
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => AnalysisDelegationService))
     private readonly analysisDelegationService: AnalysisDelegationService,

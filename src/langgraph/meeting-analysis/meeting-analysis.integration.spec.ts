@@ -38,7 +38,6 @@ import { SummaryAgent } from '../agents/summary.agent';
 import { ParticipationAgent } from '../agents/participation.agent';
 import { SentimentAnalysisAgent } from '../agents/sentiment-analysis.agent';
 import { ContextIntegrationAgent } from '../agents/context-integration.agent';
-import { SupervisorAgent } from '../agents/supervisor/supervisor.agent';
 import { MeetingSummary } from '../agents/summary.agent';
 import { BaseAgent } from '../agents/base-agent';
 import { v4 as uuidv4 } from 'uuid';
@@ -704,10 +703,6 @@ Alice (CEO): Great. Let's wrap up here and reconvene next week.
         {
           provide: AgentFactory,
           useValue: mockAgentFactory,
-        },
-        {
-          provide: SupervisorAgent,
-          useValue: mockSupervisorAgent,
         },
         {
           provide: TopicExtractionAgent,
