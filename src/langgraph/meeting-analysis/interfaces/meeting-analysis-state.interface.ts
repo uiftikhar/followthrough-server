@@ -63,6 +63,11 @@ export interface MeetingAnalysisState {
   context?: Record<string, any>;
   
   /**
+   * Additional metadata, including RAG context
+   */
+  metadata?: Record<string, any>;
+  
+  /**
    * Current processing stage
    */
   stage?: 'initialization' | 'topic_extraction' | 'action_item_extraction' | 'sentiment_analysis' | 'summary_generation' | 'completed';

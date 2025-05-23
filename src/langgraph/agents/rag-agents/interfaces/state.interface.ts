@@ -112,4 +112,4 @@ export interface MeetingAnalysisState {
   status?: 'pending' | 'in_progress' | 'completed' | 'failed';
   currentStep?: string;
   completedSteps?: string[];
-}
+} 

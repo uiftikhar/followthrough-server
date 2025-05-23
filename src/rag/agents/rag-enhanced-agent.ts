@@ -21,11 +21,27 @@ export interface RagAgentConfig extends AgentConfig {
 }
 
 /**
+ * Type for agent expertise
+ */
+export enum AgentExpertise {
+  TOPIC_ANALYSIS = 'topic_analysis',
+  ACTION_ITEM_EXTRACTION = 'action_item_extraction',
+  PARTICIPANT_DYNAMICS = 'participant_dynamics',
+  SUMMARY_GENERATION = 'summary_generation',
+  DECISION_TRACKING = 'decision_tracking',
+  SENTIMENT_ANALYSIS = 'sentiment_analysis',
+  CONTEXT_INTEGRATION = 'context_integration',
+  COORDINATION = 'coordination',
+  MANAGEMENT = 'management',
+}
+
+/**
  * Base class for agents enhanced with RAG capabilities
  */
 export abstract class RagEnhancedAgent extends BaseAgent {
   protected readonly logger: Logger;
   private readonly ragOptions: RagAgentOptions;
+  protected readonly expertisePrompts: Partial<Record<AgentExpertise, string>> = {};
 
   constructor(
     @Inject(LLM_SERVICE) protected readonly llmService: LlmService,
@@ -47,6 +63,49 @@ export abstract class RagEnhancedAgent extends BaseAgent {
 
     this.ragOptions = { ...defaultOptions, ...config.ragOptions };
     this.logger = new Logger(`RagAgent:${config.name}`);
+  }
+
+  /**
+   * Generate a prompt based on expertise
+   * This can be overridden by derived classes to provide more specific prompts
+   */
+  protected generatePromptFromExpertise(
+    expertise: AgentExpertise,
+    state: any,
+  ): string {
+    // Get the base prompt for this expertise
+    let prompt = this.expertisePrompts[expertise] || '';
+
+    if (!prompt) {
+      // Use a default prompt based on the expertise
+      switch (expertise) {
+        case AgentExpertise.TOPIC_ANALYSIS:
+          prompt = 'Extract the main topics discussed in this content.';
+          break;
+        case AgentExpertise.ACTION_ITEM_EXTRACTION:
+          prompt =
+            'Extract all action items assigned, including who they were assigned to and any deadlines.';
+          break;
+        case AgentExpertise.SENTIMENT_ANALYSIS:
+          prompt =
+            'Analyze the sentiment, providing an overall score and key sentiment indicators.';
+          break;
+        case AgentExpertise.SUMMARY_GENERATION:
+          prompt =
+            'Generate a comprehensive summary, including key points, decisions, and next steps.';
+          break;
+        default:
+          prompt = `Analyze this content focusing on ${expertise}.`;
+      }
+    }
+
+    // Add the content - for transcript-based agents, this would be the transcript
+    const contentKey = typeof state === 'object' && 'transcript' in state ? 'transcript' : 'content';
+    const content = typeof state === 'object' && state[contentKey] ? state[contentKey] : JSON.stringify(state);
+    
+    prompt += `\n\n${contentKey.charAt(0).toUpperCase() + contentKey.slice(1)}:\n${content}`;
+
+    return prompt;
   }
 
   /**

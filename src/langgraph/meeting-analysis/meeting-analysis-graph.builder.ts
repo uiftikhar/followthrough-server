@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { LlmService } from '../llm/llm.service';
 import { BaseGraphBuilder } from '../core/base-graph-builder';
 import { MeetingAnalysisState } from './interfaces/meeting-analysis-state.interface';
-import { ChatCompletionMessageParam } from 'openai/resources/chat';
+import { RagMeetingAnalysisAgent } from '../agents/rag-agents/rag-meeting-agent';
+import { RagTopicExtractionAgent } from '../agents/rag-agents/rag-topic-extraction-agent';
+import { AgentExpertise } from '../agents/rag-agents/interfaces/agent.interface';
+
 
 /**
  * Graph builder for meeting analysis
@@ -20,7 +22,10 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
     SUMMARY_GENERATION: 'summary_generation',
   };
   
-  constructor(private readonly llmService: LlmService) {
+  constructor(
+    private readonly ragMeetingAnalysisAgent: RagMeetingAnalysisAgent,
+    private readonly ragTopicExtractionAgent: RagTopicExtractionAgent
+  ) {
     super();
   }
   
@@ -66,107 +71,31 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
   }
   
   /**
-   * Topic extraction node
+   * Topic extraction node using RAG topic extraction agent
    */
   private async topicExtractionNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
     try {
       this.logger.log(`Extracting topics for meeting ${state.meetingId}`);
       
-      const prompt = `
-        Please extract the main topics discussed in the following meeting transcript.
-        For each topic, provide:
-        1. A name (short phrase, 3-7 words)
-        2. Subtopics if applicable (array of strings)
-        3. Participants involved in this topic (if identifiable)
-        
-        Return the topics as a JSON array of objects with this structure:
-        [
-          {
-            "name": "Topic name here",
-            "subtopics": ["Subtopic 1", "Subtopic 2"],
-            "participants": ["Person 1", "Person 2"],
-            "relevance": 8
-          }
-        ]
-        
-        Transcript:
-        ${state.transcript}
-      `;
-      
-      // Using the LlmService with OpenAI's native client
-      const openai = this.llmService.getChatModel({ 
-        model: 'gpt-4o',
-        temperature: 0.7
-      });
-      
-      const response = await openai.invoke([
-        { role: 'user', content: prompt }
-      ]);
-      
-      let formattedTopics: Array<{
-        name: string;
-        subtopics?: string[];
-        participants?: string[];
-        relevance?: number;
-      }> = [];
-      
-      try {
-        // Try to parse JSON from the content
-        const content = response.content.toString();
-        // Extract the JSON array from the response if it's wrapped in markdown or explanations
-        const jsonMatch = content.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          const parsedTopics = JSON.parse(jsonMatch[0]);
-          formattedTopics = parsedTopics.map(topic => ({
-            name: topic.name || topic.title || "Untitled Topic",
-            subtopics: topic.subtopics || [],
-            participants: topic.participants || [],
-            relevance: topic.relevance || 5
-          }));
-        } else {
-          // If we couldn't find a proper JSON array, convert simple string topics to structured topics
-          const parsed = JSON.parse(content);
-          if (Array.isArray(parsed) && typeof parsed[0] === 'string') {
-            formattedTopics = parsed.map(topicName => ({
-              name: topicName,
-              subtopics: [],
-              participants: [],
-              relevance: 5
-            }));
-          } else if (parsed.topics && Array.isArray(parsed.topics)) {
-            if (typeof parsed.topics[0] === 'string') {
-              formattedTopics = parsed.topics.map(topicName => ({
-                name: topicName,
-                subtopics: [],
-                participants: [],
-                relevance: 5
-              }));
-            } else {
-              formattedTopics = parsed.topics;
-            }
+      // Use the RAG topic extraction agent
+      const topics = await this.ragTopicExtractionAgent.extractTopics(
+        state.transcript,
+        {
+          meetingId: state.meetingId,
+          participantNames: this.extractParticipantNames(state.transcript),
+          retrievalOptions: {
+            includeHistoricalTopics: true,
+            topK: 5,
+            minScore: 0.7
           }
         }
-      } catch (err) {
-        this.logger.error(`Failed to parse topics: ${err.message}`);
-        // Create a fallback by converting any existing topics that might be strings
-        if (state.topics && Array.isArray(state.topics)) {
-          if (typeof state.topics[0] === 'string') {
-            
-            formattedTopics = state.topics.map(topic => ({
-              name: topic.name || "Untitled Topic",
-              subtopics: topic.subtopics || [],
-              participants: topic.participants || [],
-              relevance: topic.relevance || 5
-            }));
-          } else {
-            formattedTopics = state.topics as any;
-          }
-        }
-      }
+      );
+      
+      this.logger.log(`Extracted ${topics.length} topics using RAG agent`);
       
       return {
         ...state,
-        topics: formattedTopics,
+        topics,
         stage: 'topic_extraction',
       };
     } catch (error) {
@@ -183,60 +112,30 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
   }
   
   /**
-   * Action item extraction node
+   * Action item extraction node using RAG meeting analysis agent
    */
   private async actionItemExtractionNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
     try {
       this.logger.log(`Extracting action items for meeting ${state.meetingId}`);
       
-      const prompt = `
-        Please extract action items from the following meeting transcript.
-        For each action item, identify:
-        1. A clear description of the task
-        2. The person assigned to the task (if mentioned)
-        3. Due date or timeframe (if mentioned)
-        
-        Return the action items as a JSON array with objects containing:
-        - description (string)
-        - assignee (string, or null if not specified)
-        - dueDate (string, or null if not specified)
-        - status (string, always "pending")
-        
-        Transcript:
-        ${state.transcript}
-      `;
-      
-      // Using the LlmService with OpenAI's native client
-      const openai = this.llmService.getChatModel({ 
-        model: 'gpt-4o',
-        temperature: 0.7
-      });
-      
-      const response = await openai.invoke([
-        { role: 'user', content: prompt }
-      ]);
-      
-      let actionItems = [];
-      try {
-        // Try to parse JSON from the content
-        const content = response.content.toString();
-        // Extract JSON object/array from the response
-        const jsonMatch = content.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          actionItems = Array.isArray(parsed) ? parsed : parsed.actionItems || [];
-        } else {
-          this.logger.warn('No valid JSON found in action items response');
-          actionItems = [];
+      // Use the RAG meeting analysis agent with ACTION_ITEM_EXTRACTION expertise
+      const actionItems = await this.ragMeetingAnalysisAgent.analyzeTranscript(
+        state.transcript,
+        {
+          meetingId: state.meetingId,
+          participantNames: this.extractParticipantNames(state.transcript),
+          expertise: AgentExpertise.ACTION_ITEM_EXTRACTION
         }
-      } catch (err) {
-        this.logger.error(`Failed to parse action items: ${err.message}`);
-        actionItems = [];
-      }
+      );
+      
+      // Format and validate action items
+      const formattedActionItems = this.formatActionItems(actionItems);
+      
+      this.logger.log(`Extracted ${formattedActionItems.length} action items using RAG agent`);
       
       return {
         ...state,
-        actionItems,
+        actionItems: formattedActionItems,
         stage: 'action_item_extraction',
       };
     } catch (error) {
@@ -253,55 +152,29 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
   }
   
   /**
-   * Sentiment analysis node
+   * Sentiment analysis node using RAG meeting analysis agent
    */
   private async sentimentAnalysisNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
     try {
       this.logger.log(`Analyzing sentiment for meeting ${state.meetingId}`);
       
-      const prompt = `
-        Please analyze the sentiment of the following meeting transcript.
-        Provide an overall sentiment score from -1.0 (very negative) to 1.0 (very positive).
-        Also identify up to 3 key segments (quotations) from the transcript that strongly influenced your rating.
-        For each segment, provide the text and its individual sentiment score.
-        
-        Return the results as a JSON object with:
-        - overall (number)
-        - segments (array of objects with 'text' and 'score' properties)
-        
-        Transcript:
-        ${state.transcript}
-      `;
-      
-      // Using the LlmService with OpenAI's native client
-      const openai = this.llmService.getChatModel({ 
-        model: 'gpt-4o',
-        temperature: 0.7
-      });
-      
-      const response = await openai.invoke([
-        { role: 'user', content: prompt }
-      ]);
-      
-      let sentiment = { overall: 0 };
-      try {
-        // Try to parse JSON from the content
-        const content = response.content.toString();
-        // Extract JSON object from the response
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          sentiment = parsed.sentiment || parsed;
-        } else {
-          this.logger.warn('No valid JSON found in sentiment analysis response');
+      // Use the RAG meeting analysis agent with SENTIMENT_ANALYSIS expertise
+      const sentiment = await this.ragMeetingAnalysisAgent.analyzeTranscript(
+        state.transcript,
+        {
+          meetingId: state.meetingId,
+          expertise: AgentExpertise.SENTIMENT_ANALYSIS
         }
-      } catch (err) {
-        this.logger.error(`Failed to parse sentiment: ${err.message}`);
-      }
+      );
+      
+      // Format and validate sentiment analysis
+      const formattedSentiment = this.formatSentimentAnalysis(sentiment);
+      
+      this.logger.log(`Analyzed sentiment using RAG agent`);
       
       return {
         ...state,
-        sentiment,
+        sentiment: formattedSentiment,
         stage: 'sentiment_analysis',
       };
     } catch (error) {
@@ -318,92 +191,49 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
   }
   
   /**
-   * Summary generation node
+   * Summary generation node using RAG meeting analysis agent
    */
   private async summaryGenerationNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
     try {
       this.logger.log(`Generating summary for meeting ${state.meetingId}`);
       
-      // Safely extract topic names
+      // Enrich the transcript with extracted topics and action items for better context
       const topicsString = state.topics && state.topics.length > 0
-        ? state.topics.map(topic => typeof topic === 'string' ? topic : topic.name).join(', ')
+        ? `Topics discussed: ${state.topics.map(t => t.name).join(', ')}`
         : 'No topics identified';
-      
+        
       const actionItemsString = state.actionItems?.length 
-        ? state.actionItems.map(item => 
-            `- ${item.description}${item.assignee ? ` (Assigned to: ${item.assignee})` : ''}${item.dueDate ? ` (Due: ${item.dueDate})` : ''}`
-          ).join('\n')
+        ? `Action Items: ${state.actionItems.map(item => 
+            `${item.description}${item.assignee ? ` (Assigned to: ${item.assignee})` : ''}`
+          ).join('; ')}`
         : 'No action items identified';
-      
-      const prompt = `
-        Please generate a comprehensive summary of the following meeting transcript.
         
-        Create a response in this JSON format:
-        {
-          "meetingTitle": "A concise title for the meeting",
-          "summary": "A detailed 250-350 word summary of the key discussions and outcomes",
-          "decisions": [
-            {
-              "title": "Short name for decision",
-              "content": "Details about the decision made"
-            }
-          ],
-          "next_steps": ["Next step 1", "Next step 2"]
-        }
-        
-        Here are the main topics discussed:
-        ${topicsString}
-        
-        Here are the action items identified:
-        ${actionItemsString}
-        
-        Transcript:
-        ${state.transcript}
+      const enrichedTranscript = `
+${topicsString}
+${actionItemsString}
+
+Transcript:
+${state.transcript}
       `;
       
-      // Using the LlmService with OpenAI's native client
-      const openai = this.llmService.getChatModel({ 
-        model: 'gpt-4o',
-        temperature: 0.7
-      });
-      
-      const response = await openai.invoke([
-        { role: 'user', content: prompt }
-      ]);
-      
-      let summaryObj = {
-        meetingTitle: "Meeting Summary",
-        summary: "",
-        decisions: [],
-        next_steps: []
-      };
-      
-      try {
-        // Try to parse JSON from the content
-        const content = response.content.toString();
-        // Extract JSON object from the response
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          summaryObj = {
-            meetingTitle: parsed.meetingTitle || "Meeting Summary",
-            summary: parsed.summary || content,
-            decisions: parsed.decisions || [],
-            next_steps: parsed.next_steps || []
-          };
-        } else {
-          // If no JSON object found, use the entire content as summary
-          summaryObj.summary = content;
+      // Use the RAG meeting analysis agent with SUMMARY_GENERATION expertise
+      const summaryResult = await this.ragMeetingAnalysisAgent.analyzeTranscript(
+        enrichedTranscript,
+        {
+          meetingId: state.meetingId,
+          participantNames: this.extractParticipantNames(state.transcript),
+          expertise: AgentExpertise.SUMMARY_GENERATION
         }
-      } catch (error) {
-        this.logger.error(`Failed to parse summary as JSON: ${error.message}`);
-        // Use the raw content as the summary if parsing fails
-        summaryObj.summary = response.content.toString();
-      }
+      );
+      
+      // Format and validate summary
+      const formattedSummary = this.formatSummary(summaryResult);
+      
+      this.logger.log(`Generated summary using RAG agent`);
       
       return {
         ...state,
-        summary: summaryObj,
+        summary: formattedSummary,
         stage: 'completed',
       };
     } catch (error) {
@@ -427,6 +257,174 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
     return {
       ...state,
       stage: 'completed',
+    };
+  }
+  
+  /**
+   * Helper method to extract participant names from transcript
+   */
+  private extractParticipantNames(transcript: string): string[] {
+    // Simple regex to extract speaker names from transcript
+    const speakerPattern = /^([A-Za-z\s]+):/gm;
+    const speakers = new Set<string>();
+    
+    let match;
+    while ((match = speakerPattern.exec(transcript)) !== null) {
+      const speakerName = match[1].trim();
+      if (speakerName && !speakers.has(speakerName)) {
+        speakers.add(speakerName);
+      }
+    }
+    
+    return Array.from(speakers);
+  }
+  
+  /**
+   * Format and validate action items
+   */
+  private formatActionItems(actionItems: any): Array<{
+    description: string;
+    assignee?: string;
+    dueDate?: string;
+    status?: 'pending' | 'completed';
+  }> {
+    if (!actionItems) return [];
+    
+    // Parse JSON if it's a string
+    let items = actionItems;
+    if (typeof actionItems === 'string') {
+      try {
+        const jsonMatch = actionItems.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+        if (jsonMatch) {
+          items = JSON.parse(jsonMatch[0]);
+        } else {
+          return [];
+        }
+      } catch (err) {
+        this.logger.error(`Failed to parse action items: ${err.message}`);
+        return [];
+      }
+    }
+    
+    // If it's an object with an actionItems property, use that
+    if (items.actionItems && Array.isArray(items.actionItems)) {
+      items = items.actionItems;
+    }
+    
+    // Ensure it's an array
+    if (!Array.isArray(items)) {
+      items = [items];
+    }
+    
+    // Format and validate each action item
+    return items
+      .filter(item => item && item.description)
+      .map(item => ({
+        description: item.description,
+        assignee: item.assignee || undefined,
+        dueDate: item.dueDate || item.due_date || undefined,
+        status: item.status || 'pending'
+      }));
+  }
+  
+  /**
+   * Format and validate sentiment analysis
+   */
+  private formatSentimentAnalysis(sentiment: any): {
+    overall: number;
+    segments?: Array<{
+      text: string;
+      score: number;
+    }>;
+  } {
+    if (!sentiment) return { overall: 0 };
+    
+    // Parse JSON if it's a string
+    let result = sentiment;
+    if (typeof sentiment === 'string') {
+      try {
+        const jsonMatch = sentiment.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          result = JSON.parse(jsonMatch[0]);
+        } else {
+          return { overall: 0 };
+        }
+      } catch (err) {
+        this.logger.error(`Failed to parse sentiment: ${err.message}`);
+        return { overall: 0 };
+      }
+    }
+    
+    // If sentiment is nested under a property, extract it
+    if (result.sentiment && typeof result.sentiment === 'object') {
+      result = result.sentiment;
+    }
+    
+    // Format and validate
+    return {
+      overall: typeof result.overall === 'number' ? result.overall : 0,
+      segments: Array.isArray(result.segments) ? 
+        result.segments.map(segment => ({
+          text: segment.text || '',
+          score: typeof segment.score === 'number' ? segment.score : 0
+        })) : 
+        undefined
+    };
+  }
+  
+  /**
+   * Format and validate summary
+   */
+  private formatSummary(summary: any): {
+    meetingTitle: string;
+    summary: string;
+    decisions: Array<{
+      title: string;
+      content: string;
+    }>;
+    next_steps?: string[];
+  } {
+    if (!summary) return { 
+      meetingTitle: "Meeting Summary", 
+      summary: "", 
+      decisions: [] 
+    };
+    
+    // Parse JSON if it's a string
+    let result = summary;
+    if (typeof summary === 'string') {
+      try {
+        const jsonMatch = summary.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          result = JSON.parse(jsonMatch[0]);
+        } else {
+          return { 
+            meetingTitle: "Meeting Summary", 
+            summary: summary, 
+            decisions: [] 
+          };
+        }
+      } catch (err) {
+        this.logger.error(`Failed to parse summary: ${err.message}`);
+        return { 
+          meetingTitle: "Meeting Summary", 
+          summary: summary, 
+          decisions: [] 
+        };
+      }
+    }
+    
+    // Format and validate
+    return {
+      meetingTitle: result.meetingTitle || result.title || "Meeting Summary",
+      summary: result.summary || "",
+      decisions: Array.isArray(result.decisions) ? 
+        result.decisions.map(decision => ({
+          title: decision.title || "",
+          content: decision.content || decision.description || ""
+        })) : 
+        [],
+      next_steps: Array.isArray(result.next_steps) ? result.next_steps : undefined
     };
   }
 } 

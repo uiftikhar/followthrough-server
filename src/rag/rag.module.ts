@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PineconeModule } from '../pinecone/pinecone.module';
 import { EmbeddingModule } from '../embedding/embedding.module';
@@ -24,7 +24,7 @@ import {
     EmbeddingModule,
     LlmModule,
     StateModule,
-    MeetingAnalysisModule,
+    forwardRef(() => MeetingAnalysisModule),
     LanggraphCoreModule,
     CacheModule.register({
       ttl: 1800, // 30 minutes

@@ -9,12 +9,16 @@ import { ParticipationAgent } from './participation.agent';
 import { ContextIntegrationAgent } from './context-integration.agent';
 import { MasterSupervisorAgent } from './master-supervisor.agent';
 import { TeamFormationService } from './team/team-formation.service';
+import { RagAgentsModule } from './rag-agents/rag-agents.module';
 
 /**
  * Consolidated agents module that includes all agent-related functionality
  */
 @Module({
-  imports: [LlmModule],
+  imports: [
+    LlmModule,
+    RagAgentsModule
+  ],
   providers: [
     // Base agents
     AgentFactory,
@@ -44,6 +48,9 @@ import { TeamFormationService } from './team/team-formation.service';
     
     // Team services
     TeamFormationService,
+    
+    // RAG agents submodule
+    RagAgentsModule,
   ],
 })
 export class AgentsModule {} 

@@ -44,4 +44,4 @@ export interface IMeetingAnalysisAgent {
    * Analyze a specific part of a meeting
    */
   analyze(transcript: string, options?: Record<string, any>): Promise<any>;
-}
+} 
