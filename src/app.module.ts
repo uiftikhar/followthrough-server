@@ -1,34 +1,61 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
-import { configValidationSchema } from './config/validation.schema';
 import { ConfigModule as AppConfigModule } from './config/config.module';
 import { LoggingModule } from './logging/logging.module';
-import { SharedCoreModule } from './shared/shared-core.module';
-import { LanggraphModule } from './langgraph/langgraph.module';
-import { RagModule } from './rag/rag.module';
 import { ZapierModule } from './zapier/zapier.module';
+
+// New modular architecture imports
+import { InfrastructureModule } from './infrastructure/infrastructure.module';
+import { LlmModule } from './llm/llm.module';
+import { VectorModule } from './vector/vector.module';
+import { LanggraphCoreModule } from './langgraph/core/core.module';
+import { RagCoreModule } from './rag-core/rag-core.module';
+import { AgentFrameworkModule } from './agent-framework/agent-framework.module';
+import { WorkflowFrameworkModule } from './workflow-framework/workflow-framework.module';
+import { MeetingAgentsModule } from './meeting/agents/meeting-agents.module';
+import { MeetingWorkflowModule } from './meeting/workflow/meeting-workflow.module';
+import { MeetingAnalysisModule } from './langgraph/meeting-analysis/meeting-analysis.module';
 
 /**
  * AppModule - Root application module
- * Uses SharedCoreModule for all infrastructure dependencies
+ * Uses new modular architecture instead of SharedCoreModule
+ * Phase 4 migration from SharedCoreModule completed
+ * Includes LanggraphCoreModule for core graph services
  */
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
-      validationSchema: configValidationSchema,
-    }),
+    // Foundation Layer
+    InfrastructureModule,
+    
+    // Core Services Layer
+    LlmModule,
+    VectorModule,
+    
+    // Platform Services Layer
+    LanggraphCoreModule,      // Core LangGraph services
+    RagCoreModule,
+    AgentFrameworkModule,
+    WorkflowFrameworkModule,
+    
+    // Domain Services Layer
+    MeetingAgentsModule,
+    MeetingWorkflowModule,
+    
+    // Application Layer
+    MeetingAnalysisModule,
+    
+    // External modules
     AppConfigModule,
     LoggingModule,
     AuthModule,
-    SharedCoreModule, // Provides all shared infrastructure
-    LanggraphModule,  // Feature modules
-    RagModule,        // Controllers only
     ZapierModule,
+    
+    // Future modules
+    // EmailAgentsModule,
+    // EmailWorkflowModule,
+    // EmailModule,
   ],
   controllers: [AppController],
   providers: [AppService],

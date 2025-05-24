@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { LlmService } from '../langgraph/llm/llm.service';
+// import { LlmService } from '../langgraph/llm/llm.service';
 import { Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -39,7 +39,7 @@ export class EmbeddingService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly llmService: LlmService,
+    // private readonly llmService: LlmService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     this.defaultModel = this.configService.get<EmbeddingModel>(

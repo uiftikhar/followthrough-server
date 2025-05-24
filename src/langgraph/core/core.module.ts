@@ -3,6 +3,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { GraphExecutionService } from './graph-execution.service';
 import { TeamHandlerRegistry } from './team-handler-registry.service';
 import { StateService } from '../state/state.service';
+import { STATE_SERVICE } from '../state/constants/injection-tokens';
 import { DatabaseModule } from '../../database/database.module';
 import { ConfigModule } from '@nestjs/config';
 import { EnhancedGraphService } from './enhanced-graph.service';
@@ -29,12 +30,17 @@ import { LangGraphPersistenceModule } from '../persistence/persistence.module';
     TeamHandlerRegistry,
     EnhancedGraphService,
     StateService,
+    {
+      provide: STATE_SERVICE,
+      useExisting: StateService,
+    },
   ],
   exports: [
     GraphExecutionService,
     TeamHandlerRegistry,
     EnhancedGraphService,
     StateService,
+    STATE_SERVICE,
   ],
 })
 export class LanggraphCoreModule {} 
