@@ -12,8 +12,9 @@ import { EmailTriageGraphBuilder } from './email-triage-graph.builder';
 /**
  * EmailWorkflowModule - Application Services Layer
  * Provides email-specific workflow coordination services
- * Part of Phase 1 of email triage implementation
+ * Part of Phase 1-6 of email triage implementation
  * Follows same pattern as MeetingWorkflowModule
+ * Updated to re-export EmailAgentsModule for Phase 6 controllers
  */
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { EmailTriageGraphBuilder } from './email-triage-graph.builder';
   ],
   exports: [
     WorkflowFrameworkModule, // Re-export for controllers
+    EmailAgentsModule,       // NEW - Re-export for controllers to access agents
     EmailTriageManager,
     EmailTriageService,
     EmailTriageGraphBuilder,

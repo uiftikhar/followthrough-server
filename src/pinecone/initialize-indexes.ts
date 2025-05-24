@@ -26,13 +26,17 @@ export class PineconeInitializer implements OnModuleInit {
       serverless: true,
       cloud: this.configService.get<ServerlessSpecCloudEnum>('PINECONE_CLOUD') || 'aws',
       region: this.configService.get<string>('PINECONE_REGION') || 'us-west-2',
-      tags: { project: 'meeting-analysis' },
+      tags: { project: 'followthrough-ai' },
     };
 
-    this.logger.log(`Configuring indexes with ${dimensions} dimensions for meeting analysis`);
+    this.logger.log(`Configuring indexes with ${dimensions} dimensions for FollowThrough AI`);
 
     try {
-      await this.pineconeService.initializeIndexes([{ name: VectorIndexes.MEETING_ANALYSIS, config: baseConfig }]);
+      // Initialize both meeting analysis and email triage indexes
+      await this.pineconeService.initializeIndexes([
+        { name: VectorIndexes.MEETING_ANALYSIS, config: { ...baseConfig, tags: { ...baseConfig.tags, domain: 'meetings' } } },
+        { name: VectorIndexes.EMAIL_TRIAGE, config: { ...baseConfig, tags: { ...baseConfig.tags, domain: 'email' } } }
+      ]);
       this.logger.log('All Pinecone indexes initialized successfully');
     } catch (error) {
       this.logger.error('Failed to initialize Pinecone indexes', error.stack);

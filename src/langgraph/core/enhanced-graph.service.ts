@@ -192,6 +192,8 @@ export class EnhancedGraphService implements OnModuleInit {
         inputType = state.input.type;
       } else if (state.transcript) {
         inputType = 'meeting_transcript';
+      } else if (state.input?.emailData) {
+        inputType = 'email_triage';
       }
       
       // Route based on input type
@@ -204,12 +206,12 @@ export class EnhancedGraphService implements OnModuleInit {
           },
           resultType: 'meeting_analysis',
         };
-      } else if (inputType === 'email') {
+      } else if (inputType === 'email_triage' || inputType === 'email') {
         return {
           ...state,
           routing: {
             team: 'email_triage',
-            reason: 'Input contains email content',
+            reason: 'Input contains email content for triage',
           },
           resultType: 'email_triage',
         };
@@ -321,9 +323,14 @@ export class EnhancedGraphService implements OnModuleInit {
       
       try {
         // Process with the actual team handler
+        // EmailTriageService expects input with emailData and sessionId
         const result = await teamHandler.process({
-          content: state.input?.content || '',
-          metadata: state.input?.metadata || {},
+          emailData: state.input?.emailData || {
+            id: state.input?.id || `email-${Date.now()}`,
+            body: state.input?.content || state.input?.body || '',
+            metadata: state.input?.metadata || {},
+          },
+          sessionId: state.sessionId || `session-${Date.now()}`,
         });
         
         this.logger.log('Email triage completed by team handler');
@@ -436,5 +443,67 @@ export class EnhancedGraphService implements OnModuleInit {
         timestamp: new Date().toISOString(),
       }],
     };
+  }
+
+  /**
+   * Process input through the master supervisor graph
+   */
+  async processMasterSupervisorInput(input: any): Promise<any> {
+    this.logger.log('Processing input through master supervisor');
+    
+    // Prepare initial state for the master supervisor graph
+    const initialState = {
+      input: input,
+      startTime: new Date().toISOString(),
+      routing: undefined,
+      result: undefined,
+      error: undefined,
+    };
+    
+    // Use the pre-built supervisor graph
+    if (!this.supervisorGraph) {
+      this.logger.warn('Supervisor graph not initialized, building it now');
+      this.supervisorGraph = await this.buildMasterSupervisorGraph();
+    }
+    
+    try {
+      const finalState = await this.supervisorGraph.execute(initialState);
+      
+      // Return the result with proper typing based on the routing
+      if (finalState.result) {
+        return {
+          ...finalState.result,
+          resultType: finalState.routing?.team === 'email_triage' ? 'email_triage' : 'meeting_analysis',
+        };
+      }
+      
+      // Handle error case
+      return {
+        resultType: 'error',
+        error: finalState.error || {
+          message: 'No result produced by the master supervisor',
+          timestamp: new Date().toISOString(),
+        },
+        errors: [{
+          step: 'master_supervisor',
+          error: 'No result produced',
+          timestamp: new Date().toISOString(),
+        }],
+      };
+    } catch (error) {
+      this.logger.error(`Error in master supervisor processing: ${error.message}`, error.stack);
+      return {
+        resultType: 'error',
+        error: {
+          message: error.message,
+          timestamp: new Date().toISOString(),
+        },
+        errors: [{
+          step: 'master_supervisor',
+          error: error.message,
+          timestamp: new Date().toISOString(),
+        }],
+      };
+    }
   }
 } 

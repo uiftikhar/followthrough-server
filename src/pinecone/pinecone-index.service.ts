@@ -11,6 +11,7 @@ import { PineconeConfigService } from './pinecone-config.service';
 export enum VectorIndexes {
   USER_CONTEXT = 'user-context',
   MEETING_ANALYSIS = 'meeting-analysis',
+  EMAIL_TRIAGE = 'email-triage',
   TRANSCRIPT_EMBEDDINGS = 'transcript-embeddings',
 }
 

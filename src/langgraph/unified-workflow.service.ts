@@ -62,11 +62,18 @@ export class UnifiedWorkflowService {
         metadata: metadata || {},
       };
 
-      // Add transcript to session if available
+      // Add transcript or input data to session
       if (input.transcript) {
         sessionData.transcript = input.transcript;
       } else if (typeof input === 'string') {
         sessionData.transcript = input;
+      } else if (input.emailData) {
+        // Store email data in session metadata
+        sessionData.metadata = {
+          ...sessionData.metadata,
+          emailData: input.emailData,
+          inputType: input.type || 'email_triage',
+        };
       }
 
       // Store the session in MongoDB
@@ -85,11 +92,11 @@ export class UnifiedWorkflowService {
         'Starting workflow',
       );
       
-      // Use the enhanced graph service which now has a pre-built supervisor graph
-      this.logger.log('Using enhanced graph service for hierarchical agent analysis');
-      this.runEnhancedGraphAnalysis(
+      // Use master supervisor routing instead of directly calling analyzeMeeting
+      this.logger.log('Using enhanced graph service with master supervisor routing');
+      this.runMasterSupervisorWorkflow(
         sessionId,
-        typeof input === 'string' ? input : input.transcript,
+        input,
         metadata,
         actualUserId
       );
@@ -105,16 +112,16 @@ export class UnifiedWorkflowService {
   }
 
   /**
-   * Run analysis using enhanced graph service with pre-built supervisor graph
+   * Run workflow using master supervisor routing
    */
-  private async runEnhancedGraphAnalysis(
+  private async runMasterSupervisorWorkflow(
     sessionId: string, 
-    transcript: string,
+    input: any,
     metadata?: Record<string, any>,
     userId?: string
   ): Promise<void> {
     try {
-      this.logger.log(`Executing hierarchical agent analysis for session ${sessionId}`);
+      this.logger.log(`Executing master supervisor workflow for session ${sessionId}`);
       
       // Update session status to in_progress
       await this.sessionRepository.updateSession(sessionId, {
@@ -127,41 +134,38 @@ export class UnifiedWorkflowService {
         'initialization',
         10,
         'in_progress',
-        'Starting hierarchical agent analysis',
+        'Starting master supervisor routing',
       );
       
-      // Execute the analysis using the enhanced graph service
-      // The supervisor graph is now pre-built during application initialization
-      // which improves performance by eliminating redundant graph construction
-      const result = await this.enhancedGraphService.analyzeMeeting(transcript);
+      // Use the enhanced graph service's master supervisor for routing
+      // This will properly route based on input.type to the correct team
+      const result = await this.enhancedGraphService.processMasterSupervisorInput(input);
       
       this.logger.log(`Analysis completed for session ${sessionId}`);
       
-      // Update session with results - ensure proper typing
+      // Update session with results based on result type
       const updates: any = {
         status: 'completed',
         endTime: new Date(),
-        transcript: transcript,
-        // Store properly typed objects
-        topics: result.topics || [],
-        actionItems: result.actionItems || [],
-        sentiment: result.sentiment,
-        summary: result.summary,
         metadata: { 
           ...metadata,
-          results: {
-            // Include all details in the results
-            meetingId: sessionId,
-            transcript: transcript,
-            context: metadata || {},
-            topics: result.topics || [],
-            stage: result.stage || 'completed',
-            actionItems: result.actionItems || [],
-            sentiment: result.sentiment,
-            summary: result.summary
-          },
+          results: result,
         },
       };
+      
+      // Handle different result types
+      if (result.resultType === 'meeting_analysis') {
+        updates.transcript = input.transcript || (typeof input === 'string' ? input : '');
+        updates.topics = result.topics || [];
+        updates.actionItems = result.actionItems || [];
+        updates.sentiment = result.sentiment;
+        updates.summary = result.summary;
+      } else if (result.resultType === 'email_triage') {
+        updates.emailData = input.emailData;
+        updates.classification = result.classification;
+        updates.summary = result.summary;
+        updates.replyDraft = result.replyDraft;
+      }
       
       // Add errors if any
       if (result.errors && result.errors.length > 0) {
@@ -179,14 +183,14 @@ export class UnifiedWorkflowService {
         'Analysis completed successfully',
       );
     } catch (error) {
-      this.logger.error(`Error executing hierarchical agent analysis: ${error.message}`, error.stack);
+      this.logger.error(`Error executing master supervisor workflow: ${error.message}`, error.stack);
       
       // Update session with error
       await this.sessionRepository.updateSession(sessionId, {
         status: 'failed',
         endTime: new Date(),
         errors: [{
-          step: 'hierarchical_agent_analysis',
+          step: 'master_supervisor_workflow',
           error: error.message,
           timestamp: new Date().toISOString(),
         }],
@@ -198,7 +202,7 @@ export class UnifiedWorkflowService {
         'failed',
         100,
         'failed',
-        `Analysis failed: ${error.message}`,
+        error.message,
       );
     }
   }

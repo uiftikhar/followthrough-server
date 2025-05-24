@@ -7,7 +7,12 @@ import { RagCoreModule } from '../../rag-core/rag-core.module';
 // Email-specific worker agents
 import { EmailClassificationAgent } from './email-classification.agent';
 import { EmailSummarizationAgent } from './email-summarization.agent';
+import { EmailRagSummarizationAgent } from './email-rag-summarization.agent';
 import { EmailReplyDraftAgent } from './email-reply-draft.agent';
+
+// Phase 5: Human delegation and workflow agents
+import { EmailDelegationAgent } from './email-delegation.agent';
+import { EmailSnoozeAgent } from './email-snooze.agent';
 
 // Configuration tokens
 import {
@@ -24,8 +29,8 @@ import {
 
 /**
  * EmailAgentsModule - Domain Services Layer
- * Provides all email-specific agents (classification, summarization, reply drafts)
- * Part of Phase 1 of email triage implementation
+ * Provides all email-specific agents (classification, summarization, reply drafts, delegation, snooze)
+ * Part of Phase 1-5 of email triage implementation
  * Follows same pattern as MeetingAgentsModule
  */
 @Module({
@@ -36,10 +41,15 @@ import {
     RagCoreModule,          // For RAG capabilities (future)
   ],
   providers: [
-    // Email-specific worker agents
+    // Phase 1-3: Email-specific worker agents
     EmailClassificationAgent,
     EmailSummarizationAgent,
+    EmailRagSummarizationAgent,
     EmailReplyDraftAgent,
+    
+    // Phase 5: Human delegation and workflow agents
+    EmailDelegationAgent,
+    EmailSnoozeAgent,
     
     // Agent configurations
     {
@@ -79,10 +89,15 @@ import {
     },
   ],
   exports: [
-    // Export all agents for use in workflow modules
+    // Phase 1-3: Export all original agents for use in workflow modules
     EmailClassificationAgent,
     EmailSummarizationAgent,
+    EmailRagSummarizationAgent,
     EmailReplyDraftAgent,
+    
+    // Phase 5: Export new delegation and workflow agents
+    EmailDelegationAgent,
+    EmailSnoozeAgent,
   ],
 })
 export class EmailAgentsModule {} 
