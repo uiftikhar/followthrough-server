@@ -1,27 +1,27 @@
 import { Module } from '@nestjs/common';
-import { EventEmitterModule } from '@nestjs/event-emitter';
+import { InfrastructureModule } from '../../infrastructure/infrastructure.module';
+import { MeetingWorkflowModule } from '../../meeting/workflow/meeting-workflow.module';
+import { AuthModule } from '../../auth/auth.module';
 import { MeetingAnalysisController } from './meeting-analysis.controller';
-import { MeetingAnalysisService } from './meeting-analysis.service';
 import { MeetingAnalysisGateway } from './meeting-analysis.gateway';
-import { GraphModule } from '../graph/graph.module';
-import { StateModule } from '../state/state.module';
-import { AgentModule } from '../agents/agent.module';
-import { SupervisorModule } from '../agents/supervisor/supervisor.module';
-import { TeamModule } from '../agents/team/team.module';
-import { DatabaseModule } from '../../database/database.module';
 
+/**
+ * MeetingAnalysisModule - API Layer
+ * Uses the new modular architecture instead of SharedCoreModule
+ * Part of Phase 4 migration from SharedCoreModule
+ */
 @Module({
   imports: [
-    GraphModule,
-    StateModule,
-    AgentModule,
-    SupervisorModule,
-    TeamModule,
-    DatabaseModule,
-    EventEmitterModule.forRoot(),
+    InfrastructureModule,
+    MeetingWorkflowModule,
+    AuthModule, // Keep existing auth
   ],
   controllers: [MeetingAnalysisController],
-  providers: [MeetingAnalysisService, MeetingAnalysisGateway],
-  exports: [MeetingAnalysisService],
+  providers: [
+    MeetingAnalysisGateway,
+  ],
+  exports: [
+    // Export for other modules if needed - services come from MeetingWorkflowModule
+  ],
 })
 export class MeetingAnalysisModule {}

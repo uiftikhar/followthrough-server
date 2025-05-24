@@ -46,7 +46,7 @@ import * as crypto from 'crypto';
 export enum EmbeddingModel {
   OPENAI_ADA_002 = 'text-embedding-ada-002',
   OPENAI_3_SMALL = 'text-embedding-3-small',
-  OPENAI_3_LARGE = 'text-embedding-3-large',
+  OPENAI_3_LARGE = 'llama-text-embed-v2',
   ANTHROPIC = 'anthropic',
   LLAMA = 'llama-text-embed-v2',
 }
@@ -77,7 +77,7 @@ export class EmbeddingService {
       'EMBEDDING_MODEL',
       EmbeddingModel.OPENAI_3_LARGE,
     );
-    this.defaultDimensions = this.configService.get<number>('EMBEDDING_DIMENSIONS', 1536);
+    this.defaultDimensions = this.configService.get<number>('EMBEDDING_DIMENSIONS', 1024);
   }
 
   /**
@@ -391,7 +391,7 @@ The Embedding Service depends on the LLM Service for generating embeddings. Upda
  */
 async generateOpenAIEmbedding(
   text: string,
-  model: string = 'text-embedding-3-large',
+  model: string = 'llama-text-embed-v2',
 ): Promise<number[]> {
   try {
     const openai = new OpenAI({
@@ -843,8 +843,8 @@ Update your `.env` file with embedding-related configuration:
 
 ```
 # Embedding configuration
-EMBEDDING_MODEL=text-embedding-3-large
-EMBEDDING_DIMENSIONS=1536
+EMBEDDING_MODEL=llama-text-embed-v2
+EMBEDDING_DIMENSIONS=1024
 ```
 
 Add validation for these in your configuration schema:
@@ -854,9 +854,9 @@ Add validation for these in your configuration schema:
 export const configValidationSchema = Joi.object({
   // Other environment variables...
   EMBEDDING_MODEL: Joi.string()
-    .valid('text-embedding-ada-002', 'text-embedding-3-small', 'text-embedding-3-large', 'anthropic', 'llama-text-embed-v2')
-    .default('text-embedding-3-large'),
-  EMBEDDING_DIMENSIONS: Joi.number().default(1536),
+    .valid('text-embedding-ada-002', 'text-embedding-3-small', 'llama-text-embed-v2', 'anthropic', 'llama-text-embed-v2')
+    .default('llama-text-embed-v2'),
+  EMBEDDING_DIMENSIONS: Joi.number().default(1024),
 });
 ```
 

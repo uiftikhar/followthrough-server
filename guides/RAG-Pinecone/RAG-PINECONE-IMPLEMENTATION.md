@@ -39,8 +39,8 @@ Client → RagController → RagService → EmbeddingService → PineconeService
 
 ```
 # Embedding configuration
-EMBEDDING_MODEL=text-embedding-3-large
-EMBEDDING_DIMENSIONS=1536
+EMBEDDING_MODEL=llama-text-embed-v2
+EMBEDDING_DIMENSIONS=1024
 PINECONE_DIMENSIONS=1024  # The dimension of your Pinecone index
 
 # Pinecone configuration 
@@ -56,13 +56,13 @@ RAG_ENABLED=true  # Set to false to disable RAG processing
 
 - `text-embedding-ada-002` (OpenAI)
 - `text-embedding-3-small` (OpenAI)
-- `text-embedding-3-large` (OpenAI)
-- `llama-text-embed-v2` (mapped to OpenAI's text-embedding-3-large)
+- `llama-text-embed-v2` (OpenAI)
+- `llama-text-embed-v2` (mapped to OpenAI's llama-text-embed-v2)
 
 TODO: For the llama mapping we have these logs we should address and verify
 
 ```
- Mapping unsupported model llama-text-embed-v2 to text-embedding-3-large {"req":{"id":2,"method":"POST","url":"/rag-meeting-analysis","query":{},"params":{"path":["rag-meeting-analysis"]},"headers":{"host":"localhost:3000","connection":"keep-alive","content-length":"3752","sec-ch-ua-platform":"\"macOS\"","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36","accept":"application/json","sec-ch-ua":"\"Google Chrome\";v=\"135\", \"Not-A.Brand\";v=\"8\", \"Chromium\";v=\"135\"","content-type":"application/json","sec-ch-ua-mobile":"?0","origin":"http://localhost:3000","sec-fetch-site":"same-origin","sec-fetch-mode":"cors","sec-fetch-dest":"empty","referer":"http://localhost:3000/api/docs","accept-encoding":"gzip, deflate, br, zstd","accept-language":"en-GB,en-US;q=0.9,en;q=0.8"},"remoteAddress":"::1","remotePort":65249},"context":"EmbeddingService"}
+ Mapping unsupported model llama-text-embed-v2 to llama-text-embed-v2 {"req":{"id":2,"method":"POST","url":"/rag-meeting-analysis","query":{},"params":{"path":["rag-meeting-analysis"]},"headers":{"host":"localhost:3000","connection":"keep-alive","content-length":"3752","sec-ch-ua-platform":"\"macOS\"","user-agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36","accept":"application/json","sec-ch-ua":"\"Google Chrome\";v=\"135\", \"Not-A.Brand\";v=\"8\", \"Chromium\";v=\"135\"","content-type":"application/json","sec-ch-ua-mobile":"?0","origin":"http://localhost:3000","sec-fetch-site":"same-origin","sec-fetch-mode":"cors","sec-fetch-dest":"empty","referer":"http://localhost:3000/api/docs","accept-encoding":"gzip, deflate, br, zstd","accept-language":"en-GB,en-US;q=0.9,en;q=0.8"},"remoteAddress":"::1","remotePort":65249},"context":"EmbeddingService"}
  ```
 
 ## Usage
@@ -114,7 +114,7 @@ const adaptedVector = this.dimensionAdapter.adaptDimension(originalVector);
 
 ### How Dimension Adaptation Works
 
-1. The system generates embeddings using the configured model (default: text-embedding-3-large with 1536 dimensions)
+1. The system generates embeddings using the configured model (default: llama-text-embed-v2 with 1024 dimensions)
 2. Before storing in Pinecone, the DimensionAdapterService checks if dimensions match
 3. If not, it adapts the embeddings by:
    - Truncating vectors if original dimensions are larger than target
@@ -123,9 +123,9 @@ const adaptedVector = this.dimensionAdapter.adaptDimension(originalVector);
 ### Best Practice
 
 It's recommended to create your Pinecone index with dimensions that match your embedding model:
-- For OpenAI text-embedding-3-large: 1536 dimensions
-- For OpenAI text-embedding-3-small: 1536 dimensions
-- For OpenAI text-embedding-ada-002: 1536 dimensions
+- For OpenAI llama-text-embed-v2: 1024 dimensions
+- For OpenAI text-embedding-3-small: 1024 dimensions
+- For OpenAI text-embedding-ada-002: 1024 dimensions
 
 ## Troubleshooting
 
@@ -165,7 +165,7 @@ This error occurs when there's a mismatch between your embedding dimensions and 
 
 This occurs when trying to use an embedding model that's not directly supported. The system maps certain models:
 
-- `llama-text-embed-v2` → `text-embedding-3-large`
+- `llama-text-embed-v2` → `llama-text-embed-v2`
 
 To fix this, ensure the embedding model is correctly specified in your environment variables.
 

@@ -86,7 +86,7 @@ http.post('https://api.openai.com/v1/embeddings', () => {
         object: 'embedding'
       }
     ],
-    model: 'text-embedding-3-large',
+    model: 'llama-text-embed-v2',
     object: 'list',
     usage: { prompt_tokens: 10, total_tokens: 10 }
   });
@@ -127,7 +127,7 @@ server.use(
     const embedding = Array(96).fill(0);
     return HttpResponse.json({
       data: [{ embedding, index: 0, object: 'embedding' }],
-      model: 'text-embedding-3-large',
+      model: 'llama-text-embed-v2',
       object: 'list',
       usage: { prompt_tokens: 10, total_tokens: 10 }
     });

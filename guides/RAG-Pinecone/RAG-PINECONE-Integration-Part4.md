@@ -806,8 +806,8 @@ PINECONE_CLOUD=aws
 PINECONE_REGION=us-west-2
 
 # Embedding Configuration
-EMBEDDING_MODEL=text-embedding-3-large
-EMBEDDING_DIMENSIONS=1536
+EMBEDDING_MODEL=llama-text-embed-v2
+EMBEDDING_DIMENSIONS=1024
 
 # RAG Configuration
 RAG_ENABLE=true

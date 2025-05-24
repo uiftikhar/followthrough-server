@@ -41,36 +41,59 @@ export class SentimentAnalysisAgent extends BaseAgent {
    * Analyze sentiment in a transcript
    */
   async analyzeSentiment(transcript: string): Promise<SentimentAnalysis> {
-    const model = this.getChatModel();
-
-    const prompt = `
-    Analyze the sentiment in this meeting transcript.
-    
-    Transcript:
-    ${transcript}
-    `;
-
-    const messages = [
-      new SystemMessage(this.systemPrompt),
-      new HumanMessage(prompt),
-    ];
-
-    const response = await model.invoke(messages);
-
     try {
-      // Extract JSON from the response
-      const content = response.content.toString();
-      const jsonMatch =
-        content.match(/```json\n([\s\S]*?)\n```/) ||
-        content.match(/```\n([\s\S]*?)\n```/) ||
-        content.match(/(\{[\s\S]*\})/);
+      this.logger.log('Starting sentiment analysis');
+      const model = this.getChatModel();
 
-      const jsonStr = jsonMatch ? jsonMatch[1] : content;
-      return JSON.parse(jsonStr) as SentimentAnalysis;
+      const prompt = `
+      Analyze the sentiment in this meeting transcript and provide a comprehensive analysis.
+      
+      Meeting Transcript:
+      ${transcript}
+      `;
+
+      const messages = [
+        new SystemMessage(this.systemPrompt),
+        new HumanMessage(prompt),
+      ];
+
+      this.logger.log('Invoking LLM for sentiment analysis');
+      const response = await model.invoke(messages);
+      const content = response.content.toString();
+      
+      this.logger.log(`Raw LLM response length: ${content.length}`);
+      this.logger.log(`Raw LLM response preview: ${content.substring(0, 300)}...`);
+
+      // Try multiple JSON extraction patterns
+      let jsonStr = content;
+      
+      // Remove markdown code blocks
+      const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        jsonStr = codeBlockMatch[1];
+        this.logger.log('Extracted JSON from code block');
+      } else {
+        // Try to find JSON object in text
+        const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonObjectMatch) {
+          jsonStr = jsonObjectMatch[0];
+          this.logger.log('Extracted JSON object from text');
+        }
+      }
+      
+      this.logger.log(`Extracted JSON string: ${jsonStr.substring(0, 200)}...`);
+      
+      const result = JSON.parse(jsonStr) as SentimentAnalysis;
+      
+      // Validate and fix the result structure
+      const validatedResult = this.validateSentimentResult(result);
+      
+      this.logger.log(`Sentiment analysis completed successfully. Overall: ${validatedResult.overall}, Score: ${validatedResult.score}`);
+      return validatedResult;
+      
     } catch (error) {
-      this.logger.error(
-        `Failed to parse sentiment analysis from response: ${error.message}`,
-      );
+      this.logger.error(`Failed to analyze sentiment: ${error.message}`, error.stack);
+      this.logger.warn('Returning default neutral sentiment due to error');
       return {
         overall: 'neutral',
         score: 0,
@@ -79,6 +102,42 @@ export class SentimentAnalysisAgent extends BaseAgent {
         toneShifts: [],
       };
     }
+  }
+
+  /**
+   * Validate and normalize sentiment analysis result
+   */
+  private validateSentimentResult(result: any): SentimentAnalysis {
+    // Ensure overall sentiment is valid
+    const validOverallSentiments = ['positive', 'negative', 'neutral', 'mixed'];
+    const overall = validOverallSentiments.includes(result.overall) ? result.overall : 'neutral';
+    
+    // Ensure score is a valid number between -1 and 1
+    let score = typeof result.score === 'number' ? result.score : 0;
+    score = Math.max(-1, Math.min(1, score));
+    
+    // Validate segments array
+    const segments = Array.isArray(result.segments) ? result.segments.map(segment => ({
+      text: segment.text || '',
+      sentiment: validOverallSentiments.includes(segment.sentiment) ? segment.sentiment : 'neutral',
+      score: typeof segment.score === 'number' ? Math.max(-1, Math.min(1, segment.score)) : 0,
+      speaker: segment.speaker || undefined,
+      timestamp: segment.timestamp || undefined,
+    })) : [];
+    
+    // Validate other arrays
+    const keyEmotions = Array.isArray(result.keyEmotions) ? result.keyEmotions : [];
+    const toneShifts = Array.isArray(result.toneShifts) ? result.toneShifts.filter(shift => 
+      shift && shift.from && shift.to
+    ) : [];
+    
+    return {
+      overall,
+      score,
+      segments,
+      keyEmotions,
+      toneShifts,
+    };
   }
 
   /**

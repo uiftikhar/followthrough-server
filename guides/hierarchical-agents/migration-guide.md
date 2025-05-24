@@ -1,7 +1,7 @@
 
 # Enhanced Migration Guide: Leveraging Existing LangGraph Infrastructure
 
-After analyzing your codebase, especially the `meeting-analysis.service.ts`, I can see you already have a sophisticated implementation using LangGraph. Your current implementation includes graph-based execution, progress tracking, event emission, and state management. This guide will focus on adapting your existing architecture to incorporate the unified supervisor approach.
+The current implementation includes graph-based execution, progress tracking, event emission, and state management. This guide will focus on adapting your existing architecture to incorporate the unified supervisor approach.
 
 ## Part 1: Leverage Existing Graph Infrastructure
 
@@ -31,15 +31,8 @@ export class GraphService {
     this.logger.log('Building master supervisor graph');
 
     // Define the state graph with channels similar to your meeting analysis graph
-    const graph = new StateGraph({
-      channels: {
-        input: { value: {} },
-        team: { value: "" },
-        reason: { value: "" },
-        priority: { value: "" },
-        result: { value: {} }
-      }
-    });
+    // Use annotations api like we have for other graphs
+    const graph = new StateGraph();
 
     // Add nodes
     graph.addNode("supervisor", {

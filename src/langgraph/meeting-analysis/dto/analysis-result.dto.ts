@@ -25,6 +25,21 @@ export class AnalysisResultDto {
   })
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
 
+  @ApiProperty({
+    description: 'Progress percentage of the analysis (0-100)',
+    type: Number,
+    minimum: 0,
+    maximum: 100,
+  })
+  progress: number;
+
+  @ApiProperty({
+    description: 'List of completed analysis steps',
+    type: [String],
+    example: ['topics', 'action_items', 'sentiment', 'summary']
+  })
+  completedSteps: string[];
+
   @ApiPropertyOptional({
     description: 'Timestamp when the analysis was started',
   })
@@ -73,4 +88,10 @@ export class AnalysisResultDto {
 
   @ApiPropertyOptional({ description: 'Additional information or message' })
   message?: string;
+  
+  @ApiPropertyOptional({ 
+    description: 'Retrieved context from RAG for enhanced analysis',
+    type: Object,
+  })
+  context?: any;
 }

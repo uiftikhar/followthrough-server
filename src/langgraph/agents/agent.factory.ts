@@ -7,6 +7,7 @@ import { SentimentAnalysisAgent } from './sentiment-analysis.agent';
 import { SummaryAgent } from './summary.agent';
 import { ParticipationAgent } from './participation.agent';
 import { ContextIntegrationAgent } from './context-integration.agent';
+import { MasterSupervisorAgent } from './master-supervisor.agent';
 
 /**
  * Factory for creating different types of agents
@@ -21,6 +22,7 @@ export class AgentFactory {
     private readonly summaryAgent: SummaryAgent,
     private readonly participationAgent: ParticipationAgent,
     private readonly contextIntegrationAgent: ContextIntegrationAgent,
+    private readonly masterSupervisorAgent: MasterSupervisorAgent,
   ) {}
 
   /**
@@ -28,6 +30,13 @@ export class AgentFactory {
    */
   createBaseAgent(config: AgentConfig): BaseAgent {
     return new BaseAgent(this.llmService, config);
+  }
+
+  /**
+   * Get the master supervisor agent
+   */
+  getMasterSupervisorAgent(): MasterSupervisorAgent {
+    return this.masterSupervisorAgent;
   }
 
   /**

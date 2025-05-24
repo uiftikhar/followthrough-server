@@ -1,7 +1,7 @@
 //  @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { MeetingAnalysisService } from './meeting-analysis.service';
-import { GraphService } from '../graph/graph.service';
+
 import { StateService } from '../state/state.service';
 import { WorkflowService } from '../graph/workflow.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -38,7 +38,6 @@ import { SummaryAgent } from '../agents/summary.agent';
 import { ParticipationAgent } from '../agents/participation.agent';
 import { SentimentAnalysisAgent } from '../agents/sentiment-analysis.agent';
 import { ContextIntegrationAgent } from '../agents/context-integration.agent';
-import { SupervisorAgent } from '../agents/supervisor/supervisor.agent';
 import { MeetingSummary } from '../agents/summary.agent';
 import { BaseAgent } from '../agents/base-agent';
 import { v4 as uuidv4 } from 'uuid';
@@ -73,7 +72,6 @@ describe('Meeting Analysis Integration', () => {
   let llmService: LlmService;
   let stateService: StateService;
   let workflowService: WorkflowService;
-  let graphService: GraphService;
   let agentFactory: AgentFactory;
   let moduleRef: TestingModule;
 
@@ -316,15 +314,15 @@ Alice (CEO): Great. Let's wrap up here and reconvene next week.
     // Create a mock for embeddingService
     const mockEmbeddingService = {
       generateEmbedding: jest.fn().mockResolvedValue(
-        Array(1536)
+        Array(1024)
           .fill(0)
           .map(() => Math.random()),
       ),
       generateEmbeddings: jest.fn().mockResolvedValue([
-        Array(1536)
+        Array(1024)
           .fill(0)
           .map(() => Math.random()),
-        Array(1536)
+        Array(1024)
           .fill(0)
           .map(() => Math.random()),
       ]),
@@ -339,12 +337,12 @@ Alice (CEO): Great. Let's wrap up here and reconvene next week.
         }),
       }),
       generateOpenAIEmbedding: jest.fn().mockResolvedValue(
-        Array(1536)
+        Array(1024)
           .fill(0)
           .map(() => Math.random()),
       ),
       generateAnthropicEmbedding: jest.fn().mockResolvedValue(
-        Array(1536)
+        Array(1024)
           .fill(0)
           .map(() => Math.random()),
       ),
@@ -677,7 +675,6 @@ Alice (CEO): Great. Let's wrap up here and reconvene next week.
     moduleRef = await Test.createTestingModule({
       providers: [
         MeetingAnalysisService,
-        GraphService,
         StateService,
         WorkflowService,
         EventEmitter2,
@@ -704,10 +701,6 @@ Alice (CEO): Great. Let's wrap up here and reconvene next week.
         {
           provide: AgentFactory,
           useValue: mockAgentFactory,
-        },
-        {
-          provide: SupervisorAgent,
-          useValue: mockSupervisorAgent,
         },
         {
           provide: TopicExtractionAgent,
@@ -815,8 +808,8 @@ Alice (CEO): Great. Let's wrap up here and reconvene next week.
             ANTHROPIC_API_KEY: 'test-key',
             LLM_DEFAULT_MODEL: 'gpt-4o',
             LLM_DEFAULT_PROVIDER: 'openai',
-            EMBEDDING_MODEL: 'text-embedding-3-large',
-            EMBEDDING_DIMENSIONS: 1536,
+            EMBEDDING_MODEL: 'llama-text-embed-v2',
+            EMBEDDING_DIMENSIONS: 1024,
             PINECONE_API_KEY: 'test-key',
             PINECONE_ENVIRONMENT: 'us-west',
             PINECONE_INDEX_NAME: 'meeting-analysis',
@@ -838,7 +831,6 @@ Alice (CEO): Great. Let's wrap up here and reconvene next week.
     llmService = moduleRef.get<LlmService>(LlmService);
     stateService = moduleRef.get<StateService>(StateService);
     workflowService = moduleRef.get<WorkflowService>(WorkflowService);
-    graphService = moduleRef.get<GraphService>(GraphService);
     agentFactory = moduleRef.get<AgentFactory>(AgentFactory);
 
     // Spy on RAG service methods
