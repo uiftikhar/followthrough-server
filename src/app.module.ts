@@ -18,6 +18,11 @@ import { MeetingAgentsModule } from './meeting/agents/meeting-agents.module';
 import { MeetingWorkflowModule } from './meeting/workflow/meeting-workflow.module';
 import { MeetingAnalysisModule } from './langgraph/meeting-analysis/meeting-analysis.module';
 
+// Email modules - NEW
+import { EmailAgentsModule } from './email/agents/email-agents.module';
+import { EmailWorkflowModule } from './email/workflow/email-workflow.module';
+import { EmailModule } from './email/email.module';
+
 /**
  * AppModule - Root application module
  * Uses new modular architecture instead of SharedCoreModule
@@ -43,8 +48,13 @@ import { MeetingAnalysisModule } from './langgraph/meeting-analysis/meeting-anal
     MeetingAgentsModule,
     MeetingWorkflowModule,
     
+    // Domain Services Layer - Email (NEW)
+    EmailAgentsModule,
+    EmailWorkflowModule,
+    
     // Application Layer
     MeetingAnalysisModule,
+    EmailModule,  // NEW - Provides email triage endpoints
     
     // External modules
     AppConfigModule,
