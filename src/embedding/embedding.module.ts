@@ -16,6 +16,7 @@ import { SemanticChunkingService } from './semantic-chunking.service';
 import { SimilarityUtilsService } from './similarity-utils.service';
 import { SentenceParserService } from './sentence-parser.service';
 import { ChunkOptimizationService } from './chunk-optimization.service';
+import { OpenAIService } from './openai.service';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { ChunkOptimizationService } from './chunk-optimization.service';
     SimilarityUtilsService,
     SentenceParserService,
     ChunkOptimizationService,
+    OpenAIService,
   ],
   exports: [
     EMBEDDING_SERVICE,
@@ -58,6 +60,7 @@ import { ChunkOptimizationService } from './chunk-optimization.service';
     SimilarityUtilsService,
     SentenceParserService,
     ChunkOptimizationService,
+    OpenAIService,
   ],
 })
 export class EmbeddingModule {}

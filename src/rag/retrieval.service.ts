@@ -9,6 +9,7 @@ import { IRetrievalService } from './interfaces/retrieval-service.interface';
 import { RETRIEVAL_SERVICE } from './constants/injection-tokens';
 import { PINECONE_SERVICE } from '../pinecone/constants/injection-tokens';
 import { EMBEDDING_SERVICE } from '../embedding/constants/injection-tokens';
+import { DimensionAdapterService } from '../embedding/dimension-adapter.service';
 
 export interface RetrievedDocument {
   id: string;
@@ -35,6 +36,7 @@ export class RetrievalService implements IRetrievalService {
     @Inject(EMBEDDING_SERVICE)
     private readonly embeddingService: EmbeddingService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly dimensionAdapterService: DimensionAdapterService,
   ) {}
 
   /**
@@ -69,8 +71,17 @@ export class RetrievalService implements IRetrievalService {
 
     try {
       // Convert query to embedding
-      const queryEmbedding =
+      const originalQueryEmbedding =
         await this.embeddingService.generateEmbedding(query);
+
+      // Apply dimension adaptation if needed
+      let queryEmbedding = originalQueryEmbedding;
+      if (this.dimensionAdapterService.needsAdaptation(originalQueryEmbedding.length)) {
+        this.logger.log(
+          `Adapting query embedding dimension from ${originalQueryEmbedding.length} to ${this.dimensionAdapterService.getTargetDimension()}`,
+        );
+        queryEmbedding = this.dimensionAdapterService.adaptDimension(originalQueryEmbedding);
+      }
 
       // Retrieve similar vectors from Pinecone
       const results = await this.pineconeService.querySimilar(

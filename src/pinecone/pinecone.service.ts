@@ -45,7 +45,7 @@ export class PineconeService {
     const record: VectorRecord<T> = { id, values: vector, metadata };
 
     await this.connectionService.upsertVectors(indexName, [record], ns);
-    this.logger.debug(`Vector stored: ${id} in ${indexName}/${ns}`);
+    this.logger.log(`Vector stored: ${id} in ${indexName}/${ns}`);
   }
 
   /**
@@ -68,7 +68,7 @@ export class PineconeService {
     }));
 
     await this.connectionService.upsertVectors(indexName, vectorRecords, ns);
-    this.logger.debug(`${records.length} vectors stored in ${indexName}/${ns}`);
+    this.logger.log(`${records.length} vectors stored in ${indexName}/${ns}`);
   }
 
   /**
@@ -136,7 +136,7 @@ export class PineconeService {
   ): Promise<void> {
     const ns = namespace || this.defaultNamespace;
     await this.connectionService.deleteVectors(indexName, ids, ns);
-    this.logger.debug(`${ids.length} vectors deleted from ${indexName}/${ns}`);
+    this.logger.log(`${ids.length} vectors deleted from ${indexName}/${ns}`);
   }
 
   /**
@@ -149,7 +149,7 @@ export class PineconeService {
   ): Promise<void> {
     const ns = namespace || this.defaultNamespace;
     await this.connectionService.deleteVectorsByFilter(indexName, filter, ns);
-    this.logger.debug(`Vectors deleted by filter from ${indexName}/${ns}`);
+    this.logger.log(`Vectors deleted by filter from ${indexName}/${ns}`);
   }
 
   /**

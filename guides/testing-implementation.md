@@ -146,12 +146,12 @@ describe('RAG Meeting Analysis Integration', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding'
             }
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 }
         });
@@ -285,12 +285,12 @@ describe('RetrievalService', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding'
             }
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 }
         });
@@ -313,7 +313,7 @@ describe('RetrievalService', () => {
     };
     
     mockEmbeddingService = {
-      generateEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1))
+      generateEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1))
     };
     
     mockCacheManager = {
@@ -410,11 +410,11 @@ import { http, HttpResponse } from 'msw';
 const mockEmbeddingResponse = (inputCount = 1) => {
   return {
     data: Array(inputCount).fill(0).map((_, i) => ({
-      embedding: Array(1536).fill(0.1),
+      embedding: Array(1024).fill(0.1),
       index: i,
       object: 'embedding'
     })),
-    model: 'text-embedding-3-large',
+    model: 'llama-text-embed-v2',
     object: 'list',
     usage: { prompt_tokens: 10 * inputCount, total_tokens: 10 * inputCount }
   };
@@ -661,12 +661,12 @@ describe('RAG Meeting Analysis Integration', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding'
             }
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 }
         });
@@ -798,12 +798,12 @@ describe('RetrievalService', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding'
             }
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 }
         });
@@ -826,7 +826,7 @@ describe('RetrievalService', () => {
     };
     
     mockEmbeddingService = {
-      generateEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1))
+      generateEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1))
     };
     
     mockCacheManager = {
@@ -919,11 +919,11 @@ import { http, HttpResponse } from 'msw';
 const mockEmbeddingResponse = (inputCount = 1) => {
   return {
     data: Array(inputCount).fill(0).map((_, i) => ({
-      embedding: Array(1536).fill(0.1),
+      embedding: Array(1024).fill(0.1),
       index: i,
       object: 'embedding'
     })),
-    model: 'text-embedding-3-large',
+    model: 'llama-text-embed-v2',
     object: 'list',
     usage: { prompt_tokens: 10 * inputCount, total_tokens: 10 * inputCount }
   };

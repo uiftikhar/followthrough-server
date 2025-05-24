@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AgentFactory } from '../agent.factory';
 import { BaseAgent } from '../base-agent';
-import { SupervisorAgent } from '../supervisor/supervisor.agent';
 
 export interface TeamConfig {
   name: string;
@@ -14,7 +13,6 @@ export interface Team {
   name: string;
   description: string;
   members: BaseAgent[];
-  supervisor?: SupervisorAgent;
 }
 
 @Injectable()
@@ -23,7 +21,6 @@ export class TeamFormationService {
 
   constructor(
     private readonly agentFactory: AgentFactory,
-    private readonly supervisorAgent: SupervisorAgent,
   ) {}
 
   /**
@@ -78,12 +75,6 @@ export class TeamFormationService {
       description: config.description,
       members,
     };
-
-    // Add supervisor if enabled
-    if (config.supervisorEnabled) {
-      team.supervisor = this.supervisorAgent;
-      this.logger.debug(`Added supervisor to team ${config.name}`);
-    }
 
     return team;
   }

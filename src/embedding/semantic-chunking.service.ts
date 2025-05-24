@@ -254,7 +254,7 @@ export class SemanticChunkingService {
                 `Error generating embedding for sentence ${i + batchIndex}: ${error.message}`,
               );
               // Return zero vector as fallback
-              return new Array(1536).fill(0) as number[];
+              return new Array(1024).fill(0) as number[];
             }
           }),
         );

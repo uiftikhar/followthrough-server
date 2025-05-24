@@ -47,7 +47,7 @@ export class RagService implements IRagService {
 
   constructor(
     @Inject(RETRIEVAL_SERVICE)
-    private readonly retrievalService: IRetrievalService,
+    private readonly retrievalService: RetrievalService,
     @Inject(EMBEDDING_SERVICE)
     private readonly embeddingService: EmbeddingService,
     @Inject(LLM_SERVICE) private readonly llmService: LlmService,

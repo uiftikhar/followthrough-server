@@ -21,12 +21,12 @@ describe('RetrievalService', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding',
             },
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 },
         });
@@ -61,7 +61,7 @@ describe('RetrievalService', () => {
 
     mockEmbeddingService = {
       generateEmbedding: jest.fn().mockImplementation((text, options = {}) => {
-        return Promise.resolve(Array(1536).fill(0.1));
+        return Promise.resolve(Array(1024).fill(0.1));
       }),
     };
 
@@ -217,7 +217,7 @@ describe('RetrievalService', () => {
       .mockImplementation(async (query, options = {}) => {
         const docs = await mockPineconeService.querySimilar(
           options.indexName || 'default',
-          Array(1536).fill(0.1),
+          Array(1024).fill(0.1),
           { topK: options.topK || 10 },
         );
 
