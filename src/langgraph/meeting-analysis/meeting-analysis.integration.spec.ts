@@ -314,15 +314,15 @@ Alice (CEO): Great. Let's wrap up here and reconvene next week.
     // Create a mock for embeddingService
     const mockEmbeddingService = {
       generateEmbedding: jest.fn().mockResolvedValue(
-        Array(1536)
+        Array(1024)
           .fill(0)
           .map(() => Math.random()),
       ),
       generateEmbeddings: jest.fn().mockResolvedValue([
-        Array(1536)
+        Array(1024)
           .fill(0)
           .map(() => Math.random()),
-        Array(1536)
+        Array(1024)
           .fill(0)
           .map(() => Math.random()),
       ]),
@@ -337,12 +337,12 @@ Alice (CEO): Great. Let's wrap up here and reconvene next week.
         }),
       }),
       generateOpenAIEmbedding: jest.fn().mockResolvedValue(
-        Array(1536)
+        Array(1024)
           .fill(0)
           .map(() => Math.random()),
       ),
       generateAnthropicEmbedding: jest.fn().mockResolvedValue(
-        Array(1536)
+        Array(1024)
           .fill(0)
           .map(() => Math.random()),
       ),
@@ -808,8 +808,8 @@ Alice (CEO): Great. Let's wrap up here and reconvene next week.
             ANTHROPIC_API_KEY: 'test-key',
             LLM_DEFAULT_MODEL: 'gpt-4o',
             LLM_DEFAULT_PROVIDER: 'openai',
-            EMBEDDING_MODEL: 'text-embedding-3-large',
-            EMBEDDING_DIMENSIONS: 1536,
+            EMBEDDING_MODEL: 'llama-text-embed-v2',
+            EMBEDDING_DIMENSIONS: 1024,
             PINECONE_API_KEY: 'test-key',
             PINECONE_ENVIRONMENT: 'us-west',
             PINECONE_INDEX_NAME: 'meeting-analysis',

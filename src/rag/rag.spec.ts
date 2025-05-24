@@ -49,7 +49,7 @@ describe('RAG Services Integration', () => {
   };
 
   const mockEmbeddingService = {
-    generateEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
+    generateEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
     chunkText: jest.fn().mockReturnValue(['chunk1', 'chunk2']),
   };
 
@@ -153,12 +153,12 @@ describe('RAG Services Integration', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding',
             },
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: {
             prompt_tokens: 10,

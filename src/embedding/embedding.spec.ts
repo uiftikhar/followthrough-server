@@ -22,7 +22,7 @@ describe('EmbeddingService', () => {
     mockConfigService = {
       get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
         if (key === 'EMBEDDING_MODEL') return EmbeddingModel.OPENAI_3_LARGE;
-        if (key === 'EMBEDDING_DIMENSIONS') return 1536;
+        if (key === 'EMBEDDING_DIMENSIONS') return 1024;
         if (key === 'OPENAI_API_KEY') return 'mock-api-key';
         return defaultValue;
       }),
@@ -55,7 +55,7 @@ describe('EmbeddingService', () => {
         }),
       generateAnthropicEmbedding: jest
         .fn()
-        .mockResolvedValue(Array(1536).fill(0.1)),
+        .mockResolvedValue(Array(1024).fill(0.1)),
     };
 
     // Create the test module with token-based injection
@@ -101,7 +101,7 @@ describe('EmbeddingService', () => {
   describe('generateEmbedding', () => {
     it('should return cached embedding when available', async () => {
       // Arrange
-      const cachedEmbedding = Array(1536).fill(0.2);
+      const cachedEmbedding = Array(1024).fill(0.2);
       mockCacheManager.get.mockResolvedValueOnce(cachedEmbedding);
 
       // Act
@@ -130,7 +130,7 @@ describe('EmbeddingService', () => {
                 object: 'embedding',
               },
             ],
-            model: 'text-embedding-3-large',
+            model: 'llama-text-embed-v2',
             object: 'list',
             usage: { prompt_tokens: 10, total_tokens: 10 },
           });

@@ -4,12 +4,12 @@ import { http, HttpResponse } from 'msw';
 const mockEmbeddingResponse = {
   data: [
     {
-      embedding: Array(1536).fill(0.5),
+      embedding: Array(1024).fill(0.5),
       index: 0,
       object: 'embedding',
     },
   ],
-  model: 'text-embedding-3-large',
+  model: 'llama-text-embed-v2',
   object: 'list',
   usage: {
     prompt_tokens: 10,
@@ -22,11 +22,11 @@ const mockBatchEmbeddingResponse = (inputCount: number) => ({
   data: Array(inputCount)
     .fill(0)
     .map((_, index) => ({
-      embedding: Array(1536).fill(0.5),
+      embedding: Array(1024).fill(0.5),
       index,
       object: 'embedding',
     })),
-  model: 'text-embedding-3-large',
+  model: 'llama-text-embed-v2',
   object: 'list',
   usage: {
     prompt_tokens: inputCount * 10,
@@ -279,7 +279,7 @@ export const handlers = [
         {
           id: 'doc-1',
           score: 0.92,
-          values: Array(1536).fill(0.1),
+          values: Array(1024).fill(0.1),
           metadata: {
             content: 'Previous meeting discussed project timeline issues.',
             meetingId: 'prev-meeting-001',
@@ -289,7 +289,7 @@ export const handlers = [
         {
           id: 'doc-2',
           score: 0.87,
-          values: Array(1536).fill(0.2),
+          values: Array(1024).fill(0.2),
           metadata: {
             content:
               "Budget concerns were raised in last week's financial review.",

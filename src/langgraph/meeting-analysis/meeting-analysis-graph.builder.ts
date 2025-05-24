@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { BaseGraphBuilder } from '../core/base-graph-builder';
 import { MeetingAnalysisState } from './interfaces/meeting-analysis-state.interface';
 import { RagMeetingAnalysisAgent } from '../agents/rag-agents/rag-meeting-agent';
 import { RagTopicExtractionAgent } from '../agents/rag-agents/rag-topic-extraction-agent';
-import { AgentExpertise } from '../agents/rag-agents/interfaces/agent.interface';
+import { RagSentimentAnalysisAgent } from '../agents/rag-agents/rag-sentiment-analysis-agent';
+import { SentimentAnalysisAgent } from '../agents/sentiment-analysis.agent';
+import { ActionItemAgent } from '../agents/action-item.agent';
 
 
 /**
@@ -23,8 +25,11 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
   };
   
   constructor(
-    private readonly ragMeetingAnalysisAgent: RagMeetingAnalysisAgent,
-    private readonly ragTopicExtractionAgent: RagTopicExtractionAgent
+    @Optional() private readonly ragMeetingAnalysisAgent?: RagMeetingAnalysisAgent,
+    @Optional() private readonly ragTopicExtractionAgent?: RagTopicExtractionAgent,
+    @Optional() private readonly ragSentimentAnalysisAgent?: RagSentimentAnalysisAgent,
+    @Optional() private readonly sentimentAnalysisAgent?: SentimentAnalysisAgent,
+    @Optional() private readonly actionItemAgent?: ActionItemAgent
   ) {
     super();
   }
@@ -75,7 +80,19 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
    */
   private async topicExtractionNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
     try {
-      this.logger.log(`Extracting topics for meeting ${state.meetingId}`);
+      this.logger.log(`********* RAG TOPIC **********: Extracting topics for meeting ${state.meetingId}`);
+      
+      if (!this.ragTopicExtractionAgent) {
+        this.logger.warn(' ----------------------: RAG topic extraction agent not available, using fallback');
+        return {
+          ...state,
+          topics: [{
+            name: 'General Discussion',
+            relevance: 3
+          }],
+          stage: 'topic_extraction',
+        };
+      }
       
       // Use the RAG topic extraction agent
       const topics = await this.ragTopicExtractionAgent.extractTopics(
@@ -112,30 +129,39 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
   }
   
   /**
-   * Action item extraction node using RAG meeting analysis agent
+   * Action item extraction node using ActionItemAgent
    */
   private async actionItemExtractionNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
     try {
       this.logger.log(`Extracting action items for meeting ${state.meetingId}`);
       
-      // Use the RAG meeting analysis agent with ACTION_ITEM_EXTRACTION expertise
-      const actionItems = await this.ragMeetingAnalysisAgent.analyzeTranscript(
-        state.transcript,
-        {
-          meetingId: state.meetingId,
-          participantNames: this.extractParticipantNames(state.transcript),
-          expertise: AgentExpertise.ACTION_ITEM_EXTRACTION
-        }
-      );
+      if (!this.actionItemAgent) {
+        this.logger.warn('Action item agent not available, using fallback');
+        return {
+          ...state,
+          actionItems: [{
+            description: 'Action items will be available when action item agent is properly configured',
+            status: 'pending'
+          }],
+          stage: 'action_item_extraction',
+        };
+      }
       
-      // Format and validate action items
-      const formattedActionItems = this.formatActionItems(actionItems);
+      // Use the ActionItemAgent to extract action items
+      const result = await this.actionItemAgent.processState({
+        transcript: state.transcript,
+        meetingId: state.meetingId,
+        participantNames: this.extractParticipantNames(state.transcript)
+      });
       
-      this.logger.log(`Extracted ${formattedActionItems.length} action items using RAG agent`);
+      // Extract action items from the result
+      const actionItems = result.actionItems || [];
+      
+      this.logger.log(`Extracted ${actionItems.length} action items using ActionItemAgent`);
       
       return {
         ...state,
-        actionItems: formattedActionItems,
+        actionItems,
         stage: 'action_item_extraction',
       };
     } catch (error) {
@@ -152,25 +178,74 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
   }
   
   /**
-   * Sentiment analysis node using RAG meeting analysis agent
+   * Sentiment analysis node using RAG-enhanced or regular SentimentAnalysisAgent
    */
   private async sentimentAnalysisNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
     try {
       this.logger.log(`Analyzing sentiment for meeting ${state.meetingId}`);
+      this.logger.log(`Available agents: RAG=${!!this.ragSentimentAnalysisAgent}, Regular=${!!this.sentimentAnalysisAgent}`);
       
-      // Use the RAG meeting analysis agent with SENTIMENT_ANALYSIS expertise
-      const sentiment = await this.ragMeetingAnalysisAgent.analyzeTranscript(
-        state.transcript,
-        {
-          meetingId: state.meetingId,
-          expertise: AgentExpertise.SENTIMENT_ANALYSIS
-        }
-      );
+      // Prefer RAG-enhanced agent if available
+      if (this.ragSentimentAnalysisAgent) {
+        this.logger.log('Using RAG-enhanced sentiment analysis agent');
+        
+        const sentiment = await this.ragSentimentAnalysisAgent.analyzeSentiment(
+          state.transcript,
+          {
+            meetingId: state.meetingId,
+            participantNames: this.extractParticipantNames(state.transcript),
+          }
+        );
+        
+        this.logger.log(`RAG sentiment result: overall=${sentiment.overall}, score=${sentiment.score}, segments=${sentiment.segments?.length}`);
+        
+        const mappedSentiment = {
+          overall: sentiment.score, // Convert to number format expected by state
+          segments: sentiment.segments?.map(seg => ({
+            text: seg.text,
+            score: seg.score
+          }))
+        };
+        
+        this.logger.log(`Mapped sentiment for state: overall=${mappedSentiment.overall}, segments=${mappedSentiment.segments?.length}`);
+        
+        return {
+          ...state,
+          sentiment: mappedSentiment,
+          stage: 'sentiment_analysis',
+        };
+      }
+      
+      // Fallback to regular sentiment agent
+      if (!this.sentimentAnalysisAgent) {
+        this.logger.warn('No sentiment analysis agent available, using fallback');
+        return {
+          ...state,
+          sentiment: {
+            overall: 0,
+            segments: undefined
+          },
+          stage: 'sentiment_analysis',
+        };
+      }
+      
+      this.logger.log('Using regular sentiment analysis agent');
+      
+      // Use the SentimentAnalysisAgent to analyze sentiment
+      const result = await this.sentimentAnalysisAgent.processState({
+        transcript: state.transcript,
+        meetingId: state.meetingId,
+      });
+      
+      this.logger.log(`Regular sentiment agent result: ${JSON.stringify(result.sentiment).substring(0, 200)}...`);
+      
+      // Extract sentiment from the result
+      const sentiment = result.sentiment || { overall: 0 };
       
       // Format and validate sentiment analysis
       const formattedSentiment = this.formatSentimentAnalysis(sentiment);
       
-      this.logger.log(`Analyzed sentiment using RAG agent`);
+      this.logger.log(`Formatted sentiment: overall=${formattedSentiment.overall}, segments=${formattedSentiment.segments?.length}`);
       
       return {
         ...state,
@@ -197,6 +272,19 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
     try {
       this.logger.log(`Generating summary for meeting ${state.meetingId}`);
       
+      if (!this.ragMeetingAnalysisAgent) {
+        this.logger.warn('RAG meeting analysis agent not available, using fallback');
+        return {
+          ...state,
+          summary: {
+            meetingTitle: 'Meeting Summary',
+            summary: 'Summary will be available when RAG agents are properly configured',
+            decisions: []
+          },
+          stage: 'completed',
+        };
+      }
+      
       // Enrich the transcript with extracted topics and action items for better context
       const topicsString = state.topics && state.topics.length > 0
         ? `Topics discussed: ${state.topics.map(t => t.name).join(', ')}`
@@ -217,12 +305,11 @@ ${state.transcript}
       `;
       
       // Use the RAG meeting analysis agent with SUMMARY_GENERATION expertise
-      const summaryResult = await this.ragMeetingAnalysisAgent.analyzeTranscript(
+      const summaryResult = await this.ragMeetingAnalysisAgent.generateMeetingSummary(
         enrichedTranscript,
         {
           meetingId: state.meetingId,
           participantNames: this.extractParticipantNames(state.transcript),
-          expertise: AgentExpertise.SUMMARY_GENERATION
         }
       );
       
@@ -277,54 +364,6 @@ ${state.transcript}
     }
     
     return Array.from(speakers);
-  }
-  
-  /**
-   * Format and validate action items
-   */
-  private formatActionItems(actionItems: any): Array<{
-    description: string;
-    assignee?: string;
-    dueDate?: string;
-    status?: 'pending' | 'completed';
-  }> {
-    if (!actionItems) return [];
-    
-    // Parse JSON if it's a string
-    let items = actionItems;
-    if (typeof actionItems === 'string') {
-      try {
-        const jsonMatch = actionItems.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-        if (jsonMatch) {
-          items = JSON.parse(jsonMatch[0]);
-        } else {
-          return [];
-        }
-      } catch (err) {
-        this.logger.error(`Failed to parse action items: ${err.message}`);
-        return [];
-      }
-    }
-    
-    // If it's an object with an actionItems property, use that
-    if (items.actionItems && Array.isArray(items.actionItems)) {
-      items = items.actionItems;
-    }
-    
-    // Ensure it's an array
-    if (!Array.isArray(items)) {
-      items = [items];
-    }
-    
-    // Format and validate each action item
-    return items
-      .filter(item => item && item.description)
-      .map(item => ({
-        description: item.description,
-        assignee: item.assignee || undefined,
-        dueDate: item.dueDate || item.due_date || undefined,
-        status: item.status || 'pending'
-      }));
   }
   
   /**

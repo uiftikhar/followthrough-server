@@ -9,6 +9,7 @@ export { CONTEXT_INTEGRATION_PROMPT } from './meeting-analysis/context-integrati
 export { COORDINATION_PROMPT } from './meeting-analysis/coordination.prompt';
 export { MANAGEMENT_PROMPT } from './meeting-analysis/management.prompt';
 export { SENTIMENT_ANALYSIS_PROMPT } from './meeting-analysis/sentiment-analysis.prompt';
+export { TOPIC_EXTRACTION_PROMPT, TOPIC_EXTRACTION_SYSTEM_PROMPT } from './meeting-analysis/topic-extraction-prompt';
 
 // Ticket Generation Prompts
 export { JIRA_TICKET_GENERATOR_PROMPT } from './ticket-generation/jira-ticket-generator.prompt';

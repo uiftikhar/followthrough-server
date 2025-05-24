@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, UnauthorizedException, OnModuleInit, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, UnauthorizedException, OnModuleInit, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
 import { EventEmitter2 } from '@nestjs/event-emitter';

@@ -27,7 +27,7 @@ describe('RagService', () => {
 
   beforeEach(async () => {
     const mockEmbeddingService = {
-      generateEmbedding: jest.fn().mockResolvedValue(new Array(1536).fill(0.1)),
+      generateEmbedding: jest.fn().mockResolvedValue(new Array(1024).fill(0.1)),
     };
 
     const mockRetrievalService = {

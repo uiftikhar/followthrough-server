@@ -65,7 +65,7 @@ export class OpenAIService {
       this.logger.debug('Generating embeddings');
       
       const response = await this.openai.embeddings.create({
-        model: 'text-embedding-3-large',
+        model: 'llama-text-embed-v2',
         input: text,
       });
       

@@ -48,7 +48,7 @@ export class EmbeddingService {
     );
     this.defaultDimensions = this.configService.get<number>(
       'EMBEDDING_DIMENSIONS',
-      1536,
+      1024,
     );
 
     // Initialize OpenAI client
@@ -59,11 +59,40 @@ export class EmbeddingService {
     // Initialize LangChain OpenAI embeddings for more advanced features
     this.openaiEmbeddings = new OpenAIEmbeddings({
       openAIApiKey: this.configService.get<string>('OPENAI_API_KEY'),
-      modelName: this.mapToSupportedModel(this.defaultModel),
+      modelName: this.mapToSupportedModel(
+        EmbeddingModel.OPENAI_3_LARGE
+      ),
       dimensions: this.defaultDimensions,
       timeout: 60000, // 60 second timeout
       maxRetries: 3,
     });
+  }
+
+  private getCallStack(skip = 0, depth = 1): string[] {
+    let raw: string;
+    if (typeof Error.captureStackTrace === 'function') {
+      const obj: { stack?: string } = {};
+      // omit this helper frame
+      Error.captureStackTrace(obj, this.getCallStack);
+      raw = obj.stack!;
+    } else {
+      raw = (new Error()).stack!;
+    }
+    const lines = raw
+      .split('\n')
+      .slice(1)       // drop the “Error” line
+      .map(l => l.trim());
+    return lines.slice(skip, skip + depth);
+  }
+
+  private parseFrame(frameLine: string) {
+    const match = /at\s+(.*?)\s+\((.*?):(\d+):(\d+)\)$/.exec(frameLine);
+    return match ? {
+      functionName: match[1],
+      file:         match[2],
+      line:         +match[3],
+      column:       +match[4],
+    } : null;
   }
 
   /**
@@ -71,13 +100,23 @@ export class EmbeddingService {
    */
   private mapToSupportedModel(model: string): string {
     if (model === EmbeddingModel.LLAMA) {
+      const rawCaller = this.getCallStack(1, 1)[0];
+      const info      = this.parseFrame(rawCaller);
+      if (info) {
+        this.logger.warn(
+          `*********************** mapToSupportedModel was called by ***********************: \n ${info.functionName} ` +
+          `at ${info.file}:${info.line}:${info.column}`
+        );
+      }
       this.logger.warn(
         `Mapping unsupported model ${model} to ${EmbeddingModel.OPENAI_3_LARGE}`,
+
       );
       return EmbeddingModel.OPENAI_3_LARGE;
     }
     return model;
   }
+
 
   /**
    * Generate embeddings for a single text

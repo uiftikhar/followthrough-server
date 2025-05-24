@@ -58,7 +58,7 @@ async function testEmbeddingGeneration() {
   console.log('\nTesting embedding generation...');
   try {
     const response = await openai.embeddings.create({
-      model: 'text-embedding-3-large',
+      model: 'llama-text-embed-v2',
       input: 'This is a test of the embedding API.',
     });
     

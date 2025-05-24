@@ -1,47 +1,36 @@
 import { Module } from '@nestjs/common';
-import { LanggraphCoreModule } from './core/core.module';
-import { MeetingAnalysisGraphBuilder } from './meeting-analysis/meeting-analysis-graph.builder';
+import { SharedCoreModule } from '../shared/shared-core.module';
+import { MeetingAnalysisModule } from './meeting-analysis/meeting-analysis.module';
 import { SupervisorGraphBuilder } from './supervisor/supervisor-graph.builder';
 import { UnifiedWorkflowService } from './unified-workflow.service';
-import { EmbeddingModule } from '../embedding/embedding.module';
-import { DatabaseModule } from '../database/database.module';
-import { LlmModule } from './llm/llm.module';
-import { EventEmitterModule } from '@nestjs/event-emitter';
-import { AgentsModule } from './agents/agents.module';
 
+/**
+ * LanggraphModule - Main module for agent-based workflows
+ * Uses SharedCoreModule for ALL dependencies
+ * Simplified architecture eliminates circular dependencies
+ */
 @Module({
   imports: [
-    LanggraphCoreModule,
-    EmbeddingModule,
-    DatabaseModule,
-    LlmModule,
-    AgentsModule,
-    EventEmitterModule.forRoot({
-      // Configure event emitter for progress tracking
-      wildcard: true,
-      delimiter: '.',
-      maxListeners: 100,
-      verboseMemoryLeak: true,
-    }),
+    SharedCoreModule,           // Provides ALL services and agents
+    MeetingAnalysisModule,      // Feature module for meeting analysis
   ],
   providers: [
-    // Graph builders
-    MeetingAnalysisGraphBuilder,
+    // Only feature-specific services that aren't shared
     SupervisorGraphBuilder,
-    
-    // Workflow service
     UnifiedWorkflowService,
   ],
   exports: [
-    // Export core module instead of individual services
-    LanggraphCoreModule,
+    // Export shared core for other modules that might need it
+    SharedCoreModule,
     
     // Export workflow service
     UnifiedWorkflowService,
     
     // Export graph builders
-    MeetingAnalysisGraphBuilder,
     SupervisorGraphBuilder,
+    
+    // Export feature modules
+    MeetingAnalysisModule,
   ],
 })
 export class LanggraphModule {}

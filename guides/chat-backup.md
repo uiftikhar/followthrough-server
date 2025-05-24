@@ -16107,7 +16107,7 @@ export interface IndexConfig {
   embeddingModel?:
     | 'multilingual-e5-large'
     | 'pinecone-sparse-english-v0'
-    | 'text-embedding-3-large'
+    | 'llama-text-embed-v2'
     | 'text-embedding-ada-002'
     | 'llama-text-embed-v2';
   tags?: Record<string, string>;
@@ -16629,7 +16629,7 @@ import * as crypto from 'crypto';
 export enum EmbeddingModel {
   OPENAI_ADA_002 = 'text-embedding-ada-002',
   OPENAI_3_SMALL = 'text-embedding-3-small',
-  OPENAI_3_LARGE = 'text-embedding-3-large',
+  OPENAI_3_LARGE = 'llama-text-embed-v2',
   ANTHROPIC = 'anthropic',
   LLAMA = 'llama-text-embed-v2',
 }
@@ -16660,7 +16660,7 @@ export class EmbeddingService {
       'EMBEDDING_MODEL',
       EmbeddingModel.OPENAI_3_LARGE,
     );
-    this.defaultDimensions = this.configService.get<number>('EMBEDDING_DIMENSIONS', 1536);
+    this.defaultDimensions = this.configService.get<number>('EMBEDDING_DIMENSIONS', 1024);
   }
 
   /**
@@ -16974,7 +16974,7 @@ The Embedding Service depends on the LLM Service for generating embeddings. Upda
  */
 async generateOpenAIEmbedding(
   text: string,
-  model: string = 'text-embedding-3-large',
+  model: string = 'llama-text-embed-v2',
 ): Promise<number[]> {
   try {
     const openai = new OpenAI({
@@ -17426,8 +17426,8 @@ Update your `.env` file with embedding-related configuration:
 
 ```
 # Embedding configuration
-EMBEDDING_MODEL=text-embedding-3-large
-EMBEDDING_DIMENSIONS=1536
+EMBEDDING_MODEL=llama-text-embed-v2
+EMBEDDING_DIMENSIONS=1024
 ```
 
 Add validation for these in your configuration schema:
@@ -17437,9 +17437,9 @@ Add validation for these in your configuration schema:
 export const configValidationSchema = Joi.object({
   // Other environment variables...
   EMBEDDING_MODEL: Joi.string()
-    .valid('text-embedding-ada-002', 'text-embedding-3-small', 'text-embedding-3-large', 'anthropic', 'llama-text-embed-v2')
-    .default('text-embedding-3-large'),
-  EMBEDDING_DIMENSIONS: Joi.number().default(1536),
+    .valid('text-embedding-ada-002', 'text-embedding-3-small', 'llama-text-embed-v2', 'anthropic', 'llama-text-embed-v2')
+    .default('llama-text-embed-v2'),
+  EMBEDDING_DIMENSIONS: Joi.number().default(1024),
 });
 ```
 
@@ -19125,8 +19125,8 @@ PINECONE_CLOUD=aws
 PINECONE_REGION=us-west-2
 
 # Embedding Configuration
-EMBEDDING_MODEL=text-embedding-3-large
-EMBEDDING_DIMENSIONS=1536
+EMBEDDING_MODEL=llama-text-embed-v2
+EMBEDDING_DIMENSIONS=1024
 
 # RAG Configuration
 RAG_ENABLE=true
@@ -19351,9 +19351,9 @@ export const configValidationSchema = Joi.object({
   
   // Embedding Configuration
   EMBEDDING_MODEL: Joi.string()
-    .valid('text-embedding-ada-002', 'text-embedding-3-small', 'text-embedding-3-large', 'anthropic', 'llama-text-embed-v2')
-    .default('text-embedding-3-large'),
-  EMBEDDING_DIMENSIONS: Joi.number().default(1536),
+    .valid('text-embedding-ada-002', 'text-embedding-3-small', 'llama-text-embed-v2', 'anthropic', 'llama-text-embed-v2')
+    .default('llama-text-embed-v2'),
+  EMBEDDING_DIMENSIONS: Joi.number().default(1024),
   
   // RAG Configuration
   RAG_ENABLE: Joi.boolean().default(true),
@@ -19917,12 +19917,12 @@ export const configValidationSchema = Joi.object({
     .valid(
       'text-embedding-ada-002',
       'text-embedding-3-small',
-      'text-embedding-3-large',
+      'llama-text-embed-v2',
       'anthropic',
       'llama-text-embed-v2',
     )
-    .default('text-embedding-3-large'),
-  EMBEDDING_DIMENSIONS: Joi.number().default(1536),
+    .default('llama-text-embed-v2'),
+  EMBEDDING_DIMENSIONS: Joi.number().default(1024),
 
   // RAG Configuration
   RAG_ENABLE: Joi.boolean().default(true),
@@ -22002,7 +22002,7 @@ export interface IndexConfig {
   embeddingModel?:
     | 'multilingual-e5-large'
     | 'pinecone-sparse-english-v0'
-    | 'text-embedding-3-large'
+    | 'llama-text-embed-v2'
     | 'text-embedding-ada-002'
     | 'llama-text-embed-v2';
   tags?: Record<string, string>;
@@ -22616,7 +22616,7 @@ import { OpenAIEmbeddings } from '@langchain/openai';
 export enum EmbeddingModel {
   OPENAI_ADA_002 = 'text-embedding-ada-002',
   OPENAI_3_SMALL = 'text-embedding-3-small',
-  OPENAI_3_LARGE = 'text-embedding-3-large',
+  OPENAI_3_LARGE = 'llama-text-embed-v2',
   ANTHROPIC = 'claude-3-embedding',
 }
 
@@ -22650,7 +22650,7 @@ export class EmbeddingService {
       'EMBEDDING_MODEL',
       EmbeddingModel.OPENAI_3_LARGE,
     );
-    this.defaultDimensions = this.configService.get<number>('EMBEDDING_DIMENSIONS', 1536);
+    this.defaultDimensions = this.configService.get<number>('EMBEDDING_DIMENSIONS', 1024);
     
     // Initialize OpenAI client
     this.openai = new OpenAI({
@@ -23612,7 +23612,7 @@ export class LlmService {
    */
   async generateOpenAIEmbedding(
     text: string,
-    model: string = 'text-embedding-3-large',
+    model: string = 'llama-text-embed-v2',
   ): Promise<number[]> {
     if (!this.openai) {
       if (!this.openaiApiKey) {
@@ -24097,7 +24097,7 @@ describe('AppController', () => {
         {
           provide: EmbeddingService,
           useValue: {
-            generateEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
+            generateEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
           },
         },
       ],
@@ -24501,13 +24501,13 @@ describe('Embedding Service', () => {
   describe('Embedding Generation', () => {
     it('should generate embeddings', async () => {
       // Mock the embedding generation
-      jest.spyOn(embeddingService, 'generateEmbedding').mockResolvedValue(Array(1536).fill(0.1));
+      jest.spyOn(embeddingService, 'generateEmbedding').mockResolvedValue(Array(1024).fill(0.1));
       
       const testText = 'This is a test text for generating embeddings.';
       const embedding = await embeddingService.generateEmbedding(testText);
       
       expect(embedding).toBeDefined();
-      expect(embedding.length).toBe(1536);
+      expect(embedding.length).toBe(1024);
     });
   });
 
@@ -24613,9 +24613,9 @@ describe('Embedding Service', () => {
   beforeEach(async () => {
     // Create mocks
     llmServiceMock = {
-      generateOpenAIEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
-      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
-      generateLlamaEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1))
+      generateOpenAIEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
+      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
+      generateLlamaEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1))
     };
 
     pineconeServiceMock = {
@@ -24665,7 +24665,7 @@ describe('Embedding Service', () => {
       });
       
       expect(embedding).toBeDefined();
-      expect(embedding.length).toBe(1536);
+      expect(embedding.length).toBe(1024);
       expect(llmServiceMock.generateOpenAIEmbedding).toHaveBeenCalledWith(
         testText, 
         EmbeddingModel.OPENAI_3_LARGE
@@ -24679,7 +24679,7 @@ describe('Embedding Service', () => {
       });
       
       expect(embedding).toBeDefined();
-      expect(embedding.length).toBe(1536);
+      expect(embedding.length).toBe(1024);
       expect(llmServiceMock.generateAnthropicEmbedding).toHaveBeenCalledWith(testText);
     });
 
@@ -24688,7 +24688,7 @@ describe('Embedding Service', () => {
       
       // Mock the single embedding method since generateEmbeddings calls it internally
       jest.spyOn(embeddingService, 'generateEmbedding').mockImplementation(async () => {
-        return Array(1536).fill(0.1);
+        return Array(1024).fill(0.1);
       });
       
       const embeddings = await embeddingService.generateEmbeddings(testTexts);
@@ -24776,7 +24776,7 @@ jest.mock('openai', () => {
     OpenAI: jest.fn().mockImplementation(() => ({
       embeddings: {
         create: jest.fn().mockResolvedValue({
-          data: [{ embedding: Array(1536).fill(0.1) }]
+          data: [{ embedding: Array(1024).fill(0.1) }]
         })
       }
     }))
@@ -24797,7 +24797,7 @@ describe('Embedding Service', () => {
     configServiceMock = {
       get: jest.fn((key, defaultValue) => {
         if (key === 'EMBEDDING_MODEL') return EmbeddingModel.OPENAI_3_LARGE;
-        if (key === 'EMBEDDING_DIMENSIONS') return 1536;
+        if (key === 'EMBEDDING_DIMENSIONS') return 1024;
         if (key === 'OPENAI_API_KEY') return 'mock-api-key';
         return defaultValue;
       })
@@ -24809,9 +24809,9 @@ describe('Embedding Service', () => {
     };
 
     llmServiceMock = {
-      generateOpenAIEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
-      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
-      generateLlamaEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1))
+      generateOpenAIEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
+      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
+      generateLlamaEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1))
     };
 
     pineconeServiceMock = {
@@ -24835,7 +24835,7 @@ describe('Embedding Service', () => {
             
             // Mock internal methods to prevent actual API calls
             jest.spyOn(service, 'generateDirectEmbedding').mockImplementation(async () => {
-              return Array(1536).fill(0.1);
+              return Array(1024).fill(0.1);
             });
             
             return service;
@@ -24879,12 +24879,12 @@ describe('Embedding Service', () => {
       });
       
       expect(embedding).toBeDefined();
-      expect(embedding.length).toBe(1536);
+      expect(embedding.length).toBe(1024);
     });
 
     it('should use cache when available', async () => {
       // Set up cache to return a value
-      const cachedEmbedding = Array(1536).fill(0.2);
+      const cachedEmbedding = Array(1024).fill(0.2);
       jest.spyOn(cacheMock, 'get').mockResolvedValueOnce(cachedEmbedding);
       
       const testText = 'This is a cached text.';
@@ -24900,7 +24900,7 @@ describe('Embedding Service', () => {
       
       // Set up a spy on generateEmbedding
       const generateEmbeddingSpy = jest.spyOn(embeddingService, 'generateEmbedding')
-        .mockImplementation(async () => Array(1536).fill(0.1));
+        .mockImplementation(async () => Array(1024).fill(0.1));
       
       const embeddings = await embeddingService.generateEmbeddings(testTexts);
       
@@ -24973,7 +24973,7 @@ jest.mock('openai', () => {
     OpenAI: jest.fn().mockImplementation(() => ({
       embeddings: {
         create: jest.fn().mockResolvedValue({
-          data: [{ embedding: Array(1536).fill(0.1) }]
+          data: [{ embedding: Array(1024).fill(0.1) }]
         })
       }
     }))
@@ -24994,7 +24994,7 @@ describe('Embedding Service', () => {
     configServiceMock = {
       get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
         if (key === 'EMBEDDING_MODEL') return EmbeddingModel.OPENAI_3_LARGE;
-        if (key === 'EMBEDDING_DIMENSIONS') return 1536;
+        if (key === 'EMBEDDING_DIMENSIONS') return 1024;
         if (key === 'OPENAI_API_KEY') return 'mock-api-key';
         return defaultValue;
       })
@@ -25006,9 +25006,9 @@ describe('Embedding Service', () => {
     } as unknown as Cache;
 
     llmServiceMock = {
-      generateOpenAIEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
-      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
-      generateLlamaEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1))
+      generateOpenAIEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
+      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
+      generateLlamaEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1))
     };
 
     pineconeServiceMock = {
@@ -25054,7 +25054,7 @@ describe('Embedding Service', () => {
     // Mock any private methods that might make external calls
     // This uses a more type-safe approach to avoid linter errors
     jest.spyOn(embeddingService as any, 'generateDirectEmbedding')
-      .mockImplementation(async () => Array(1536).fill(0.1));
+      .mockImplementation(async () => Array(1024).fill(0.1));
   });
 
   describe('Embedding Generation', () => {
@@ -25065,12 +25065,12 @@ describe('Embedding Service', () => {
       });
       
       expect(embedding).toBeDefined();
-      expect(embedding.length).toBe(1536);
+      expect(embedding.length).toBe(1024);
     });
 
     it('should use cache when available', async () => {
       // Set up cache to return a value
-      const cachedEmbedding = Array(1536).fill(0.2);
+      const cachedEmbedding = Array(1024).fill(0.2);
       jest.spyOn(cacheMock, 'get').mockResolvedValueOnce(cachedEmbedding);
       
       const testText = 'This is a cached text.';
@@ -25086,7 +25086,7 @@ describe('Embedding Service', () => {
       
       // Set up a spy on generateEmbedding
       const generateEmbeddingSpy = jest.spyOn(embeddingService, 'generateEmbedding')
-        .mockImplementation(async () => Array(1536).fill(0.1));
+        .mockImplementation(async () => Array(1024).fill(0.1));
       
       const embeddings = await embeddingService.generateEmbeddings(testTexts);
       
@@ -25159,8 +25159,8 @@ import { Cache } from 'cache-manager';
 
 // Create a mock class for EmbeddingService
 class MockEmbeddingService {
-  generateEmbedding = jest.fn().mockResolvedValue(Array(1536).fill(0.1));
-  generateEmbeddings = jest.fn().mockResolvedValue([Array(1536).fill(0.1), Array(1536).fill(0.1), Array(1536).fill(0.1)]);
+  generateEmbedding = jest.fn().mockResolvedValue(Array(1024).fill(0.1));
+  generateEmbeddings = jest.fn().mockResolvedValue([Array(1024).fill(0.1), Array(1024).fill(0.1), Array(1024).fill(0.1)]);
   calculateSimilarity = jest.fn().mockReturnValue(0.85);
 }
 
@@ -25176,7 +25176,7 @@ describe('Embedding Service', () => {
     const configServiceMock = {
       get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
         if (key === 'EMBEDDING_MODEL') return EmbeddingModel.OPENAI_3_LARGE;
-        if (key === 'EMBEDDING_DIMENSIONS') return 1536;
+        if (key === 'EMBEDDING_DIMENSIONS') return 1024;
         if (key === 'OPENAI_API_KEY') return 'mock-api-key';
         return defaultValue;
       })
@@ -25188,9 +25188,9 @@ describe('Embedding Service', () => {
     } as unknown as Cache;
 
     llmServiceMock = {
-      generateOpenAIEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
-      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
-      generateLlamaEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1))
+      generateOpenAIEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
+      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
+      generateLlamaEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1))
     };
 
     pineconeServiceMock = {
@@ -25243,7 +25243,7 @@ describe('Embedding Service', () => {
       const embedding = await embeddingService.generateEmbedding(testText);
       
       expect(embedding).toBeDefined();
-      expect(embedding.length).toBe(1536);
+      expect(embedding.length).toBe(1024);
       expect(embeddingService.generateEmbedding).toHaveBeenCalledWith(testText);
     });
 
@@ -25257,8 +25257,8 @@ describe('Embedding Service', () => {
     });
 
     it('should calculate similarity between embeddings', () => {
-      const embedding1 = Array(1536).fill(0.1);
-      const embedding2 = Array(1536).fill(0.2);
+      const embedding1 = Array(1024).fill(0.1);
+      const embedding2 = Array(1024).fill(0.2);
       
       const similarity = embeddingService.calculateSimilarity(embedding1, embedding2);
       
@@ -25451,7 +25451,7 @@ jest.mock('openai', () => {
     default: jest.fn().mockImplementation(() => ({
       embeddings: {
         create: jest.fn().mockResolvedValue({
-          data: [{ embedding: Array(1536).fill(0.1) }]
+          data: [{ embedding: Array(1024).fill(0.1) }]
         })
       }
     }))
@@ -25461,8 +25461,8 @@ jest.mock('openai', () => {
 jest.mock('@langchain/openai', () => {
   return {
     OpenAIEmbeddings: jest.fn().mockImplementation(() => ({
-      embedQuery: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
-      embedDocuments: jest.fn().mockResolvedValue([Array(1536).fill(0.1), Array(1536).fill(0.1)])
+      embedQuery: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
+      embedDocuments: jest.fn().mockResolvedValue([Array(1024).fill(0.1), Array(1024).fill(0.1)])
     }))
   };
 });
@@ -25485,7 +25485,7 @@ describe('EmbeddingService', () => {
     mockConfigService = {
       get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
         if (key === 'EMBEDDING_MODEL') return EmbeddingModel.OPENAI_3_LARGE;
-        if (key === 'EMBEDDING_DIMENSIONS') return 1536;
+        if (key === 'EMBEDDING_DIMENSIONS') return 1024;
         if (key === 'OPENAI_API_KEY') return 'mock-api-key';
         return defaultValue;
       })
@@ -25497,8 +25497,8 @@ describe('EmbeddingService', () => {
     };
 
     mockLlmService = {
-      generateOpenAIEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
-      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
+      generateOpenAIEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
+      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
     };
 
     // Create the test module
@@ -25526,7 +25526,7 @@ describe('EmbeddingService', () => {
   describe('generateEmbedding', () => {
     it('should return cached embedding when available', async () => {
       // Arrange
-      const cachedEmbedding = Array(1536).fill(0.2);
+      const cachedEmbedding = Array(1024).fill(0.2);
       mockCacheManager.get.mockResolvedValueOnce(cachedEmbedding);
       
       // Act
@@ -25543,13 +25543,13 @@ describe('EmbeddingService', () => {
       
       // Spy on private method using any casting
       const directEmbeddingSpy = jest.spyOn(embeddingService as any, 'generateDirectEmbedding')
-        .mockResolvedValueOnce(Array(1536).fill(0.3));
+        .mockResolvedValueOnce(Array(1024).fill(0.3));
       
       // Act
       const result = await embeddingService.generateEmbedding('test text');
       
       // Assert
-      expect(result).toEqual(Array(1536).fill(0.3));
+      expect(result).toEqual(Array(1024).fill(0.3));
       expect(mockCacheManager.get).toHaveBeenCalled();
       expect(mockCacheManager.set).toHaveBeenCalled();
       expect(directEmbeddingSpy).toHaveBeenCalled();
@@ -25649,12 +25649,12 @@ import { http, HttpResponse } from 'msw';
 const mockEmbeddingResponse = {
   data: [
     {
-      embedding: Array(1536).fill(0.1),
+      embedding: Array(1024).fill(0.1),
       index: 0,
       object: 'embedding'
     }
   ],
-  model: 'text-embedding-3-large',
+  model: 'llama-text-embed-v2',
   object: 'list',
   usage: {
     prompt_tokens: 10,
@@ -25665,11 +25665,11 @@ const mockEmbeddingResponse = {
 // Mock response for OpenAI batch embeddings API
 const mockBatchEmbeddingResponse = (inputCount: number) => ({
   data: Array(inputCount).fill(0).map((_, index) => ({
-    embedding: Array(1536).fill(0.1),
+    embedding: Array(1024).fill(0.1),
     index,
     object: 'embedding'
   })),
-  model: 'text-embedding-3-large',
+  model: 'llama-text-embed-v2',
   object: 'list',
   usage: {
     prompt_tokens: inputCount * 10,
@@ -25733,12 +25733,12 @@ import { http, HttpResponse } from 'msw';
 const mockEmbeddingResponse = {
   data: [
     {
-      embedding: Array(1536).fill(0.1),
+      embedding: Array(1024).fill(0.1),
       index: 0,
       object: 'embedding'
     }
   ],
-  model: 'text-embedding-3-large',
+  model: 'llama-text-embed-v2',
   object: 'list',
   usage: {
     prompt_tokens: 10,
@@ -25749,11 +25749,11 @@ const mockEmbeddingResponse = {
 // Mock response for OpenAI batch embeddings API
 const mockBatchEmbeddingResponse = (inputCount: number) => ({
   data: Array(inputCount).fill(0).map((_, index) => ({
-    embedding: Array(1536).fill(0.1),
+    embedding: Array(1024).fill(0.1),
     index,
     object: 'embedding'
   })),
-  model: 'text-embedding-3-large',
+  model: 'llama-text-embed-v2',
   object: 'list',
   usage: {
     prompt_tokens: inputCount * 10,
@@ -25997,7 +25997,7 @@ describe('EmbeddingService', () => {
     mockConfigService = {
       get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
         if (key === 'EMBEDDING_MODEL') return EmbeddingModel.OPENAI_3_LARGE;
-        if (key === 'EMBEDDING_DIMENSIONS') return 1536;
+        if (key === 'EMBEDDING_DIMENSIONS') return 1024;
         if (key === 'OPENAI_API_KEY') return 'mock-api-key';
         return defaultValue;
       })
@@ -26026,7 +26026,7 @@ describe('EmbeddingService', () => {
         const data = await response.json();
         return data.data[0].embedding;
       }),
-      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
+      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
     };
 
     // Create the test module
@@ -26054,7 +26054,7 @@ describe('EmbeddingService', () => {
   describe('generateEmbedding', () => {
     it('should return cached embedding when available', async () => {
       // Arrange
-      const cachedEmbedding = Array(1536).fill(0.2);
+      const cachedEmbedding = Array(1024).fill(0.2);
       mockCacheManager.get.mockResolvedValueOnce(cachedEmbedding);
       
       // Act
@@ -26070,7 +26070,7 @@ describe('EmbeddingService', () => {
       mockCacheManager.get.mockResolvedValueOnce(null);
       
       // Create a custom handler for this test
-      const customEmbedding = Array(1536).fill(0.5);
+      const customEmbedding = Array(1024).fill(0.5);
       server.use(
         http.post('https://api.openai.com/v1/embeddings', () => {
           return HttpResponse.json({
@@ -26081,7 +26081,7 @@ describe('EmbeddingService', () => {
                 object: 'embedding'
               }
             ],
-            model: 'text-embedding-3-large',
+            model: 'llama-text-embed-v2',
             object: 'list',
             usage: { prompt_tokens: 10, total_tokens: 10 }
           });
@@ -26161,7 +26161,7 @@ describe('EmbeddingService', () => {
     mockConfigService = {
       get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
         if (key === 'EMBEDDING_MODEL') return EmbeddingModel.OPENAI_3_LARGE;
-        if (key === 'EMBEDDING_DIMENSIONS') return 1536;
+        if (key === 'EMBEDDING_DIMENSIONS') return 1024;
         if (key === 'OPENAI_API_KEY') return 'mock-api-key';
         return defaultValue;
       })
@@ -26190,7 +26190,7 @@ describe('EmbeddingService', () => {
         const data = await response.json();
         return data.data[0].embedding;
       }),
-      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
+      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
     };
 
     // Create the test module
@@ -26218,7 +26218,7 @@ describe('EmbeddingService', () => {
   describe('generateEmbedding', () => {
     it('should return cached embedding when available', async () => {
       // Arrange
-      const cachedEmbedding = Array(1536).fill(0.2);
+      const cachedEmbedding = Array(1024).fill(0.2);
       mockCacheManager.get.mockResolvedValueOnce(cachedEmbedding);
       
       // Act
@@ -26234,7 +26234,7 @@ describe('EmbeddingService', () => {
       mockCacheManager.get.mockResolvedValueOnce(null);
       
       // Create a custom handler for this test
-      const customEmbedding = Array(1536).fill(0.5);
+      const customEmbedding = Array(1024).fill(0.5);
       server.use(
         http.post('https://api.openai.com/v1/embeddings', () => {
           return HttpResponse.json({
@@ -26245,7 +26245,7 @@ describe('EmbeddingService', () => {
                 object: 'embedding'
               }
             ],
-            model: 'text-embedding-3-large',
+            model: 'llama-text-embed-v2',
             object: 'list',
             usage: { prompt_tokens: 10, total_tokens: 10 }
           });
@@ -26464,12 +26464,12 @@ Let's update the MSW handlers and fix these tests:
 const mockEmbeddingResponse = {
   data: [
     {
-      embedding: Array(1536).fill(0.5),
+      embedding: Array(1024).fill(0.5),
       index: 0,
       object: 'embedding'
     }
   ],
-  model: 'text-embedding-3-large',
+  model: 'llama-text-embed-v2',
   object: 'list',
   usage: {
     prompt_tokens: 10,
@@ -26480,11 +26480,11 @@ const mockEmbeddingResponse = {
 // Mock response for OpenAI batch embeddings API
 const mockBatchEmbeddingResponse = (inputCount: number) => ({
   data: Array(inputCount).fill(0).map((_, index) => ({
-    embedding: Array(1536).fill(0.5),
+    embedding: Array(1024).fill(0.5),
     index,
     object: 'embedding'
   })),
-  model: 'text-embedding-3-large',
+  model: 'llama-text-embed-v2',
   object: 'list',
   usage: {
     prompt_tokens: inputCount * 10,
@@ -26675,7 +26675,7 @@ Let's fix the test by changing the expected values in the test case rather than 
       mockCacheManager.get.mockResolvedValueOnce(null);
       
       // Create a custom handler for this test
-      const customEmbedding = Array(1536).fill(0);
+      const customEmbedding = Array(1024).fill(0);
       server.use(
         http.post('https://api.openai.com/v1/embeddings', () => {
           return HttpResponse.json({
@@ -26686,7 +26686,7 @@ Let's fix the test by changing the expected values in the test case rather than 
                 object: 'embedding'
               }
             ],
-            model: 'text-embedding-3-large',
+            model: 'llama-text-embed-v2',
             object: 'list',
             usage: { prompt_tokens: 10, total_tokens: 10 }
           });
@@ -26889,7 +26889,7 @@ Now let's run just the embedding test and modify it to work with the mock respon
       mockCacheManager.get.mockResolvedValueOnce(null);
       
       // Create a custom handler for this test
-      const customEmbedding = Array(1536).fill(0);
+      const customEmbedding = Array(1024).fill(0);
       server.use(
         http.post('https://api.openai.com/v1/embeddings', () => {
           console.log('Intercepted OpenAI embeddings request');
@@ -26901,7 +26901,7 @@ Now let's run just the embedding test and modify it to work with the mock respon
                 object: 'embedding'
               }
             ],
-            model: 'text-embedding-3-large',
+            model: 'llama-text-embed-v2',
             object: 'list',
             usage: { prompt_tokens: 10, total_tokens: 10 }
           });
@@ -26933,7 +26933,7 @@ Now let's run just the embedding test and modify it to work with the mock respon
     });
 ```
 
-Now we have more information! The mock is creating an array with 1536 elements, but the actual result has 384 elements. This suggests there's some mismatch between the test and the implementation. Let's update the test to match the actual implementation:
+Now we have more information! The mock is creating an array with 1024 elements, but the actual result has 384 elements. This suggests there's some mismatch between the test and the implementation. Let's update the test to match the actual implementation:
 
 ```typescript
     it('should generate new embeddings using OpenAI when cache is empty', async () => {
@@ -26954,7 +26954,7 @@ Now we have more information! The mock is creating an array with 1536 elements, 
                 object: 'embedding'
               }
             ],
-            model: 'text-embedding-3-large',
+            model: 'llama-text-embed-v2',
             object: 'list',
             usage: { prompt_tokens: 10, total_tokens: 10 }
           });
@@ -27007,7 +27007,7 @@ Now we're getting closer - it seems the implementation is using 96-dimensional e
                 object: 'embedding'
               }
             ],
-            model: 'text-embedding-3-large',
+            model: 'llama-text-embed-v2',
             object: 'list',
             usage: { prompt_tokens: 10, total_tokens: 10 }
           });
@@ -27060,7 +27060,7 @@ Interesting! Now we're getting 24-dimensional embeddings. Let's change our test 
                 object: 'embedding'
               }
             ],
-            model: 'text-embedding-3-large',
+            model: 'llama-text-embed-v2',
             object: 'list',
             usage: { prompt_tokens: 10, total_tokens: 10 }
           });
@@ -27185,7 +27185,7 @@ http.post('https://api.openai.com/v1/embeddings', () => {
         object: 'embedding'
       }
     ],
-    model: 'text-embedding-3-large',
+    model: 'llama-text-embed-v2',
     object: 'list',
     usage: { prompt_tokens: 10, total_tokens: 10 }
   });
@@ -27226,7 +27226,7 @@ server.use(
     const embedding = Array(96).fill(0);
     return HttpResponse.json({
       data: [{ embedding, index: 0, object: 'embedding' }],
-      model: 'text-embedding-3-large',
+      model: 'llama-text-embed-v2',
       object: 'list',
       usage: { prompt_tokens: 10, total_tokens: 10 }
     });
@@ -28814,8 +28814,8 @@ PINECONE_INDEX_NAME=your-index-name
 OPENAI_API_KEY=your-openai-api-key
 
 # Embedding configuration
-EMBEDDING_MODEL=text-embedding-3-large
-EMBEDDING_DIMENSIONS=1536
+EMBEDDING_MODEL=llama-text-embed-v2
+EMBEDDING_DIMENSIONS=1024
 ```
 
 ## Usage Guide
@@ -29703,12 +29703,12 @@ describe('RAG Services Integration', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding'
             }
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: {
             prompt_tokens: 10,
@@ -29820,7 +29820,7 @@ describe('RAG Services Integration', () => {
           useFactory: () => ({
             generateEmbedding: async (text) => {
               // This will be intercepted by MSW
-              return Array(1536).fill(0.1);
+              return Array(1024).fill(0.1);
             },
             chunkText: (text) => {
               return [text.substring(0, 500), text.substring(500)];
@@ -29959,7 +29959,7 @@ describe('RAG Services Integration', () => {
   };
 
   const mockEmbeddingService = {
-    generateEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
+    generateEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
     chunkText: jest.fn().mockReturnValue(['chunk1', 'chunk2']),
   };
 
@@ -30001,12 +30001,12 @@ describe('RAG Services Integration', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding'
             }
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: {
             prompt_tokens: 10,
@@ -31093,7 +31093,7 @@ describe('RAG Services Integration', () => {
   };
 
   const mockEmbeddingService = {
-    generateEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
+    generateEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
     chunkText: jest.fn().mockReturnValue(['chunk1', 'chunk2']),
   };
 
@@ -31135,12 +31135,12 @@ describe('RAG Services Integration', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding'
             }
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: {
             prompt_tokens: 10,
@@ -31400,7 +31400,7 @@ describe('EmbeddingService', () => {
     mockConfigService = {
       get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
         if (key === 'EMBEDDING_MODEL') return EmbeddingModel.OPENAI_3_LARGE;
-        if (key === 'EMBEDDING_DIMENSIONS') return 1536;
+        if (key === 'EMBEDDING_DIMENSIONS') return 1024;
         if (key === 'OPENAI_API_KEY') return 'mock-api-key';
         return defaultValue;
       })
@@ -31429,7 +31429,7 @@ describe('EmbeddingService', () => {
         const data = await response.json();
         return data.data[0].embedding;
       }),
-      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
+      generateAnthropicEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
     };
 
     // Create the test module with token-based injection
@@ -31471,7 +31471,7 @@ describe('EmbeddingService', () => {
   describe('generateEmbedding', () => {
     it('should return cached embedding when available', async () => {
       // Arrange
-      const cachedEmbedding = Array(1536).fill(0.2);
+      const cachedEmbedding = Array(1024).fill(0.2);
       mockCacheManager.get.mockResolvedValueOnce(cachedEmbedding);
       
       // Act
@@ -31500,7 +31500,7 @@ describe('EmbeddingService', () => {
                 object: 'embedding'
               }
             ],
-            model: 'text-embedding-3-large',
+            model: 'llama-text-embed-v2',
             object: 'list',
             usage: { prompt_tokens: 10, total_tokens: 10 }
           });
@@ -35027,12 +35027,12 @@ describe('RAG Meeting Analysis Integration', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding'
             }
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 }
         });
@@ -35166,12 +35166,12 @@ describe('RetrievalService', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding'
             }
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 }
         });
@@ -35194,7 +35194,7 @@ describe('RetrievalService', () => {
     };
     
     mockEmbeddingService = {
-      generateEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1))
+      generateEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1))
     };
     
     mockCacheManager = {
@@ -35291,11 +35291,11 @@ import { http, HttpResponse } from 'msw';
 const mockEmbeddingResponse = (inputCount = 1) => {
   return {
     data: Array(inputCount).fill(0).map((_, i) => ({
-      embedding: Array(1536).fill(0.1),
+      embedding: Array(1024).fill(0.1),
       index: i,
       object: 'embedding'
     })),
-    model: 'text-embedding-3-large',
+    model: 'llama-text-embed-v2',
     object: 'list',
     usage: { prompt_tokens: 10 * inputCount, total_tokens: 10 * inputCount }
   };
@@ -35542,12 +35542,12 @@ describe('RAG Meeting Analysis Integration', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding'
             }
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 }
         });
@@ -35679,12 +35679,12 @@ describe('RetrievalService', () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: 'embedding'
             }
           ],
-          model: 'text-embedding-3-large',
+          model: 'llama-text-embed-v2',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 }
         });
@@ -35707,7 +35707,7 @@ describe('RetrievalService', () => {
     };
     
     mockEmbeddingService = {
-      generateEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1))
+      generateEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1))
     };
     
     mockCacheManager = {
@@ -35800,11 +35800,11 @@ import { http, HttpResponse } from 'msw';
 const mockEmbeddingResponse = (inputCount = 1) => {
   return {
     data: Array(inputCount).fill(0).map((_, i) => ({
-      embedding: Array(1536).fill(0.1),
+      embedding: Array(1024).fill(0.1),
       index: i,
       object: 'embedding'
     })),
-    model: 'text-embedding-3-large',
+    model: 'llama-text-embed-v2',
     object: 'list',
     usage: { prompt_tokens: 10 * inputCount, total_tokens: 10 * inputCount }
   };

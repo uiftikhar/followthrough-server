@@ -111,7 +111,7 @@ export class LlmService {
    */
   async generateOpenAIEmbedding(
     text: string,
-    model: string = 'text-embedding-3-large',
+    model: string = 'llama-text-embed-v2',
   ): Promise<number[]> {
     if (!this.openai) {
       if (!this.openaiApiKey) {

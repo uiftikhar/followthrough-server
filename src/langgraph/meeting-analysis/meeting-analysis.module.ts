@@ -1,28 +1,19 @@
-import { Module, forwardRef } from '@nestjs/common';
-import { EventEmitterModule } from '@nestjs/event-emitter';
+import { Module } from '@nestjs/common';
+import { SharedCoreModule } from '../../shared/shared-core.module';
 import { MeetingAnalysisController } from './meeting-analysis.controller';
 import { MeetingAnalysisService } from './meeting-analysis.service';
 import { MeetingAnalysisGateway } from './meeting-analysis.gateway';
-import { DatabaseModule } from '../../database/database.module';
-import { AgentsModule } from '../agents/agents.module';
 import { MeetingAnalysisGraphBuilder } from './meeting-analysis-graph.builder';
-import { LlmModule } from '../llm/llm.module';
-import { PineconeModule } from '../../pinecone/pinecone.module';
-import { EmbeddingModule } from '../../embedding/embedding.module';
-import { RagModule } from '../../rag/rag.module';
-import { LanggraphCoreModule } from '../core/core.module';
 import { UnifiedWorkflowService } from '../unified-workflow.service';
 
+/**
+ * MeetingAnalysisModule - Contains meeting analysis business logic
+ * Only imports SharedCoreModule which provides ALL dependencies
+ * Simplified architecture eliminates circular dependencies
+ */
 @Module({
   imports: [
-    DatabaseModule,
-    EventEmitterModule.forRoot(),
-    LanggraphCoreModule,
-    forwardRef(() => AgentsModule),
-    LlmModule,
-    PineconeModule,
-    EmbeddingModule,
-    forwardRef(() => RagModule),
+    SharedCoreModule, // Provides ALL dependencies: services, agents, infrastructure
   ],
   controllers: [MeetingAnalysisController],
   providers: [

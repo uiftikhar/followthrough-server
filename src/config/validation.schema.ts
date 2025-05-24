@@ -26,18 +26,19 @@ export const configValidationSchema = Joi.object({
   PINECONE_API_KEY: Joi.string().required(),
   PINECONE_CLOUD: Joi.string().default('aws'),
   PINECONE_REGION: Joi.string().default('us-west-2'),
+  PINECONE_DIMENSIONS: Joi.number().default(1024),
 
   // Embedding Configuration
   EMBEDDING_MODEL: Joi.string()
     .valid(
       'text-embedding-ada-002',
       'text-embedding-3-small',
-      'text-embedding-3-large',
+      'llama-text-embed-v2',
       'anthropic',
       'llama-text-embed-v2',
     )
-    .default('text-embedding-3-large'),
-  EMBEDDING_DIMENSIONS: Joi.number().default(1536),
+    .default('llama-text-embed-v2'),
+  EMBEDDING_DIMENSIONS: Joi.number().default(1024),
 
   // RAG Configuration
   RAG_ENABLE: Joi.boolean().default(true),

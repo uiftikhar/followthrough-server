@@ -11,8 +11,11 @@ import {
   AgentExpertise 
 } from '../../../rag/agents/rag-enhanced-agent';
 import { Topic } from './interfaces/state.interface';
-import { MEETING_CHUNK_ANALYSIS_PROMPT } from '../../../instruction-promtps';
-import { RagService } from 'src/rag';
+import { 
+  TOPIC_EXTRACTION_PROMPT,
+  TOPIC_EXTRACTION_SYSTEM_PROMPT 
+} from '../../../instruction-promtps';
+import { RagService } from '../../../rag/rag.service';
 
 // Define the token here to avoid circular import
 export const RAG_TOPIC_EXTRACTION_CONFIG = 'RAG_TOPIC_EXTRACTION_CONFIG';
@@ -52,14 +55,14 @@ export class RagTopicExtractionAgent extends RagEnhancedAgent {
 
     super(llmService, stateService, ragService, {
       name: config.name || 'Topic Extraction Agent',
-      systemPrompt: config.systemPrompt || MEETING_CHUNK_ANALYSIS_PROMPT,
+      systemPrompt: config.systemPrompt || TOPIC_EXTRACTION_SYSTEM_PROMPT,
       llmOptions: config.llmOptions,
       ragOptions: ragConfig,
     });
     
     // Override expertisePrompts with topic-specific prompts
     (this as any).expertisePrompts = {
-      [AgentExpertise.TOPIC_ANALYSIS]: MEETING_CHUNK_ANALYSIS_PROMPT,
+      [AgentExpertise.TOPIC_ANALYSIS]: TOPIC_EXTRACTION_PROMPT,
     };
   }
 
@@ -70,6 +73,7 @@ export class RagTopicExtractionAgent extends RagEnhancedAgent {
     // Extract a query focused on topic extraction
     let query = '';
 
+    this.logger.log('********* RAG TOPIC **********: extractQueryFromState');
     if (typeof state === 'object') {
       if (state.transcript) {
         // Use a shorter version of the transcript focused on topics
@@ -110,6 +114,7 @@ export class RagTopicExtractionAgent extends RagEnhancedAgent {
     },
   ): Promise<Topic[]> {
     try {
+      this.logger.log('********* RAG TOPIC **********: extractTopics');
       // Create a base state for RAG enhancement
       const baseState = { 
         transcript,
@@ -126,7 +131,7 @@ export class RagTopicExtractionAgent extends RagEnhancedAgent {
       };
 
       // Extract a more specific query for topic retrieval
-      const query = `Extract topics from the following meeting transcript: ${transcript.substring(0, 300)}...`;
+      const query = `Extract topics from the following meeting transcript: ${transcript}...`;
 
       // Enhance state with RAG context before proceeding
       const enhancedState = await this.ragService.enhanceStateWithContext(
@@ -134,6 +139,8 @@ export class RagTopicExtractionAgent extends RagEnhancedAgent {
         query,
         retrievalOptions,
       );
+
+      this.logger.log('********* RAG TOPIC **********: extractTopics - enhancedState\n', enhancedState);
 
       // Add format instructions to the enhanced state using type assertion
       const stateWithFormat = {
@@ -145,18 +152,26 @@ Your output MUST be a valid JSON array of topic objects with this exact structur
   {
     "name": "Topic Name",
     "description": "Detailed description of topic",
-    "relevance": 5, // number from 1-5
+    "relevance": 5, // number from 1-10
     "subtopics": ["Subtopic 1", "Subtopic 2"],
-    "keywords": ["keyword1", "keyword2"] 
+    "keywords": ["keyword1", "keyword2"],
+    "participants": ["Person 1", "Person 2"],
+    "duration": "estimated time"
   },
   ...
 ]
 If you cannot extract proper topics, return an array with at least one valid topic object.
+DO NOT include markdown formatting or any text outside the JSON array.
 `
       };
 
-      // Generate prompt using the base class method
-      const prompt = this.generatePromptFromExpertise(AgentExpertise.TOPIC_ANALYSIS, stateWithFormat);
+      // Generate topic-specific prompt
+      const prompt = `${TOPIC_EXTRACTION_PROMPT}
+
+Transcript:
+${transcript}
+
+${stateWithFormat.formatInstructions}`;
 
       // Execute LLM request
       const result = await this.executeLlmRequest(prompt, stateWithFormat);
@@ -208,7 +223,7 @@ If you cannot extract proper topics, return an array with at least one valid top
       
       // Invoke the LLM
       const messages = [
-        { role: 'system', content: MEETING_CHUNK_ANALYSIS_PROMPT },
+        { role: 'system', content: TOPIC_EXTRACTION_SYSTEM_PROMPT },
         { role: 'user', content: promptWithContext }
       ];
       
@@ -230,13 +245,61 @@ If you cannot extract proper topics, return an array with at least one valid top
    */
   private processTopicsResult(result: any): Topic[] {
     this.logger.log('Processing topics result from LLM');
-    this.logger.log(`Result type: ${typeof result}, preview: ${JSON.stringify(result).substring(0, 200)}...`);
+    this.logger.log(`Result type: ${typeof result}, preview: ${result}...`);
     
     try {
+      let cleanedResult = result;
+      
+      // If result is a string, clean it first
+      if (typeof result === 'string') {
+        this.logger.log('Result is string, cleaning and parsing');
+        
+        // Remove markdown code block formatting
+        cleanedResult = result
+          .replace(/```json\s*/g, '')
+          .replace(/```\s*/g, '')
+          .trim();
+        
+        // Try to extract JSON from the cleaned string
+        try {
+          cleanedResult = JSON.parse(cleanedResult);
+          this.logger.log('Successfully parsed cleaned JSON string');
+        } catch (parseError) {
+          this.logger.warn(`Failed to parse cleaned JSON: ${parseError.message}`);
+          
+          // Try to find JSON array pattern in the string
+          const arrayMatch = cleanedResult.match(/\[\s*\{[\s\S]*\}\s*\]/);
+          if (arrayMatch) {
+            try {
+              cleanedResult = JSON.parse(arrayMatch[0]);
+              this.logger.log('Successfully extracted and parsed JSON array from string');
+            } catch (e) {
+              this.logger.warn(`Failed to parse extracted array: ${e.message}`);
+            }
+          } else {
+            // Try to find JSON object pattern
+            const objectMatch = cleanedResult.match(/\{[\s\S]*\}/);
+            if (objectMatch) {
+              try {
+                const parsedObj = JSON.parse(objectMatch[0]);
+                cleanedResult = parsedObj.topics || [parsedObj];
+                this.logger.log('Successfully extracted and parsed JSON object from string');
+              } catch (e) {
+                this.logger.warn(`Failed to parse extracted object: ${e.message}`);
+                return this.createFallbackTopics(cleanedResult);
+              }
+            } else {
+              this.logger.warn('No JSON pattern found, creating fallback topics');
+              return this.createFallbackTopics(cleanedResult);
+            }
+          }
+        }
+      }
+
       // If result is already an array of topics, validate it
-      if (Array.isArray(result)) {
-        this.logger.log('Result is already an array, validating topics');
-        const validatedTopics = this.validateTopics(result);
+      if (Array.isArray(cleanedResult)) {
+        this.logger.log('Result is array, validating topics');
+        const validatedTopics = this.validateTopics(cleanedResult);
         if (validatedTopics.length > 0) {
           this.logger.log(`Successfully validated ${validatedTopics.length} topics from array`);
           return validatedTopics;
@@ -244,70 +307,19 @@ If you cannot extract proper topics, return an array with at least one valid top
       }
 
       // If result is an object with a topics property
-      if (result && result.topics && Array.isArray(result.topics)) {
+      if (cleanedResult && cleanedResult.topics && Array.isArray(cleanedResult.topics)) {
         this.logger.log('Found topics array in result object');
-        const validatedTopics = this.validateTopics(result.topics);
+        const validatedTopics = this.validateTopics(cleanedResult.topics);
         if (validatedTopics.length > 0) {
           this.logger.log(`Successfully validated ${validatedTopics.length} topics from object`);
           return validatedTopics;
         }
       }
 
-      // If result is a string, try to extract and parse JSON
-      if (typeof result === 'string') {
-        this.logger.log('Result is string, attempting to parse JSON');
-        
-        // Try to find JSON array in the string first
-        const arrayMatch = result.match(/\[\s*\{[\s\S]*\}\s*\]/);
-        if (arrayMatch) {
-          try {
-            const parsedArray = JSON.parse(arrayMatch[0]);
-            this.logger.log('Successfully parsed JSON array from string');
-            const validatedTopics = this.validateTopics(parsedArray);
-            if (validatedTopics.length > 0) {
-              return validatedTopics;
-            }
-          } catch (e) {
-            this.logger.warn(`Failed to parse array JSON: ${e.message}`);
-          }
-        }
-
-        // Try to find JSON object in the string
-        const objectMatch = result.match(/\{[\s\S]*\}/);
-        if (objectMatch) {
-          try {
-            const parsedObj = JSON.parse(objectMatch[0]);
-            this.logger.log('Successfully parsed JSON object from string');
-            
-            // If the object has a topics array, use that
-            if (parsedObj.topics && Array.isArray(parsedObj.topics)) {
-              const validatedTopics = this.validateTopics(parsedObj.topics);
-              if (validatedTopics.length > 0) {
-                return validatedTopics;
-              }
-            }
-            // Otherwise wrap the object itself as a topic
-            const validatedTopics = this.validateTopics([parsedObj]);
-            if (validatedTopics.length > 0) {
-              return validatedTopics;
-            }
-          } catch (e) {
-            this.logger.warn(`Failed to parse object JSON: ${e.message}`);
-          }
-        }
-
-        // If JSON parsing fails, try to extract topics from text
-        this.logger.log('JSON parsing failed, extracting topics from text');
-        const extractedTopics = this.extractTopicsFromText(result);
-        if (extractedTopics.length > 0) {
-          return extractedTopics;
-        }
-      }
-
       // If result is an object but not an array, try to convert it to a topic
-      if (typeof result === 'object' && result !== null) {
+      if (typeof cleanedResult === 'object' && cleanedResult !== null) {
         this.logger.log('Converting object result to topic');
-        const validatedTopics = this.validateTopics([result]);
+        const validatedTopics = this.validateTopics([cleanedResult]);
         if (validatedTopics.length > 0) {
           return validatedTopics;
         }
@@ -315,23 +327,30 @@ If you cannot extract proper topics, return an array with at least one valid top
 
       // Final fallback
       this.logger.warn('All parsing attempts failed, creating fallback topic');
-      return [
-        {
-          name: 'Meeting Discussion',
-          description: 'Topics were discussed but could not be parsed from the response',
-          relevance: 3,
-        },
-      ];
+      return this.createFallbackTopics(result);
     } catch (error) {
       this.logger.error(`Error processing topics result: ${error.message}`);
-      return [
-        {
-          name: 'Processing Error',
-          description: 'Error occurred while processing topics',
-          relevance: 1,
-        },
-      ];
+      return this.createFallbackTopics(result);
     }
+  }
+
+  /**
+   * Create fallback topics when parsing fails
+   */
+  private createFallbackTopics(originalResult: any): Topic[] {
+    return [
+      {
+        name: 'Meeting Discussion',
+        description: 'Topics were discussed but could not be parsed from the response. Raw response: ' + 
+                    (typeof originalResult === 'string' 
+                      ? originalResult.substring(0, 200) 
+                      : JSON.stringify(originalResult).substring(0, 200)),
+        relevance: 3,
+        subtopics: [],
+        keywords: [],
+        participants: [],
+      },
+    ];
   }
 
   /**

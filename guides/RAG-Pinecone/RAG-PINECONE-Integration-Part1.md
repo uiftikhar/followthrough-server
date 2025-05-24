@@ -303,7 +303,7 @@ export interface IndexConfig {
   embeddingModel?:
     | 'multilingual-e5-large'
     | 'pinecone-sparse-english-v0'
-    | 'text-embedding-3-large'
+    | 'llama-text-embed-v2'
     | 'text-embedding-ada-002'
     | 'llama-text-embed-v2';
   tags?: Record<string, string>;
