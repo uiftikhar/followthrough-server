@@ -1,4 +1,4 @@
-import { RetrievalOptions, RetrievedDocument } from '../retrieval.service';
+import { RetrievalOptions, RetrievedDocument } from "../retrieval.service";
 
 export interface IRetrievalService {
   retrieveDocuments(

@@ -1,10 +1,10 @@
-import { Module } from '@nestjs/common';
-import { ZapierController } from './zapier.controller';
-import { WebhookController } from './webhook.controller';
-import { ZapierEmailWebhookController } from './email-webhook.controller';
-import { ZapierService } from './zapier.service';
-import { TriggerController } from './trigger.controller';
-import { WorkflowFrameworkModule } from '../workflow-framework/workflow-framework.module';
+import { Module } from "@nestjs/common";
+import { ZapierController } from "./zapier.controller";
+import { WebhookController } from "./webhook.controller";
+import { ZapierEmailWebhookController } from "./email-webhook.controller";
+import { ZapierService } from "./zapier.service";
+import { TriggerController } from "./trigger.controller";
+import { WorkflowFrameworkModule } from "../workflow-framework/workflow-framework.module";
 
 /**
  * ZapierModule - Integration layer for Zapier webhooks and triggers
@@ -23,4 +23,4 @@ import { WorkflowFrameworkModule } from '../workflow-framework/workflow-framewor
   providers: [ZapierService],
   exports: [ZapierService],
 })
-export class ZapierModule {} 
+export class ZapierModule {}

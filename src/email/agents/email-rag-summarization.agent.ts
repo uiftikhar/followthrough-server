@@ -1,11 +1,14 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
-import { LLM_SERVICE } from '../../langgraph/llm/constants/injection-tokens';
-import { LlmService } from '../../langgraph/llm/llm.service';
-import { RAG_SERVICE } from '../../rag/constants/injection-tokens';
-import { RagService } from '../../rag/rag.service';
-import { VectorIndexes } from '../../pinecone/pinecone-index.service';
-import { EmailSummary, EmailSummarizationConfig } from '../dtos/email-triage.dto';
-import { EMAIL_SUMMARIZATION_CONFIG } from './constants/injection-tokens';
+import { Injectable, Inject, Logger } from "@nestjs/common";
+import { LLM_SERVICE } from "../../langgraph/llm/constants/injection-tokens";
+import { LlmService } from "../../langgraph/llm/llm.service";
+import { RAG_SERVICE } from "../../rag/constants/injection-tokens";
+import { RagService } from "../../rag/rag.service";
+import { VectorIndexes } from "../../pinecone/pinecone-index.service";
+import {
+  EmailSummary,
+  EmailSummarizationConfig,
+} from "../dtos/email-triage.dto";
+import { EMAIL_SUMMARIZATION_CONFIG } from "./constants/injection-tokens";
 
 /**
  * RAG-Enhanced Email Summarization Agent
@@ -19,12 +22,16 @@ export class EmailRagSummarizationAgent {
   constructor(
     @Inject(LLM_SERVICE) private readonly llmService: LlmService,
     @Inject(RAG_SERVICE) private readonly ragService: RagService,
-    @Inject(EMAIL_SUMMARIZATION_CONFIG) private readonly config: EmailSummarizationConfig,
+    @Inject(EMAIL_SUMMARIZATION_CONFIG)
+    private readonly config: EmailSummarizationConfig,
   ) {}
 
-  async summarizeEmail(emailContent: string, metadata: any): Promise<EmailSummary> {
+  async summarizeEmail(
+    emailContent: string,
+    metadata: any,
+  ): Promise<EmailSummary> {
     this.logger.log(`RAG-Enhanced summarizing email: ${metadata.subject}`);
-    
+
     try {
       // Step 1: Generate a query for RAG retrieval
       const ragQuery = `Email summary: 
@@ -33,24 +40,30 @@ From: ${metadata.from}
 Email type and category analysis`;
 
       // Step 2: Retrieve relevant context from email-triage index
-      this.logger.log('Retrieving relevant email patterns from email-triage index');
+      this.logger.log(
+        "Retrieving relevant email patterns from email-triage index",
+      );
       const retrievedContext = await this.ragService.getContext(ragQuery, {
         indexName: VectorIndexes.EMAIL_TRIAGE,
-        namespace: 'email-summaries',
+        namespace: "email-summaries",
         topK: 3,
         minScore: 0.7,
       });
 
       // Step 3: Format context for the LLM
-      let contextPrompt = '';
+      let contextPrompt = "";
       if (retrievedContext && retrievedContext.length > 0) {
         contextPrompt = `
 
 RELEVANT EMAIL PATTERNS FROM HISTORY:
-${retrievedContext.map((doc, i) => `
+${retrievedContext
+  .map(
+    (doc, i) => `
 Example ${i + 1}:
 ${doc.content}
----`).join('\n')}
+---`,
+  )
+  .join("\n")}
 
 Use these patterns to help analyze the current email.`;
       }
@@ -84,8 +97,8 @@ Respond in JSON format:
       });
 
       const messages = [
-        { role: 'system', content: this.config.systemPrompt },
-        { role: 'user', content: prompt }
+        { role: "system", content: this.config.systemPrompt },
+        { role: "user", content: prompt },
       ];
 
       const response = await model.invoke(messages);
@@ -93,21 +106,26 @@ Respond in JSON format:
 
       // Try to parse JSON from response
       let parsedContent = content;
-      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
-                       content.match(/```\n([\s\S]*?)\n```/) ||
-                       content.match(/(\{[\s\S]*\})/);
-      
+      const jsonMatch =
+        content.match(/```json\n([\s\S]*?)\n```/) ||
+        content.match(/```\n([\s\S]*?)\n```/) ||
+        content.match(/(\{[\s\S]*\})/);
+
       if (jsonMatch) {
         parsedContent = jsonMatch[1];
       }
 
       const summary = JSON.parse(parsedContent);
-      
-      this.logger.log(`RAG-Enhanced email summarized successfully with ${retrievedContext.length} context documents`);
+
+      this.logger.log(
+        `RAG-Enhanced email summarized successfully with ${retrievedContext.length} context documents`,
+      );
       return summary;
     } catch (error) {
-      this.logger.error(`Failed to RAG-enhance email summary: ${error.message}`);
-      
+      this.logger.error(
+        `Failed to RAG-enhance email summary: ${error.message}`,
+      );
+
       // Fallback to basic summarization without RAG
       return this.fallbackSummarization(emailContent, metadata);
     }
@@ -116,9 +134,12 @@ Respond in JSON format:
   /**
    * Fallback summarization without RAG context
    */
-  private async fallbackSummarization(emailContent: string, metadata: any): Promise<EmailSummary> {
-    this.logger.log('Using fallback summarization without RAG');
-    
+  private async fallbackSummarization(
+    emailContent: string,
+    metadata: any,
+  ): Promise<EmailSummary> {
+    this.logger.log("Using fallback summarization without RAG");
+
     const prompt = `Email to summarize:
 Subject: ${metadata.subject}
 From: ${metadata.from}
@@ -144,18 +165,19 @@ Respond in JSON format:
       });
 
       const messages = [
-        { role: 'system', content: this.config.systemPrompt },
-        { role: 'user', content: prompt }
+        { role: "system", content: this.config.systemPrompt },
+        { role: "user", content: prompt },
       ];
 
       const response = await model.invoke(messages);
       const content = response.content.toString();
 
       let parsedContent = content;
-      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
-                       content.match(/```\n([\s\S]*?)\n```/) ||
-                       content.match(/(\{[\s\S]*\})/);
-      
+      const jsonMatch =
+        content.match(/```json\n([\s\S]*?)\n```/) ||
+        content.match(/```\n([\s\S]*?)\n```/) ||
+        content.match(/(\{[\s\S]*\})/);
+
       if (jsonMatch) {
         parsedContent = jsonMatch[1];
       }
@@ -163,14 +185,14 @@ Respond in JSON format:
       return JSON.parse(parsedContent);
     } catch (error) {
       this.logger.error(`Fallback summarization also failed: ${error.message}`);
-      
+
       // Final fallback with hardcoded response
       return {
-        problem: 'Unable to identify specific problem',
-        context: 'Unable to extract context',
-        ask: 'Unable to determine request',
-        summary: 'Failed to summarize email automatically',
+        problem: "Unable to identify specific problem",
+        context: "Unable to extract context",
+        ask: "Unable to determine request",
+        summary: "Failed to summarize email automatically",
       };
     }
   }
-} 
+}

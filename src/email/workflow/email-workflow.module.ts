@@ -1,13 +1,13 @@
-import { Module } from '@nestjs/common';
-import { InfrastructureModule } from '../../infrastructure/infrastructure.module';
-import { RagCoreModule } from '../../rag-core/rag-core.module';
-import { WorkflowFrameworkModule } from '../../workflow-framework/workflow-framework.module';
-import { EmailAgentsModule } from '../agents/email-agents.module';
+import { Module } from "@nestjs/common";
+import { InfrastructureModule } from "../../infrastructure/infrastructure.module";
+import { RagCoreModule } from "../../rag-core/rag-core.module";
+import { WorkflowFrameworkModule } from "../../workflow-framework/workflow-framework.module";
+import { EmailAgentsModule } from "../agents/email-agents.module";
 
 // Email-specific workflow services
-import { EmailTriageManager } from './email-triage.manager';
-import { EmailTriageService } from './email-triage.service';
-import { EmailTriageGraphBuilder } from './email-triage-graph.builder';
+import { EmailTriageManager } from "./email-triage.manager";
+import { EmailTriageService } from "./email-triage.service";
+import { EmailTriageGraphBuilder } from "./email-triage-graph.builder";
 
 /**
  * EmailWorkflowModule - Application Services Layer
@@ -18,22 +18,22 @@ import { EmailTriageGraphBuilder } from './email-triage-graph.builder';
  */
 @Module({
   imports: [
-    InfrastructureModule,    // For database access and events
-    RagCoreModule,          // For RAG services (future enhancement)
+    InfrastructureModule, // For database access and events
+    RagCoreModule, // For RAG services (future enhancement)
     WorkflowFrameworkModule, // For supervisor and graph execution
-    EmailAgentsModule,       // For email-specific agents
+    EmailAgentsModule, // For email-specific agents
   ],
   providers: [
-    EmailTriageManager,     // Coordinates the 3 workers
-    EmailTriageService,     // Team handler that registers with supervisor
+    EmailTriageManager, // Coordinates the 3 workers
+    EmailTriageService, // Team handler that registers with supervisor
     EmailTriageGraphBuilder, // Graph-based workflow execution
   ],
   exports: [
     WorkflowFrameworkModule, // Re-export for controllers
-    EmailAgentsModule,       // NEW - Re-export for controllers to access agents
+    EmailAgentsModule, // NEW - Re-export for controllers to access agents
     EmailTriageManager,
     EmailTriageService,
     EmailTriageGraphBuilder,
   ],
 })
-export class EmailWorkflowModule {} 
+export class EmailWorkflowModule {}

@@ -6,12 +6,15 @@ import {
   OnGatewayDisconnect,
   WsResponse,
   ConnectedSocket,
-} from '@nestjs/websockets';
-import { UseGuards, Logger, OnModuleInit } from '@nestjs/common';
-import { Server, Socket } from 'socket.io';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { MeetingAnalysisService, AnalysisProgressEvent } from './meeting-analysis.service';
-import { OnEvent } from '@nestjs/event-emitter';
+} from "@nestjs/websockets";
+import { UseGuards, Logger, OnModuleInit } from "@nestjs/common";
+import { Server, Socket } from "socket.io";
+import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
+import {
+  MeetingAnalysisService,
+  AnalysisProgressEvent,
+} from "./meeting-analysis.service";
+import { OnEvent } from "@nestjs/event-emitter";
 
 interface SubscribeResponse {
   status: string;
@@ -20,9 +23,9 @@ interface SubscribeResponse {
 }
 
 @WebSocketGateway({
-  namespace: 'meeting-analysis',
+  namespace: "meeting-analysis",
   cors: {
-    origin: '*',
+    origin: "*",
   },
 })
 export class MeetingAnalysisGateway
@@ -39,7 +42,7 @@ export class MeetingAnalysisGateway
   ) {}
 
   onModuleInit() {
-    this.logger.log('Meeting Analysis WebSocket Gateway initialized');
+    this.logger.log("Meeting Analysis WebSocket Gateway initialized");
   }
 
   handleConnection(client: Socket) {
@@ -60,7 +63,7 @@ export class MeetingAnalysisGateway
     }
   }
 
-  @SubscribeMessage('subscribe')
+  @SubscribeMessage("subscribe")
   handleSubscribe(
     @ConnectedSocket() client: Socket,
     payload: { sessionId: string },
@@ -69,8 +72,8 @@ export class MeetingAnalysisGateway
 
     if (!sessionId) {
       return {
-        event: 'error',
-        data: { status: 'error', message: 'Session ID is required' },
+        event: "error",
+        data: { status: "error", message: "Session ID is required" },
       };
     }
 
@@ -83,10 +86,10 @@ export class MeetingAnalysisGateway
 
     this.logger.log(`Client ${client.id} subscribed to session ${sessionId}`);
 
-    return { event: 'subscribed', data: { status: 'success', sessionId } };
+    return { event: "subscribed", data: { status: "success", sessionId } };
   }
 
-  @SubscribeMessage('unsubscribe')
+  @SubscribeMessage("unsubscribe")
   handleUnsubscribe(
     @ConnectedSocket() client: Socket,
     payload: { sessionId: string },
@@ -95,8 +98,8 @@ export class MeetingAnalysisGateway
 
     if (!sessionId) {
       return {
-        event: 'error',
-        data: { status: 'error', message: 'Session ID is required' },
+        event: "error",
+        data: { status: "error", message: "Session ID is required" },
       };
     }
 
@@ -108,13 +111,13 @@ export class MeetingAnalysisGateway
       );
     }
 
-    return { event: 'unsubscribed', data: { status: 'success', sessionId } };
+    return { event: "unsubscribed", data: { status: "success", sessionId } };
   }
 
   /**
    * Listen for analysis progress events and publish to subscribers
    */
-  @OnEvent('analysis.progress')
+  @OnEvent("analysis.progress")
   handleAnalysisProgressEvent(event: AnalysisProgressEvent) {
     this.logger.debug(`Received progress event for session ${event.sessionId}`);
     this.publishProgressUpdate(event);
@@ -142,7 +145,7 @@ export class MeetingAnalysisGateway
 
     // Emit to specific clients
     for (const clientId of clients) {
-      this.server.to(clientId).emit('analysis_progress', update);
+      this.server.to(clientId).emit("analysis_progress", update);
     }
   }
 }

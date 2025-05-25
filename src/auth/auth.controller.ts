@@ -6,28 +6,28 @@ import {
   Get,
   Req,
   HttpCode,
-} from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { LocalAuthGuard } from './guards/local-auth.guard';
-import { User } from './entities/user.entity';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { Request } from 'express';
+} from "@nestjs/common";
+import { AuthService } from "./auth.service";
+import { LocalAuthGuard } from "./guards/local-auth.guard";
+import { User } from "./entities/user.entity";
+import { JwtAuthGuard } from "./guards/jwt-auth.guard";
+import { Request } from "express";
 interface RequestWithUser extends Request {
   user: User;
 }
 
-@Controller('auth')
+@Controller("auth")
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @UseGuards(LocalAuthGuard)
-  @Post('login')
+  @Post("login")
   @HttpCode(200)
   async login(@Req() req: RequestWithUser) {
     return this.authService.login(req.user);
   }
 
-  @Post('register')
+  @Post("register")
   async register(
     @Body()
     registerDto: {
@@ -41,7 +41,7 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('refresh')
+  @Post("refresh")
   async refresh(
     @Req() req: RequestWithUser,
     @Body() body: { refreshToken: string },
@@ -50,13 +50,13 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('logout')
+  @Post("logout")
   async logout(@Req() req: RequestWithUser) {
     return this.authService.logout(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('profile')
+  @Get("profile")
   getProfile(@Req() req: RequestWithUser) {
     return {
       id: req.user.id,

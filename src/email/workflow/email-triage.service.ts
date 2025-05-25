@@ -1,7 +1,7 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { TeamHandlerRegistry } from '../../langgraph/core/team-handler-registry.service';
-import { TeamHandler } from '../../langgraph/core/interfaces/team-handler.interface';
-import { EmailTriageManager } from './email-triage.manager';
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { TeamHandlerRegistry } from "../../langgraph/core/team-handler-registry.service";
+import { TeamHandler } from "../../langgraph/core/interfaces/team-handler.interface";
+import { EmailTriageManager } from "./email-triage.manager";
 
 /**
  * EmailTriageService - Team Handler for Email Domain
@@ -11,8 +11,8 @@ import { EmailTriageManager } from './email-triage.manager';
 @Injectable()
 export class EmailTriageService implements TeamHandler, OnModuleInit {
   private readonly logger = new Logger(EmailTriageService.name);
-  private readonly teamName = 'email_triage';
-  
+  private readonly teamName = "email_triage";
+
   constructor(
     private readonly teamHandlerRegistry: TeamHandlerRegistry,
     private readonly emailTriageManager: EmailTriageManager,
@@ -22,7 +22,7 @@ export class EmailTriageService implements TeamHandler, OnModuleInit {
     // Register with master supervisor as email triage team handler
     this.logger.log(`Registering email triage team handler: ${this.teamName}`);
     this.teamHandlerRegistry.registerHandler(this.teamName, this);
-    this.logger.log('Email triage team handler registered successfully');
+    this.logger.log("Email triage team handler registered successfully");
   }
 
   /**
@@ -37,21 +37,31 @@ export class EmailTriageService implements TeamHandler, OnModuleInit {
    * This is the main entry point for email processing
    */
   async process(input: any): Promise<any> {
-    this.logger.log(`Processing email triage task for email: ${input.emailData?.id}`);
-    
+    this.logger.log(
+      `Processing email triage task for email: ${input.emailData?.id}`,
+    );
+
     try {
       // Validate input structure
       if (!input.emailData) {
-        throw new Error('Invalid input structure: missing emailData');
+        throw new Error("Invalid input structure: missing emailData");
       }
 
       // Route to EmailTriageManager which coordinates the 3 workers
-      const result = await this.emailTriageManager.processEmail(input.emailData, { sessionId: input.sessionId });
-      
-      this.logger.log(`Email triage task completed successfully: ${result.sessionId}`);
+      const result = await this.emailTriageManager.processEmail(
+        input.emailData,
+        { sessionId: input.sessionId },
+      );
+
+      this.logger.log(
+        `Email triage task completed successfully: ${result.sessionId}`,
+      );
       return result;
     } catch (error) {
-      this.logger.error(`Error processing email triage task: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error processing email triage task: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -61,7 +71,11 @@ export class EmailTriageService implements TeamHandler, OnModuleInit {
    */
   async canHandle(input: any): Promise<boolean> {
     // Check if input looks like email triage request
-    return !!(input.emailData && input.emailData.body && input.emailData.metadata);
+    return !!(
+      input.emailData &&
+      input.emailData.body &&
+      input.emailData.metadata
+    );
   }
 
   /**
@@ -70,13 +84,13 @@ export class EmailTriageService implements TeamHandler, OnModuleInit {
   getTeamInfo() {
     return {
       name: this.teamName,
-      description: 'Email triage and processing team',
+      description: "Email triage and processing team",
       capabilities: [
-        'email_classification',
-        'email_summarization', 
-        'reply_draft_generation'
+        "email_classification",
+        "email_summarization",
+        "reply_draft_generation",
       ],
-      supportedTaskTypes: ['email_triage']
+      supportedTaskTypes: ["email_triage"],
     };
   }
-} 
+}

@@ -10,7 +10,7 @@ export class ZapierController {
 
   @Post('api-key')
   @UseGuards(AuthGuard('jwt'))
-  generateApiKey(@Body() generateApiKeyDto: GenerateApiKeyDto, @Req() req: any) {
+  generateApiKey(@Req() req: any) {
     // Use authenticated user's ID instead of passed userId for security
     const userId = req.user.id;
     const apiKey = this.zapierService.generateApiKey(userId);

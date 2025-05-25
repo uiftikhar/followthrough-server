@@ -1,7 +1,7 @@
-import { RetrievedDocument, RetrievalOptions } from '../retrieval.service';
-import { RetrievedContext, RagOptions } from '../rag.service';
-import { VectorIndexes } from '../../pinecone/pinecone-index.service';
-import { SemanticChunkingOptions } from '../../embedding/semantic-chunking.service';
+import { RetrievedDocument, RetrievalOptions } from "../retrieval.service";
+import { RetrievedContext, RagOptions } from "../rag.service";
+import { VectorIndexes } from "../../pinecone/pinecone-index.service";
+import { SemanticChunkingOptions } from "../../embedding/semantic-chunking.service";
 
 export interface IRagService {
   getContext(

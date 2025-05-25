@@ -1,27 +1,27 @@
-import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
-import { ConfigModule as AppConfigModule } from './config/config.module';
-import { LoggingModule } from './logging/logging.module';
-import { ZapierModule } from './zapier/zapier.module';
+import { Module } from "@nestjs/common";
+import { AppController } from "./app.controller";
+import { AppService } from "./app.service";
+import { AuthModule } from "./auth/auth.module";
+import { ConfigModule as AppConfigModule } from "./config/config.module";
+import { LoggingModule } from "./logging/logging.module";
+import { ZapierModule } from "./zapier/zapier.module";
 
 // New modular architecture imports
-import { InfrastructureModule } from './infrastructure/infrastructure.module';
-import { LlmModule } from './llm/llm.module';
-import { VectorModule } from './vector/vector.module';
-import { LanggraphCoreModule } from './langgraph/core/core.module';
-import { RagCoreModule } from './rag-core/rag-core.module';
-import { AgentFrameworkModule } from './agent-framework/agent-framework.module';
-import { WorkflowFrameworkModule } from './workflow-framework/workflow-framework.module';
-import { MeetingAgentsModule } from './meeting/agents/meeting-agents.module';
-import { MeetingWorkflowModule } from './meeting/workflow/meeting-workflow.module';
-import { MeetingAnalysisModule } from './langgraph/meeting-analysis/meeting-analysis.module';
+import { InfrastructureModule } from "./infrastructure/infrastructure.module";
+import { LlmModule } from "./llm/llm.module";
+import { VectorModule } from "./vector/vector.module";
+import { LanggraphCoreModule } from "./langgraph/core/core.module";
+import { RagCoreModule } from "./rag-core/rag-core.module";
+import { AgentFrameworkModule } from "./agent-framework/agent-framework.module";
+import { WorkflowFrameworkModule } from "./workflow-framework/workflow-framework.module";
+import { MeetingAgentsModule } from "./meeting/agents/meeting-agents.module";
+import { MeetingWorkflowModule } from "./meeting/workflow/meeting-workflow.module";
+import { MeetingAnalysisModule } from "./langgraph/meeting-analysis/meeting-analysis.module";
 
 // Email modules - NEW
-import { EmailAgentsModule } from './email/agents/email-agents.module';
-import { EmailWorkflowModule } from './email/workflow/email-workflow.module';
-import { EmailModule } from './email/email.module';
+import { EmailAgentsModule } from "./email/agents/email-agents.module";
+import { EmailWorkflowModule } from "./email/workflow/email-workflow.module";
+import { EmailModule } from "./email/email.module";
 
 /**
  * AppModule - Root application module
@@ -33,35 +33,35 @@ import { EmailModule } from './email/email.module';
   imports: [
     // Foundation Layer
     InfrastructureModule,
-    
+
     // Core Services Layer
     LlmModule,
     VectorModule,
-    
+
     // Platform Services Layer
-    LanggraphCoreModule,      // Core LangGraph services
+    LanggraphCoreModule, // Core LangGraph services
     RagCoreModule,
     AgentFrameworkModule,
     WorkflowFrameworkModule,
-    
+
     // Domain Services Layer
     MeetingAgentsModule,
     MeetingWorkflowModule,
-    
+
     // Domain Services Layer - Email (NEW)
     EmailAgentsModule,
     EmailWorkflowModule,
-    
+
     // Application Layer
     MeetingAnalysisModule,
-    EmailModule,  // NEW - Provides email triage endpoints
-    
+    EmailModule, // NEW - Provides email triage endpoints
+
     // External modules
     AppConfigModule,
     LoggingModule,
     AuthModule,
     ZapierModule,
-    
+
     // Future modules
     // EmailAgentsModule,
     // EmailWorkflowModule,

@@ -1,10 +1,10 @@
-import { server } from './mocks/server';
+import { server } from "./mocks/server";
 
 // Establish API mocking before all tests
 beforeAll(() => {
   // Start the interception
-  server.listen({ onUnhandledRequest: 'warn' });
-  console.log('🔶 MSW server started');
+  server.listen({ onUnhandledRequest: "warn" });
+  console.log("🔶 MSW server started");
 });
 
 // Reset any request handlers that we may add during the tests,
@@ -17,5 +17,5 @@ afterEach(() => {
 afterAll(() => {
   // Close the server to ensure tests don't hang
   server.close();
-  console.log('🔶 MSW server stopped');
+  console.log("🔶 MSW server stopped");
 });

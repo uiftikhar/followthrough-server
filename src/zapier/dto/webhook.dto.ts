@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsObject, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsObject, IsOptional } from "class-validator";
 
 export class WebhookRequestDto {
   @IsNotEmpty()
@@ -68,4 +68,4 @@ export class MeetingScheduleDto {
   @IsObject()
   @IsOptional()
   attendees?: Record<string, any>[];
-} 
+}

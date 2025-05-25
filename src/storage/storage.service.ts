@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as fs from "fs/promises";
+import * as path from "path";
 
 @Injectable()
 export class StorageService {
@@ -23,15 +23,15 @@ export class StorageService {
   private initializePaths(): void {
     // Get base storage path from config
     this.baseStoragePath =
-      this.configService.get<string>('STORAGE_PATH') || './data/file-storage';
+      this.configService.get<string>("STORAGE_PATH") || "./data/file-storage";
 
     // Define all subdirectories
-    this.transcriptsPath = path.join(this.baseStoragePath, 'transcripts');
-    this.meetingsPath = path.join(this.baseStoragePath, 'meetings');
-    this.teamsPath = path.join(this.baseStoragePath, 'teams');
-    this.resultsPath = path.join(this.baseStoragePath, 'results');
-    this.sessionsPath = path.join(this.baseStoragePath, 'sessions');
-    this.memoryPath = path.join(this.baseStoragePath, 'memory');
+    this.transcriptsPath = path.join(this.baseStoragePath, "transcripts");
+    this.meetingsPath = path.join(this.baseStoragePath, "meetings");
+    this.teamsPath = path.join(this.baseStoragePath, "teams");
+    this.resultsPath = path.join(this.baseStoragePath, "results");
+    this.sessionsPath = path.join(this.baseStoragePath, "sessions");
+    this.memoryPath = path.join(this.baseStoragePath, "memory");
   }
 
   private async initializeStorageFolders(): Promise<void> {
@@ -66,7 +66,7 @@ export class StorageService {
     try {
       await fs.unlink(filePath);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         throw error;
       }
       // File doesn't exist, which is fine for delete operation
@@ -86,7 +86,7 @@ export class StorageService {
     try {
       return await fs.readdir(dirPath);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         await this.ensureDir(dirPath);
         return [];
       }

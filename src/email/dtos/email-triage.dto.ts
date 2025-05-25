@@ -1,6 +1,12 @@
 export interface EmailClassification {
-  priority: 'urgent' | 'high' | 'normal' | 'low';
-  category: 'bug_report' | 'feature_request' | 'question' | 'complaint' | 'praise' | 'other';
+  priority: "urgent" | "high" | "normal" | "low";
+  category:
+    | "bug_report"
+    | "feature_request"
+    | "question"
+    | "complaint"
+    | "praise"
+    | "other";
   reasoning: string;
   confidence: number;
 }
@@ -15,7 +21,7 @@ export interface EmailSummary {
 export interface EmailReplyDraft {
   subject: string;
   body: string;
-  tone: 'professional' | 'friendly' | 'urgent';
+  tone: "professional" | "friendly" | "urgent";
   next_steps: string[];
 }
 
@@ -25,7 +31,7 @@ export interface EmailTriageResult {
   classification: EmailClassification;
   summary: EmailSummary;
   replyDraft: EmailReplyDraft;
-  status: 'processing' | 'completed' | 'failed';
+  status: "processing" | "completed" | "failed";
   processedAt: Date;
 }
 
@@ -89,6 +95,6 @@ export interface DelegationResult {
   delegateId: string;
   notes?: string;
   summary: string;
-  status: 'pending' | 'accepted' | 'completed';
+  status: "pending" | "accepted" | "completed";
   createdAt: Date;
-} 
+}

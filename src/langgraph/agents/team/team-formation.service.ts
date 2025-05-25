@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { AgentFactory } from '../agent.factory';
-import { BaseAgent } from '../base-agent';
+import { Injectable, Logger } from "@nestjs/common";
+import { AgentFactory } from "../agent.factory";
+import { BaseAgent } from "../base-agent";
 
 export interface TeamConfig {
   name: string;
@@ -19,9 +19,7 @@ export interface Team {
 export class TeamFormationService {
   private readonly logger = new Logger(TeamFormationService.name);
 
-  constructor(
-    private readonly agentFactory: AgentFactory,
-  ) {}
+  constructor(private readonly agentFactory: AgentFactory) {}
 
   /**
    * Form a team with the specified configuration
@@ -37,22 +35,22 @@ export class TeamFormationService {
         let agent: BaseAgent;
 
         switch (member) {
-          case 'topic_extraction':
+          case "topic_extraction":
             agent = this.agentFactory.getTopicExtractionAgent();
             break;
-          case 'action_item':
+          case "action_item":
             agent = this.agentFactory.getActionItemAgent();
             break;
-          case 'sentiment_analysis':
+          case "sentiment_analysis":
             agent = this.agentFactory.getSentimentAnalysisAgent();
             break;
-          case 'summary':
+          case "summary":
             agent = this.agentFactory.getSummaryAgent();
             break;
-          case 'participation':
+          case "participation":
             agent = this.agentFactory.getParticipationAgent();
             break;
-          case 'context_integration':
+          case "context_integration":
             agent = this.agentFactory.getContextIntegrationAgent();
             break;
           default:
@@ -84,15 +82,15 @@ export class TeamFormationService {
    */
   formStandardAnalysisTeam(): Team {
     return this.formTeam({
-      name: 'Standard Analysis Team',
-      description: 'A complete team for comprehensive meeting analysis',
+      name: "Standard Analysis Team",
+      description: "A complete team for comprehensive meeting analysis",
       members: [
-        'topic_extraction',
-        'action_item',
-        'sentiment_analysis',
-        'participation',
-        'context_integration',
-        'summary',
+        "topic_extraction",
+        "action_item",
+        "sentiment_analysis",
+        "participation",
+        "context_integration",
+        "summary",
       ],
       supervisorEnabled: true,
     });
@@ -103,9 +101,9 @@ export class TeamFormationService {
    */
   formQuickAnalysisTeam(): Team {
     return this.formTeam({
-      name: 'Quick Analysis Team',
-      description: 'A minimal team for quick meeting analysis',
-      members: ['topic_extraction', 'action_item', 'summary'],
+      name: "Quick Analysis Team",
+      description: "A minimal team for quick meeting analysis",
+      members: ["topic_extraction", "action_item", "summary"],
       supervisorEnabled: true,
     });
   }
@@ -115,9 +113,9 @@ export class TeamFormationService {
    */
   formCustomTeam(config: Partial<TeamConfig>): Team {
     const defaultConfig: TeamConfig = {
-      name: 'Custom Analysis Team',
-      description: 'A custom team for specialized meeting analysis',
-      members: ['topic_extraction'],
+      name: "Custom Analysis Team",
+      description: "A custom team for specialized meeting analysis",
+      members: ["topic_extraction"],
       supervisorEnabled: true,
     };
 

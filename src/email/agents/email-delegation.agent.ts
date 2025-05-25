@@ -1,7 +1,7 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
-import { LLM_SERVICE } from '../../langgraph/llm/constants/injection-tokens';
-import { LlmService } from '../../langgraph/llm/llm.service';
-import { DelegationResult } from '../dtos/email-triage.dto';
+import { Injectable, Inject, Logger } from "@nestjs/common";
+import { LLM_SERVICE } from "../../langgraph/llm/constants/injection-tokens";
+import { LlmService } from "../../langgraph/llm/llm.service";
+import { DelegationResult } from "../dtos/email-triage.dto";
 
 export interface User {
   id: string;
@@ -24,9 +24,7 @@ export interface DelegationSummary {
 export class EmailDelegationAgent {
   private readonly logger = new Logger(EmailDelegationAgent.name);
 
-  constructor(
-    @Inject(LLM_SERVICE) private readonly llmService: LlmService,
-  ) {}
+  constructor(@Inject(LLM_SERVICE) private readonly llmService: LlmService) {}
 
   /**
    * Delegate an email from one user to another with AI-generated summary
@@ -39,8 +37,10 @@ export class EmailDelegationAgent {
     delegateTo: User,
     notes?: string,
   ): Promise<DelegationResult> {
-    this.logger.log(`Delegating email ${emailId} from ${delegator.name} to ${delegateTo.name}`);
-    
+    this.logger.log(
+      `Delegating email ${emailId} from ${delegator.name} to ${delegateTo.name}`,
+    );
+
     try {
       // Generate AI-powered delegation summary
       const delegationSummary = await this.generateDelegationSummary(
@@ -65,17 +65,19 @@ export class EmailDelegationAgent {
         emailId,
         delegatorId: delegator.id,
         delegateId: delegateTo.id,
-        notes: notes || '',
+        notes: notes || "",
         summary: delegationSummary.summary,
-        status: 'pending',
+        status: "pending",
         createdAt: new Date(),
       };
 
       this.logger.log(`Email delegation completed: ${delegation.id}`);
       return delegation;
-
     } catch (error) {
-      this.logger.error(`Email delegation failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Email delegation failed: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -90,26 +92,26 @@ export class EmailDelegationAgent {
     delegateTo: User,
     notes?: string,
   ): Promise<DelegationSummary> {
-    this.logger.log('Generating AI-powered delegation summary');
-    
+    this.logger.log("Generating AI-powered delegation summary");
+
     const prompt = `Generate a professional delegation summary for the following email:
 
 ORIGINAL EMAIL:
-Subject: ${emailData.metadata?.subject || 'No subject'}
-From: ${emailData.metadata?.from || 'Unknown sender'}
+Subject: ${emailData.metadata?.subject || "No subject"}
+From: ${emailData.metadata?.from || "Unknown sender"}
 Body: ${emailData.body}
 
 TRIAGE ANALYSIS:
-Priority: ${triageResult?.classification?.priority || 'Unknown'}
-Category: ${triageResult?.classification?.category || 'Unknown'}
-Problem: ${triageResult?.summary?.problem || 'Not analyzed'}
-Context: ${triageResult?.summary?.context || 'Not analyzed'}
-Ask: ${triageResult?.summary?.ask || 'Not analyzed'}
+Priority: ${triageResult?.classification?.priority || "Unknown"}
+Category: ${triageResult?.classification?.category || "Unknown"}
+Problem: ${triageResult?.summary?.problem || "Not analyzed"}
+Context: ${triageResult?.summary?.context || "Not analyzed"}
+Ask: ${triageResult?.summary?.ask || "Not analyzed"}
 
 DELEGATION CONTEXT:
 Delegator: ${delegator.name} (${delegator.email})
 Delegate: ${delegateTo.name} (${delegateTo.email})
-Additional Notes: ${notes || 'None provided'}
+Additional Notes: ${notes || "None provided"}
 
 Create a delegation summary that includes:
 1. A brief summary of why this email is being delegated
@@ -131,11 +133,12 @@ Respond in JSON format:
       });
 
       const messages = [
-        { 
-          role: 'system', 
-          content: 'You are an AI assistant specialized in generating professional delegation summaries for team collaboration. Be clear, concise, and actionable.' 
+        {
+          role: "system",
+          content:
+            "You are an AI assistant specialized in generating professional delegation summaries for team collaboration. Be clear, concise, and actionable.",
         },
-        { role: 'user', content: prompt }
+        { role: "user", content: prompt },
       ];
 
       const response = await model.invoke(messages);
@@ -143,21 +146,24 @@ Respond in JSON format:
 
       // Try to parse JSON from response
       let parsedContent = content;
-      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
-                       content.match(/```\n([\s\S]*?)\n```/) ||
-                       content.match(/(\{[\s\S]*\})/);
-      
+      const jsonMatch =
+        content.match(/```json\n([\s\S]*?)\n```/) ||
+        content.match(/```\n([\s\S]*?)\n```/) ||
+        content.match(/(\{[\s\S]*\})/);
+
       if (jsonMatch) {
         parsedContent = jsonMatch[1];
       }
 
       const summary = JSON.parse(parsedContent);
-      
-      this.logger.log('Delegation summary generated successfully');
+
+      this.logger.log("Delegation summary generated successfully");
       return summary;
     } catch (error) {
-      this.logger.error(`Failed to generate delegation summary: ${error.message}`);
-      
+      this.logger.error(
+        `Failed to generate delegation summary: ${error.message}`,
+      );
+
       // Return fallback summary on error
       return {
         summary: `Email delegation from ${delegator.name} to ${delegateTo.name}`,
@@ -165,17 +171,21 @@ Respond in JSON format:
 
 ${delegator.name} has delegated the following email to you for handling:
 
-Subject: ${emailData.metadata?.subject || 'Email'}
-From: ${emailData.metadata?.from || 'Unknown sender'}
-Priority: ${triageResult?.classification?.priority || 'Normal'}
+Subject: ${emailData.metadata?.subject || "Email"}
+From: ${emailData.metadata?.from || "Unknown sender"}
+Priority: ${triageResult?.classification?.priority || "Normal"}
 
-${notes ? `Additional notes: ${notes}` : ''}
+${notes ? `Additional notes: ${notes}` : ""}
 
 Please review and respond accordingly.
 
 Best regards,
 Email Triage System`,
-        recommendedActions: ['Review email', 'Respond to sender', 'Update delegation status'],
+        recommendedActions: [
+          "Review email",
+          "Respond to sender",
+          "Update delegation status",
+        ],
       };
     }
   }
@@ -197,25 +207,31 @@ Email Triage System`,
       const delegationEmail = {
         to: delegateTo.email,
         from: delegator.email,
-        subject: `Email Delegated: ${emailData.metadata?.subject || 'Untitled'}`,
+        subject: `Email Delegated: ${emailData.metadata?.subject || "Untitled"}`,
         body: delegationSummary.emailBody,
         metadata: {
           delegationId: `delegation-${Date.now()}`,
           originalEmailId: emailData.id,
           delegatorId: delegator.id,
           delegateId: delegateTo.id,
-        }
+        },
       };
 
       // Log the delegation email (in production, replace with actual email sending)
-      this.logger.log('Delegation email would be sent:', JSON.stringify(delegationEmail, null, 2));
-      
+      this.logger.log(
+        "Delegation email would be sent:",
+        JSON.stringify(delegationEmail, null, 2),
+      );
+
       // TODO: Implement actual email sending via external email service
       // For now, we simulate successful email sending
-      
-      this.logger.log('Delegation email simulation completed successfully');
+
+      this.logger.log("Delegation email simulation completed successfully");
     } catch (error) {
-      this.logger.error(`Failed to send delegation email: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to send delegation email: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -225,14 +241,16 @@ Email Triage System`,
    */
   async updateDelegationStatus(
     delegationId: string,
-    status: 'pending' | 'accepted' | 'completed',
-    notes?: string
+    status: "pending" | "accepted" | "completed",
+    notes?: string,
   ): Promise<void> {
     this.logger.log(`Updating delegation ${delegationId} status to ${status}`);
-    
+
     // TODO: Implement delegation status persistence
     // For now, just log the update
-    this.logger.log(`Delegation ${delegationId} status updated: ${status}`, { notes });
+    this.logger.log(`Delegation ${delegationId} status updated: ${status}`, {
+      notes,
+    });
   }
 
   /**
@@ -240,9 +258,9 @@ Email Triage System`,
    */
   async getDelegationHistory(emailId: string): Promise<DelegationResult[]> {
     this.logger.log(`Getting delegation history for email ${emailId}`);
-    
+
     // TODO: Implement delegation history retrieval
     // For now, return empty array
     return [];
   }
-} 
+}

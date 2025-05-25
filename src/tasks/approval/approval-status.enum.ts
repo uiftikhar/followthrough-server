@@ -1,6 +1,6 @@
 export enum ApprovalStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  CANCELLED = 'cancelled',
-} 
+  PENDING = "pending",
+  APPROVED = "approved",
+  REJECTED = "rejected",
+  CANCELLED = "cancelled",
+}

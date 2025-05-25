@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { DynamicTool, Tool } from '@langchain/core/tools';
-import { z } from 'zod';
+import { Injectable, Logger } from "@nestjs/common";
+import { DynamicTool, Tool } from "@langchain/core/tools";
+import { z } from "zod";
 
 /**
  * Service for managing LangGraph tools
@@ -37,17 +37,17 @@ export class ToolService {
    */
   createTopicExtractionTool(): Tool {
     return new DynamicTool({
-      name: 'extract_topics',
-      description: 'Extract topics from meeting transcript',
+      name: "extract_topics",
+      description: "Extract topics from meeting transcript",
       func: async (input: string) => {
         try {
-          this.logger.debug('Extracting topics from transcript');
+          this.logger.debug("Extracting topics from transcript");
           // Implementation will be provided by specialized agents
           // This is just a placeholder for the tool definition
           return JSON.stringify({
             topics: [
-              { name: 'Placeholder Topic 1' },
-              { name: 'Placeholder Topic 2' },
+              { name: "Placeholder Topic 1" },
+              { name: "Placeholder Topic 2" },
             ],
           });
         } catch (error) {
@@ -63,17 +63,17 @@ export class ToolService {
    */
   createActionItemTool(): Tool {
     return new DynamicTool({
-      name: 'extract_action_items',
-      description: 'Extract action items from meeting transcript',
+      name: "extract_action_items",
+      description: "Extract action items from meeting transcript",
       func: async (input: string) => {
         try {
-          this.logger.debug('Extracting action items from transcript');
+          this.logger.debug("Extracting action items from transcript");
           // Implementation will be provided by specialized agents
           // This is just a placeholder for the tool definition
           return JSON.stringify({
             actionItems: [
-              { description: 'Placeholder Action 1', assignee: 'John Doe' },
-              { description: 'Placeholder Action 2', assignee: 'Jane Smith' },
+              { description: "Placeholder Action 1", assignee: "John Doe" },
+              { description: "Placeholder Action 2", assignee: "Jane Smith" },
             ],
           });
         } catch (error) {
@@ -89,15 +89,15 @@ export class ToolService {
    */
   createSummaryTool(): Tool {
     return new DynamicTool({
-      name: 'generate_summary',
-      description: 'Generate a summary of the meeting',
+      name: "generate_summary",
+      description: "Generate a summary of the meeting",
       func: async (input: string) => {
         try {
-          this.logger.debug('Generating meeting summary');
+          this.logger.debug("Generating meeting summary");
           // Implementation will be provided by specialized agents
           // This is just a placeholder for the tool definition
           return JSON.stringify({
-            summary: 'This is a placeholder summary of the meeting.',
+            summary: "This is a placeholder summary of the meeting.",
           });
         } catch (error) {
           this.logger.error(`Error generating summary: ${error.message}`);

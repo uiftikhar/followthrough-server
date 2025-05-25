@@ -1,8 +1,11 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
-import { LLM_SERVICE } from '../../langgraph/llm/constants/injection-tokens';
-import { LlmService } from '../../langgraph/llm/llm.service';
-import { EMAIL_SUMMARIZATION_CONFIG } from './constants/injection-tokens';
-import { EmailSummary, EmailSummarizationConfig } from '../dtos/email-triage.dto';
+import { Injectable, Inject, Logger } from "@nestjs/common";
+import { LLM_SERVICE } from "../../langgraph/llm/constants/injection-tokens";
+import { LlmService } from "../../langgraph/llm/llm.service";
+import { EMAIL_SUMMARIZATION_CONFIG } from "./constants/injection-tokens";
+import {
+  EmailSummary,
+  EmailSummarizationConfig,
+} from "../dtos/email-triage.dto";
 
 @Injectable()
 export class EmailSummarizationAgent {
@@ -10,12 +13,16 @@ export class EmailSummarizationAgent {
 
   constructor(
     @Inject(LLM_SERVICE) private readonly llmService: LlmService,
-    @Inject(EMAIL_SUMMARIZATION_CONFIG) private readonly config: EmailSummarizationConfig,
+    @Inject(EMAIL_SUMMARIZATION_CONFIG)
+    private readonly config: EmailSummarizationConfig,
   ) {}
 
-  async summarizeEmail(emailContent: string, metadata: any): Promise<EmailSummary> {
+  async summarizeEmail(
+    emailContent: string,
+    metadata: any,
+  ): Promise<EmailSummary> {
     this.logger.log(`Summarizing email: ${metadata.subject}`);
-    
+
     const prompt = `Email to summarize:
 Subject: ${metadata.subject}
 From: ${metadata.from}
@@ -43,8 +50,8 @@ Respond in JSON format:
       });
 
       const messages = [
-        { role: 'system', content: this.config.systemPrompt },
-        { role: 'user', content: prompt }
+        { role: "system", content: this.config.systemPrompt },
+        { role: "user", content: prompt },
       ];
 
       const response = await model.invoke(messages);
@@ -52,28 +59,29 @@ Respond in JSON format:
 
       // Try to parse JSON from response
       let parsedContent = content;
-      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
-                       content.match(/```\n([\s\S]*?)\n```/) ||
-                       content.match(/(\{[\s\S]*\})/);
-      
+      const jsonMatch =
+        content.match(/```json\n([\s\S]*?)\n```/) ||
+        content.match(/```\n([\s\S]*?)\n```/) ||
+        content.match(/(\{[\s\S]*\})/);
+
       if (jsonMatch) {
         parsedContent = jsonMatch[1];
       }
 
       const summary = JSON.parse(parsedContent);
-      
+
       this.logger.log(`Email summarized successfully`);
       return summary;
     } catch (error) {
       this.logger.error(`Failed to summarize email: ${error.message}`);
-      
+
       // Return default summary on error
       return {
-        problem: 'Unable to identify specific problem',
-        context: 'Unable to extract context',
-        ask: 'Unable to determine request',
-        summary: 'Failed to summarize email automatically',
+        problem: "Unable to identify specific problem",
+        context: "Unable to extract context",
+        ask: "Unable to determine request",
+        summary: "Failed to summarize email automatically",
       };
     }
   }
-} 
+}

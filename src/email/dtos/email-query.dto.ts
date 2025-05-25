@@ -1,16 +1,23 @@
-import { IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+} from "class-validator";
+import { Transform, Type } from "class-transformer";
 
 export enum EmailSortField {
-  DATE = 'date',
-  SUBJECT = 'subject',
-  FROM = 'from',
-  IMPORTANCE = 'importance',
+  DATE = "date",
+  SUBJECT = "subject",
+  FROM = "from",
+  IMPORTANCE = "importance",
 }
 
 export enum SortOrder {
-  ASC = 'asc',
-  DESC = 'desc',
+  ASC = "asc",
+  DESC = "desc",
 }
 
 export class EmailQueryDto {
@@ -24,17 +31,19 @@ export class EmailQueryDto {
 
   @IsOptional()
   @IsString({ each: true })
-  @Transform(({ value }) => (typeof value === 'string' ? value.split(',') : value))
+  @Transform(({ value }) =>
+    typeof value === "string" ? value.split(",") : value,
+  )
   labels?: string[];
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ value }) => value === "true" || value === true)
   unreadOnly?: boolean;
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ value }) => value === "true" || value === true)
   hasAttachment?: boolean;
 
   @IsOptional()
@@ -73,11 +82,11 @@ export class EmailQueryDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ value }) => value === "true" || value === true)
   includeMetadata?: boolean = true;
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ value }) => value === "true" || value === true)
   includeAttachments?: boolean = false;
-} 
+}

@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { MCPService } from '../../mcp/mcp.service';
-import { Task, TaskStatus, TaskPriority } from '../models/task.model';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { MCPService } from "../../mcp/mcp.service";
+import { Task, TaskStatus, TaskPriority } from "../models/task.model";
 
 @Injectable()
 export class JiraConnector {
@@ -12,11 +12,11 @@ export class JiraConnector {
     private configService: ConfigService,
     private mcpService: MCPService,
   ) {
-    const jiraMcpServer = this.configService.get<string>('JIRA_MCP_SERVER');
+    const jiraMcpServer = this.configService.get<string>("JIRA_MCP_SERVER");
     if (!jiraMcpServer) {
-      this.logger.warn('Jira MCP server URL not configured');
+      this.logger.warn("Jira MCP server URL not configured");
     }
-    this.serverUrl = jiraMcpServer || '';
+    this.serverUrl = jiraMcpServer || "";
   }
 
   /**
@@ -25,24 +25,24 @@ export class JiraConnector {
   async createTask(userId: string, task: Partial<Task>): Promise<Task> {
     try {
       if (!this.serverUrl) {
-        throw new Error('Jira MCP server not configured');
+        throw new Error("Jira MCP server not configured");
       }
 
       const result = await this.mcpService.executeTool(
         this.serverUrl,
-        'createJiraIssue',
+        "createJiraIssue",
         {
           userId,
-          project: task.metadata?.project || 'default',
+          project: task.metadata?.project || "default",
           summary: task.title,
-          description: task.description || '',
+          description: task.description || "",
           issueType: this.mapTaskTypeToJiraType(task.metadata?.type),
           priority: this.mapPriorityToJiraPriority(task.priority),
           dueDate: task.dueDate,
           assignee: task.assignee?.email,
-        }
+        },
       );
-      
+
       // Map the Jira response back to our Task model
       return new Task({
         id: result.id,
@@ -53,13 +53,15 @@ export class JiraConnector {
         dueDate: result.dueDate,
         createdAt: result.created,
         updatedAt: result.updated,
-        assignee: result.assignee ? {
-          id: result.assignee.accountId,
-          name: result.assignee.displayName,
-          email: result.assignee.emailAddress,
-          avatarUrl: result.assignee.avatarUrl,
-        } : undefined,
-        platform: 'jira',
+        assignee: result.assignee
+          ? {
+              id: result.assignee.accountId,
+              name: result.assignee.displayName,
+              email: result.assignee.emailAddress,
+              avatarUrl: result.assignee.avatarUrl,
+            }
+          : undefined,
+        platform: "jira",
         externalIds: { jira: result.id },
         url: result.url,
         metadata: {
@@ -82,18 +84,18 @@ export class JiraConnector {
   async fetchTask(userId: string, taskId: string): Promise<Task> {
     try {
       if (!this.serverUrl) {
-        throw new Error('Jira MCP server not configured');
+        throw new Error("Jira MCP server not configured");
       }
 
       const result = await this.mcpService.executeTool(
         this.serverUrl,
-        'getJiraIssue',
+        "getJiraIssue",
         {
           userId,
           issueId: taskId,
-        }
+        },
       );
-      
+
       // Map the Jira response to our Task model
       return this.mapJiraIssueToTask(result);
     } catch (error) {
@@ -108,23 +110,23 @@ export class JiraConnector {
   async fetchTasks(userId: string, options: any = {}): Promise<Task[]> {
     try {
       if (!this.serverUrl) {
-        throw new Error('Jira MCP server not configured');
+        throw new Error("Jira MCP server not configured");
       }
 
       const result = await this.mcpService.executeTool(
         this.serverUrl,
-        'searchJiraIssues',
+        "searchJiraIssues",
         {
           userId,
           project: options.project,
           assignee: options.assignee,
           status: options.status,
           maxResults: options.limit || 50,
-        }
+        },
       );
-      
+
       // Map the Jira issues to our Task model
-      return result.issues.map(issue => this.mapJiraIssueToTask(issue));
+      return result.issues.map((issue) => this.mapJiraIssueToTask(issue));
     } catch (error) {
       this.logger.error(`Failed to fetch Jira tasks: ${error.message}`);
       throw error;
@@ -134,10 +136,14 @@ export class JiraConnector {
   /**
    * Update a task in Jira
    */
-  async updateTask(userId: string, taskId: string, updates: Partial<Task>): Promise<Task> {
+  async updateTask(
+    userId: string,
+    taskId: string,
+    updates: Partial<Task>,
+  ): Promise<Task> {
     try {
       if (!this.serverUrl) {
-        throw new Error('Jira MCP server not configured');
+        throw new Error("Jira MCP server not configured");
       }
 
       const updateParams: any = {
@@ -148,17 +154,21 @@ export class JiraConnector {
       // Only include fields that are being updated
       if (updates.title) updateParams.summary = updates.title;
       if (updates.description) updateParams.description = updates.description;
-      if (updates.status) updateParams.status = this.mapTaskStatusToJiraStatus(updates.status);
-      if (updates.priority) updateParams.priority = this.mapPriorityToJiraPriority(updates.priority);
+      if (updates.status)
+        updateParams.status = this.mapTaskStatusToJiraStatus(updates.status);
+      if (updates.priority)
+        updateParams.priority = this.mapPriorityToJiraPriority(
+          updates.priority,
+        );
       if (updates.dueDate) updateParams.dueDate = updates.dueDate;
       if (updates.assignee) updateParams.assignee = updates.assignee.email;
 
       const result = await this.mcpService.executeTool(
         this.serverUrl,
-        'updateJiraIssue',
-        updateParams
+        "updateJiraIssue",
+        updateParams,
       );
-      
+
       // Map the updated Jira issue to our Task model
       return this.mapJiraIssueToTask(result);
     } catch (error) {
@@ -173,18 +183,18 @@ export class JiraConnector {
   async deleteTask(userId: string, taskId: string): Promise<boolean> {
     try {
       if (!this.serverUrl) {
-        throw new Error('Jira MCP server not configured');
+        throw new Error("Jira MCP server not configured");
       }
 
       const result = await this.mcpService.executeTool(
         this.serverUrl,
-        'deleteJiraIssue',
+        "deleteJiraIssue",
         {
           userId,
           issueId: taskId,
-        }
+        },
       );
-      
+
       return result.success === true;
     } catch (error) {
       this.logger.error(`Failed to delete Jira task: ${error.message}`);
@@ -205,13 +215,15 @@ export class JiraConnector {
       dueDate: jiraIssue.dueDate,
       createdAt: jiraIssue.created,
       updatedAt: jiraIssue.updated,
-      assignee: jiraIssue.assignee ? {
-        id: jiraIssue.assignee.accountId,
-        name: jiraIssue.assignee.displayName,
-        email: jiraIssue.assignee.emailAddress,
-        avatarUrl: jiraIssue.assignee.avatarUrl,
-      } : undefined,
-      platform: 'jira',
+      assignee: jiraIssue.assignee
+        ? {
+            id: jiraIssue.assignee.accountId,
+            name: jiraIssue.assignee.displayName,
+            email: jiraIssue.assignee.emailAddress,
+            avatarUrl: jiraIssue.assignee.avatarUrl,
+          }
+        : undefined,
+      platform: "jira",
       externalIds: { jira: jiraIssue.id },
       url: jiraIssue.url,
       metadata: {
@@ -229,20 +241,20 @@ export class JiraConnector {
    */
   private mapTaskTypeToJiraType(type?: string): string {
     // Default to 'Task' if no type is specified
-    if (!type) return 'Task';
-    
+    if (!type) return "Task";
+
     // Map common task types to Jira issue types
     switch (type.toLowerCase()) {
-      case 'bug':
-        return 'Bug';
-      case 'feature':
-        return 'New Feature';
-      case 'improvement':
-        return 'Improvement';
-      case 'epic':
-        return 'Epic';
+      case "bug":
+        return "Bug";
+      case "feature":
+        return "New Feature";
+      case "improvement":
+        return "Improvement";
+      case "epic":
+        return "Epic";
       default:
-        return 'Task';
+        return "Task";
     }
   }
 
@@ -250,19 +262,19 @@ export class JiraConnector {
    * Map our task priority to Jira priority
    */
   private mapPriorityToJiraPriority(priority?: string): string {
-    if (!priority) return 'Medium';
-    
+    if (!priority) return "Medium";
+
     switch (priority.toLowerCase()) {
-      case 'urgent':
-        return 'Highest';
-      case 'high':
-        return 'High';
-      case 'medium':
-        return 'Medium';
-      case 'low':
-        return 'Low';
+      case "urgent":
+        return "Highest";
+      case "high":
+        return "High";
+      case "medium":
+        return "Medium";
+      case "low":
+        return "Low";
       default:
-        return 'Medium';
+        return "Medium";
     }
   }
 
@@ -271,17 +283,17 @@ export class JiraConnector {
    */
   private mapJiraPriorityToTaskPriority(jiraPriority?: string): TaskPriority {
     if (!jiraPriority) return TaskPriority.MEDIUM;
-    
+
     switch (jiraPriority.toLowerCase()) {
-      case 'highest':
-      case 'blocker':
+      case "highest":
+      case "blocker":
         return TaskPriority.URGENT;
-      case 'high':
+      case "high":
         return TaskPriority.HIGH;
-      case 'medium':
+      case "medium":
         return TaskPriority.MEDIUM;
-      case 'low':
-      case 'lowest':
+      case "low":
+      case "lowest":
         return TaskPriority.LOW;
       default:
         return TaskPriority.MEDIUM;
@@ -293,20 +305,20 @@ export class JiraConnector {
    */
   private mapJiraStatusToTaskStatus(jiraStatus?: string): TaskStatus {
     if (!jiraStatus) return TaskStatus.TO_DO;
-    
+
     switch (jiraStatus.toLowerCase()) {
-      case 'to do':
-      case 'open':
-      case 'backlog':
+      case "to do":
+      case "open":
+      case "backlog":
         return TaskStatus.TO_DO;
-      case 'in progress':
-      case 'in review':
+      case "in progress":
+      case "in review":
         return TaskStatus.IN_PROGRESS;
-      case 'done':
-      case 'closed':
-      case 'resolved':
+      case "done":
+      case "closed":
+      case "resolved":
         return TaskStatus.DONE;
-      case 'cancelled':
+      case "cancelled":
         return TaskStatus.CANCELLED;
       default:
         return TaskStatus.TO_DO;
@@ -317,19 +329,19 @@ export class JiraConnector {
    * Map our task status to Jira status
    */
   private mapTaskStatusToJiraStatus(taskStatus?: string): string {
-    if (!taskStatus) return 'To Do';
-    
+    if (!taskStatus) return "To Do";
+
     switch (taskStatus.toLowerCase()) {
-      case 'to_do':
-        return 'To Do';
-      case 'in_progress':
-        return 'In Progress';
-      case 'done':
-        return 'Done';
-      case 'cancelled':
-        return 'Cancelled';
+      case "to_do":
+        return "To Do";
+      case "in_progress":
+        return "In Progress";
+      case "done":
+        return "Done";
+      case "cancelled":
+        return "Cancelled";
       default:
-        return 'To Do';
+        return "To Do";
     }
   }
-} 
+}

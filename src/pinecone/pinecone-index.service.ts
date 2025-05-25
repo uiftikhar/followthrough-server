@@ -1,32 +1,32 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 import {
   Pinecone,
   Index,
   IndexList,
   ServerlessSpecCloudEnum,
-} from '@pinecone-database/pinecone';
-import { ConfigService } from '@nestjs/config';
-import { PineconeConfigService } from './pinecone-config.service';
+} from "@pinecone-database/pinecone";
+import { ConfigService } from "@nestjs/config";
+import { PineconeConfigService } from "./pinecone-config.service";
 
 export enum VectorIndexes {
-  USER_CONTEXT = 'user-context',
-  MEETING_ANALYSIS = 'meeting-analysis',
-  EMAIL_TRIAGE = 'email-triage',
-  TRANSCRIPT_EMBEDDINGS = 'transcript-embeddings',
+  USER_CONTEXT = "user-context",
+  MEETING_ANALYSIS = "meeting-analysis",
+  EMAIL_TRIAGE = "email-triage",
+  TRANSCRIPT_EMBEDDINGS = "transcript-embeddings",
 }
 
 export interface IndexConfig {
   dimension?: number;
-  metric?: 'cosine' | 'euclidean' | 'dotproduct';
+  metric?: "cosine" | "euclidean" | "dotproduct";
   serverless: boolean;
   cloud: ServerlessSpecCloudEnum;
   region: string; // e.g., 'us-west-1'
   embeddingModel?:
-    | 'multilingual-e5-large'
-    | 'pinecone-sparse-english-v0'
-    | 'text-embedding-3-large'
-    | 'text-embedding-ada-002'
-    | 'llama-text-embed-v2';
+    | "multilingual-e5-large"
+    | "pinecone-sparse-english-v0"
+    | "text-embedding-3-large"
+    | "text-embedding-ada-002"
+    | "llama-text-embed-v2";
   tags?: Record<string, string>;
 }
 
@@ -75,14 +75,14 @@ export class PineconeIndexService {
         cloud: config.cloud,
         region: config.region,
         embed: {
-          model: config.embeddingModel || 'multilingual-e5-large',
-          metric: config.metric || 'cosine',
+          model: config.embeddingModel || "multilingual-e5-large",
+          metric: config.metric || "cosine",
           fieldMap: {
-            text: 'text',
+            text: "text",
           },
         },
         waitUntilReady: true,
-        tags: config.tags || { project: 'meeting-analysis' },
+        tags: config.tags || { project: "meeting-analysis" },
       });
       this.logger.log(`Index ${indexName} created and ready.`);
     } else {

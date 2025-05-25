@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 
 export interface NotificationPayload {
   type: string;
@@ -13,14 +13,21 @@ export interface NotificationPayload {
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
   private readonly notificationChannels: Map<string, boolean> = new Map();
-  
-  constructor(
-    private configService: ConfigService,
-  ) {
+
+  constructor(private configService: ConfigService) {
     // Initialize notification channels from config
-    this.notificationChannels.set('email', this.configService.get<boolean>('NOTIFICATIONS_EMAIL_ENABLED', true));
-    this.notificationChannels.set('push', this.configService.get<boolean>('NOTIFICATIONS_PUSH_ENABLED', false));
-    this.notificationChannels.set('slack', this.configService.get<boolean>('NOTIFICATIONS_SLACK_ENABLED', false));
+    this.notificationChannels.set(
+      "email",
+      this.configService.get<boolean>("NOTIFICATIONS_EMAIL_ENABLED", true),
+    );
+    this.notificationChannels.set(
+      "push",
+      this.configService.get<boolean>("NOTIFICATIONS_PUSH_ENABLED", false),
+    );
+    this.notificationChannels.set(
+      "slack",
+      this.configService.get<boolean>("NOTIFICATIONS_SLACK_ENABLED", false),
+    );
   }
 
   /**
@@ -31,14 +38,22 @@ export class NotificationsService {
     notification: NotificationPayload,
   ): Promise<boolean> {
     try {
-      this.logger.log(`Sending notification to user ${userId}: ${notification.title}`);
-      
+      this.logger.log(
+        `Sending notification to user ${userId}: ${notification.title}`,
+      );
+
       const results = await Promise.all([
-        this.notificationChannels.get('email') ? this.sendEmailNotification(userId, notification) : Promise.resolve(false),
-        this.notificationChannels.get('push') ? this.sendPushNotification(userId, notification) : Promise.resolve(false),
-        this.notificationChannels.get('slack') ? this.sendSlackNotification(userId, notification) : Promise.resolve(false),
+        this.notificationChannels.get("email")
+          ? this.sendEmailNotification(userId, notification)
+          : Promise.resolve(false),
+        this.notificationChannels.get("push")
+          ? this.sendPushNotification(userId, notification)
+          : Promise.resolve(false),
+        this.notificationChannels.get("slack")
+          ? this.sendSlackNotification(userId, notification)
+          : Promise.resolve(false),
       ]);
-      
+
       const successfulDeliveries = results.filter(Boolean).length;
       return successfulDeliveries > 0;
     } catch (error) {
@@ -46,7 +61,7 @@ export class NotificationsService {
       return false;
     }
   }
-  
+
   /**
    * Send an email notification
    */
@@ -57,14 +72,16 @@ export class NotificationsService {
     try {
       // In a real implementation, this would send an actual email
       // For now, we'll just log it
-      this.logger.debug(`[EMAIL] To: ${userId}, Subject: ${notification.title}, Body: ${notification.body}`);
+      this.logger.debug(
+        `[EMAIL] To: ${userId}, Subject: ${notification.title}, Body: ${notification.body}`,
+      );
       return true;
     } catch (error) {
       this.logger.error(`Failed to send email notification: ${error.message}`);
       return false;
     }
   }
-  
+
   /**
    * Send a push notification
    */
@@ -75,14 +92,16 @@ export class NotificationsService {
     try {
       // In a real implementation, this would send a push notification
       // For now, we'll just log it
-      this.logger.debug(`[PUSH] To: ${userId}, Title: ${notification.title}, Body: ${notification.body}`);
+      this.logger.debug(
+        `[PUSH] To: ${userId}, Title: ${notification.title}, Body: ${notification.body}`,
+      );
       return true;
     } catch (error) {
       this.logger.error(`Failed to send push notification: ${error.message}`);
       return false;
     }
   }
-  
+
   /**
    * Send a Slack notification
    */
@@ -93,11 +112,13 @@ export class NotificationsService {
     try {
       // In a real implementation, this would send a Slack message
       // For now, we'll just log it
-      this.logger.debug(`[SLACK] To: ${userId}, Text: ${notification.title} - ${notification.body}`);
+      this.logger.debug(
+        `[SLACK] To: ${userId}, Text: ${notification.title} - ${notification.body}`,
+      );
       return true;
     } catch (error) {
       this.logger.error(`Failed to send Slack notification: ${error.message}`);
       return false;
     }
   }
-} 
+}

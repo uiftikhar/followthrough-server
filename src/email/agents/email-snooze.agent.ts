@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Injectable, Logger } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 export interface SnoozeRequest {
   emailId: string;
@@ -16,7 +16,7 @@ export interface SnoozeResult {
   snoozeUntil: Date;
   reason?: string;
   notes?: string;
-  status: 'snoozed' | 'awakened' | 'cancelled';
+  status: "snoozed" | "awakened" | "cancelled";
   createdAt: Date;
   awakenedAt?: Date;
 }
@@ -32,23 +32,23 @@ export class EmailSnoozeAgent {
   private snoozeTimers: Map<string, NodeJS.Timeout> = new Map();
   private snoozeRecords: Map<string, SnoozeResult> = new Map();
 
-  constructor(
-    private readonly eventEmitter: EventEmitter2,
-  ) {}
+  constructor(private readonly eventEmitter: EventEmitter2) {}
 
   /**
    * Snooze an email until specified time
    */
   async snoozeEmail(request: SnoozeRequest): Promise<SnoozeResult> {
-    this.logger.log(`Snoozing email ${request.emailId} until ${request.snoozeUntil.toISOString()}`);
-    
+    this.logger.log(
+      `Snoozing email ${request.emailId} until ${request.snoozeUntil.toISOString()}`,
+    );
+
     try {
       const snoozeId = `snooze-${Date.now()}-${request.emailId}`;
       const now = new Date();
-      
+
       // Validate snooze time is in the future
       if (request.snoozeUntil <= now) {
-        throw new Error('Snooze time must be in the future');
+        throw new Error("Snooze time must be in the future");
       }
 
       // Create snooze record
@@ -59,13 +59,13 @@ export class EmailSnoozeAgent {
         snoozeUntil: request.snoozeUntil,
         reason: request.reason,
         notes: request.notes,
-        status: 'snoozed',
+        status: "snoozed",
         createdAt: now,
       };
 
       // Calculate delay in milliseconds
       const delay = request.snoozeUntil.getTime() - now.getTime();
-      
+
       // Set up timer for re-triggering
       const timer = setTimeout(() => {
         this.awakenSnooze(snoozeId);
@@ -76,7 +76,7 @@ export class EmailSnoozeAgent {
       this.snoozeRecords.set(snoozeId, snoozeResult);
 
       // Emit snooze event
-      this.eventEmitter.emit('email.snoozed', {
+      this.eventEmitter.emit("email.snoozed", {
         snoozeId,
         emailId: request.emailId,
         userId: request.userId,
@@ -85,11 +85,15 @@ export class EmailSnoozeAgent {
         timestamp: now.toISOString(),
       });
 
-      this.logger.log(`Email ${request.emailId} snoozed successfully until ${request.snoozeUntil.toISOString()}`);
+      this.logger.log(
+        `Email ${request.emailId} snoozed successfully until ${request.snoozeUntil.toISOString()}`,
+      );
       return snoozeResult;
-
     } catch (error) {
-      this.logger.error(`Failed to snooze email ${request.emailId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to snooze email ${request.emailId}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -99,16 +103,16 @@ export class EmailSnoozeAgent {
    */
   async cancelSnooze(snoozeId: string, userId: string): Promise<void> {
     this.logger.log(`Cancelling snooze ${snoozeId}`);
-    
+
     try {
       const snoozeRecord = this.snoozeRecords.get(snoozeId);
       if (!snoozeRecord) {
-        throw new Error('Snooze record not found');
+        throw new Error("Snooze record not found");
       }
 
       // Verify user ownership
       if (snoozeRecord.userId !== userId) {
-        throw new Error('Unauthorized: User does not own this snooze');
+        throw new Error("Unauthorized: User does not own this snooze");
       }
 
       // Clear the timer
@@ -119,11 +123,11 @@ export class EmailSnoozeAgent {
       }
 
       // Update record status
-      snoozeRecord.status = 'cancelled';
+      snoozeRecord.status = "cancelled";
       snoozeRecord.awakenedAt = new Date();
 
       // Emit cancellation event
-      this.eventEmitter.emit('email.snooze.cancelled', {
+      this.eventEmitter.emit("email.snooze.cancelled", {
         snoozeId,
         emailId: snoozeRecord.emailId,
         userId: snoozeRecord.userId,
@@ -131,9 +135,11 @@ export class EmailSnoozeAgent {
       });
 
       this.logger.log(`Snooze ${snoozeId} cancelled successfully`);
-
     } catch (error) {
-      this.logger.error(`Failed to cancel snooze ${snoozeId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to cancel snooze ${snoozeId}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -143,7 +149,7 @@ export class EmailSnoozeAgent {
    */
   private async awakenSnooze(snoozeId: string): Promise<void> {
     this.logger.log(`Awakening snooze ${snoozeId}`);
-    
+
     try {
       const snoozeRecord = this.snoozeRecords.get(snoozeId);
       if (!snoozeRecord) {
@@ -152,14 +158,14 @@ export class EmailSnoozeAgent {
       }
 
       // Update record status
-      snoozeRecord.status = 'awakened';
+      snoozeRecord.status = "awakened";
       snoozeRecord.awakenedAt = new Date();
 
       // Clean up timer
       this.snoozeTimers.delete(snoozeId);
 
       // Emit awakening event for Master Supervisor to re-trigger email processing
-      this.eventEmitter.emit('email.snooze.awakened', {
+      this.eventEmitter.emit("email.snooze.awakened", {
         snoozeId,
         emailId: snoozeRecord.emailId,
         userId: snoozeRecord.userId,
@@ -170,10 +176,14 @@ export class EmailSnoozeAgent {
         timestamp: new Date().toISOString(),
       });
 
-      this.logger.log(`Snooze ${snoozeId} awakened successfully - email ${snoozeRecord.emailId} returned to active state`);
-
+      this.logger.log(
+        `Snooze ${snoozeId} awakened successfully - email ${snoozeRecord.emailId} returned to active state`,
+      );
     } catch (error) {
-      this.logger.error(`Failed to awaken snooze ${snoozeId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to awaken snooze ${snoozeId}: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
@@ -182,9 +192,10 @@ export class EmailSnoozeAgent {
    */
   async getActiveSnoozes(userId: string): Promise<SnoozeResult[]> {
     this.logger.log(`Getting active snoozes for user ${userId}`);
-    
-    const activeSnoozes = Array.from(this.snoozeRecords.values())
-      .filter(snooze => snooze.userId === userId && snooze.status === 'snoozed');
+
+    const activeSnoozes = Array.from(this.snoozeRecords.values()).filter(
+      (snooze) => snooze.userId === userId && snooze.status === "snoozed",
+    );
 
     return activeSnoozes;
   }
@@ -194,9 +205,9 @@ export class EmailSnoozeAgent {
    */
   async getSnoozeHistory(emailId: string): Promise<SnoozeResult[]> {
     this.logger.log(`Getting snooze history for email ${emailId}`);
-    
+
     const history = Array.from(this.snoozeRecords.values())
-      .filter(snooze => snooze.emailId === emailId)
+      .filter((snooze) => snooze.emailId === emailId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return history;
@@ -214,18 +225,19 @@ export class EmailSnoozeAgent {
    */
   async getSnoozeStats(userId: string): Promise<any> {
     this.logger.log(`Getting snooze statistics for user ${userId}`);
-    
-    const userSnoozes = Array.from(this.snoozeRecords.values())
-      .filter(snooze => snooze.userId === userId);
+
+    const userSnoozes = Array.from(this.snoozeRecords.values()).filter(
+      (snooze) => snooze.userId === userId,
+    );
 
     const stats = {
       total: userSnoozes.length,
-      active: userSnoozes.filter(s => s.status === 'snoozed').length,
-      awakened: userSnoozes.filter(s => s.status === 'awakened').length,
-      cancelled: userSnoozes.filter(s => s.status === 'cancelled').length,
+      active: userSnoozes.filter((s) => s.status === "snoozed").length,
+      awakened: userSnoozes.filter((s) => s.status === "awakened").length,
+      cancelled: userSnoozes.filter((s) => s.status === "cancelled").length,
       upcomingAwakenings: userSnoozes
-        .filter(s => s.status === 'snoozed')
-        .map(s => ({
+        .filter((s) => s.status === "snoozed")
+        .map((s) => ({
           snoozeId: s.id,
           emailId: s.emailId,
           snoozeUntil: s.snoozeUntil,
@@ -241,15 +253,17 @@ export class EmailSnoozeAgent {
    * Clean up expired snooze records (cleanup utility method)
    */
   async cleanupExpiredSnoozes(olderThanDays: number = 30): Promise<number> {
-    this.logger.log(`Cleaning up snooze records older than ${olderThanDays} days`);
-    
+    this.logger.log(
+      `Cleaning up snooze records older than ${olderThanDays} days`,
+    );
+
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
     let cleanedCount = 0;
-    
+
     for (const [snoozeId, snooze] of this.snoozeRecords.entries()) {
-      if (snooze.createdAt < cutoffDate && snooze.status !== 'snoozed') {
+      if (snooze.createdAt < cutoffDate && snooze.status !== "snoozed") {
         this.snoozeRecords.delete(snoozeId);
         cleanedCount++;
       }
@@ -258,4 +272,4 @@ export class EmailSnoozeAgent {
     this.logger.log(`Cleaned up ${cleanedCount} expired snooze records`);
     return cleanedCount;
   }
-} 
+}

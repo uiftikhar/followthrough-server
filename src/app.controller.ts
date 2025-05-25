@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Body, Inject, Optional } from '@nestjs/common';
-import { AppService } from './app.service';
-import { EmbeddingService } from './embedding/embedding.service';
-import { EMBEDDING_SERVICE } from './embedding/constants/injection-tokens';
+import { Controller, Get, Post, Body, Inject, Optional } from "@nestjs/common";
+import { AppService } from "./app.service";
+import { EmbeddingService } from "./embedding/embedding.service";
+import { EMBEDDING_SERVICE } from "./embedding/constants/injection-tokens";
 
 @Controller()
 export class AppController {
@@ -17,12 +17,12 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  @Post('test-embedding')
+  @Post("test-embedding")
   async testEmbedding(@Body() body: { text: string }) {
     if (!this.embeddingService) {
       return {
-        error: 'Embedding service not available',
-        status: 'disabled',
+        error: "Embedding service not available",
+        status: "disabled",
       };
     }
 

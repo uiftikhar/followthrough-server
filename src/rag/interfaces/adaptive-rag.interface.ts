@@ -1,8 +1,8 @@
-import { RetrievalOptions } from '../retrieval.service';
+import { RetrievalOptions } from "../retrieval.service";
 
 export interface IAdaptiveRagService {
   determineRetrievalStrategy(query: string): Promise<{
-    strategy: 'semantic' | 'keyword' | 'hybrid' | 'none';
+    strategy: "semantic" | "keyword" | "hybrid" | "none";
     settings: Partial<RetrievalOptions>;
   }>;
 

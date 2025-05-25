@@ -1,4 +1,4 @@
-import { http, HttpResponse } from 'msw';
+import { http, HttpResponse } from "msw";
 
 // Mock response for OpenAI embeddings API
 const mockEmbeddingResponse = {
@@ -6,11 +6,11 @@ const mockEmbeddingResponse = {
     {
       embedding: Array(1024).fill(0.5),
       index: 0,
-      object: 'embedding',
+      object: "embedding",
     },
   ],
-  model: 'llama-text-embed-v2',
-  object: 'list',
+  model: "llama-text-embed-v2",
+  object: "list",
   usage: {
     prompt_tokens: 10,
     total_tokens: 10,
@@ -24,10 +24,10 @@ const mockBatchEmbeddingResponse = (inputCount: number) => ({
     .map((_, index) => ({
       embedding: Array(1024).fill(0.5),
       index,
-      object: 'embedding',
+      object: "embedding",
     })),
-  model: 'llama-text-embed-v2',
-  object: 'list',
+  model: "llama-text-embed-v2",
+  object: "list",
   usage: {
     prompt_tokens: inputCount * 10,
     total_tokens: inputCount * 10,
@@ -36,46 +36,46 @@ const mockBatchEmbeddingResponse = (inputCount: number) => ({
 
 // Mock topic extraction response
 const mockTopicExtractionResponse = {
-  id: 'chatcmpl-topic-123',
-  object: 'chat.completion',
+  id: "chatcmpl-topic-123",
+  object: "chat.completion",
   created: Date.now(),
-  model: 'gpt-4o',
+  model: "gpt-4o",
   choices: [
     {
       index: 0,
       message: {
-        role: 'assistant',
+        role: "assistant",
         content: JSON.stringify([
           {
-            name: 'Project Timeline',
-            description: 'Discussion about project deadlines and milestones',
+            name: "Project Timeline",
+            description: "Discussion about project deadlines and milestones",
             relevance: 9,
-            subtopics: ['Delays', 'Milestones', 'Deliverables'],
-            keywords: ['timeline', 'deadline', 'milestone', 'schedule'],
+            subtopics: ["Delays", "Milestones", "Deliverables"],
+            keywords: ["timeline", "deadline", "milestone", "schedule"],
           },
           {
-            name: 'Budget Concerns',
+            name: "Budget Concerns",
             description:
-              'Analysis of current expenditures and budget constraints',
+              "Analysis of current expenditures and budget constraints",
             relevance: 8,
-            subtopics: ['Cost Overruns', 'Resource Allocation'],
-            keywords: ['budget', 'cost', 'expense', 'funding'],
+            subtopics: ["Cost Overruns", "Resource Allocation"],
+            keywords: ["budget", "cost", "expense", "funding"],
           },
           {
-            name: 'Team Collaboration',
-            description: 'Discussion about team dynamics and communication',
+            name: "Team Collaboration",
+            description: "Discussion about team dynamics and communication",
             relevance: 7,
-            subtopics: ['Communication Channels', 'Work Distribution'],
+            subtopics: ["Communication Channels", "Work Distribution"],
             keywords: [
-              'team',
-              'collaboration',
-              'communication',
-              'coordination',
+              "team",
+              "collaboration",
+              "communication",
+              "coordination",
             ],
           },
         ]),
       },
-      finish_reason: 'stop',
+      finish_reason: "stop",
     },
   ],
   usage: {
@@ -87,45 +87,45 @@ const mockTopicExtractionResponse = {
 
 // Mock action item extraction response
 const mockActionItemResponse = {
-  id: 'chatcmpl-action-123',
-  object: 'chat.completion',
+  id: "chatcmpl-action-123",
+  object: "chat.completion",
   created: Date.now(),
-  model: 'gpt-4o',
+  model: "gpt-4o",
   choices: [
     {
       index: 0,
       message: {
-        role: 'assistant',
+        role: "assistant",
         content: JSON.stringify([
           {
-            description: 'Update project timeline document with new milestones',
-            assignee: 'Alice',
-            dueDate: '2023-07-15',
-            priority: 'high',
-            status: 'pending',
-            relatedTopics: ['Project Timeline'],
+            description: "Update project timeline document with new milestones",
+            assignee: "Alice",
+            dueDate: "2023-07-15",
+            priority: "high",
+            status: "pending",
+            relatedTopics: ["Project Timeline"],
           },
           {
             description:
-              'Schedule budget review meeting with finance department',
-            assignee: 'Bob',
-            dueDate: '2023-07-10',
-            priority: 'medium',
-            status: 'pending',
-            relatedTopics: ['Budget Concerns'],
+              "Schedule budget review meeting with finance department",
+            assignee: "Bob",
+            dueDate: "2023-07-10",
+            priority: "medium",
+            status: "pending",
+            relatedTopics: ["Budget Concerns"],
           },
           {
             description:
-              'Create new Slack channel for cross-team communication',
-            assignee: 'Charlie',
-            dueDate: '2023-07-05',
-            priority: 'low',
-            status: 'pending',
-            relatedTopics: ['Team Collaboration'],
+              "Create new Slack channel for cross-team communication",
+            assignee: "Charlie",
+            dueDate: "2023-07-05",
+            priority: "low",
+            status: "pending",
+            relatedTopics: ["Team Collaboration"],
           },
         ]),
       },
-      finish_reason: 'stop',
+      finish_reason: "stop",
     },
   ],
   usage: {
@@ -137,50 +137,50 @@ const mockActionItemResponse = {
 
 // Mock sentiment analysis response
 const mockSentimentResponse = {
-  id: 'chatcmpl-sentiment-123',
-  object: 'chat.completion',
+  id: "chatcmpl-sentiment-123",
+  object: "chat.completion",
   created: Date.now(),
-  model: 'gpt-4o',
+  model: "gpt-4o",
   choices: [
     {
       index: 0,
       message: {
-        role: 'assistant',
+        role: "assistant",
         content: JSON.stringify({
-          overall: 'mixed',
+          overall: "mixed",
           score: 0.2,
           segments: [
             {
-              text: 'We need to address these timeline issues immediately.',
-              sentiment: 'negative',
+              text: "We need to address these timeline issues immediately.",
+              sentiment: "negative",
               score: -0.6,
-              speaker: 'Alice',
+              speaker: "Alice",
             },
             {
-              text: 'I think we can work through these challenges together.',
-              sentiment: 'positive',
+              text: "I think we can work through these challenges together.",
+              sentiment: "positive",
               score: 0.7,
-              speaker: 'Bob',
+              speaker: "Bob",
             },
             {
-              text: 'The budget constraints are concerning but not insurmountable.',
-              sentiment: 'neutral',
+              text: "The budget constraints are concerning but not insurmountable.",
+              sentiment: "neutral",
               score: 0.1,
-              speaker: 'Charlie',
+              speaker: "Charlie",
             },
           ],
-          keyEmotions: ['concern', 'hope', 'determination'],
+          keyEmotions: ["concern", "hope", "determination"],
           toneShifts: [
             {
-              from: 'negative',
-              to: 'positive',
-              approximate_time: '10:15',
-              trigger: 'Discussion of team collaboration',
+              from: "negative",
+              to: "positive",
+              approximate_time: "10:15",
+              trigger: "Discussion of team collaboration",
             },
           ],
         }),
       },
-      finish_reason: 'stop',
+      finish_reason: "stop",
     },
   ],
   usage: {
@@ -192,18 +192,18 @@ const mockSentimentResponse = {
 
 // Default chat completion response for other queries
 const mockChatCompletionResponse = {
-  id: 'chatcmpl-mock-123',
-  object: 'chat.completion',
+  id: "chatcmpl-mock-123",
+  object: "chat.completion",
   created: Date.now(),
-  model: 'gpt-4o',
+  model: "gpt-4o",
   choices: [
     {
       index: 0,
       message: {
-        role: 'assistant',
-        content: 'This is a mock response from the OpenAI API.',
+        role: "assistant",
+        content: "This is a mock response from the OpenAI API.",
       },
-      finish_reason: 'stop',
+      finish_reason: "stop",
     },
   ],
   usage: {
@@ -224,7 +224,7 @@ interface OpenAIEmbeddingRequest {
 
 export const handlers = [
   // Intercept OpenAI embeddings API
-  http.post('https://api.openai.com/v1/embeddings', async ({ request }) => {
+  http.post("https://api.openai.com/v1/embeddings", async ({ request }) => {
     // Parse the request body
     const reqBody = (await request.json()) as OpenAIEmbeddingRequest;
 
@@ -241,29 +241,29 @@ export const handlers = [
 
   // Intercept OpenAI chat completion API with content-based response selection
   http.post(
-    'https://api.openai.com/v1/chat/completions',
+    "https://api.openai.com/v1/chat/completions",
     async ({ request }) => {
       const reqBody = (await request.json()) as any;
       const messages = reqBody.messages || [];
       const content =
-        messages.length > 0 ? messages[messages.length - 1].content || '' : '';
+        messages.length > 0 ? messages[messages.length - 1].content || "" : "";
 
       // Select appropriate mock response based on content
       if (
-        content.toLowerCase().includes('topic') ||
-        content.toLowerCase().includes('main discussion points')
+        content.toLowerCase().includes("topic") ||
+        content.toLowerCase().includes("main discussion points")
       ) {
         return HttpResponse.json(mockTopicExtractionResponse);
       } else if (
-        content.toLowerCase().includes('action item') ||
-        content.toLowerCase().includes('task') ||
-        content.toLowerCase().includes('to-do')
+        content.toLowerCase().includes("action item") ||
+        content.toLowerCase().includes("task") ||
+        content.toLowerCase().includes("to-do")
       ) {
         return HttpResponse.json(mockActionItemResponse);
       } else if (
-        content.toLowerCase().includes('sentiment') ||
-        content.toLowerCase().includes('emotion') ||
-        content.toLowerCase().includes('tone')
+        content.toLowerCase().includes("sentiment") ||
+        content.toLowerCase().includes("emotion") ||
+        content.toLowerCase().includes("tone")
       ) {
         return HttpResponse.json(mockSentimentResponse);
       } else {
@@ -273,37 +273,37 @@ export const handlers = [
   ),
 
   // Mock Pinecone API for vector storage
-  http.post('*/query', async () => {
+  http.post("*/query", async () => {
     return HttpResponse.json({
       matches: [
         {
-          id: 'doc-1',
+          id: "doc-1",
           score: 0.92,
           values: Array(1024).fill(0.1),
           metadata: {
-            content: 'Previous meeting discussed project timeline issues.',
-            meetingId: 'prev-meeting-001',
-            date: '2023-06-15',
+            content: "Previous meeting discussed project timeline issues.",
+            meetingId: "prev-meeting-001",
+            date: "2023-06-15",
           },
         },
         {
-          id: 'doc-2',
+          id: "doc-2",
           score: 0.87,
           values: Array(1024).fill(0.2),
           metadata: {
             content:
               "Budget concerns were raised in last week's financial review.",
-            meetingId: 'prev-meeting-002',
-            date: '2023-06-22',
+            meetingId: "prev-meeting-002",
+            date: "2023-06-22",
           },
         },
       ],
-      namespace: 'meetings',
+      namespace: "meetings",
     });
   }),
 
   // Mock Pinecone API for vector upsert
-  http.post('*/vectors/upsert', async () => {
+  http.post("*/vectors/upsert", async () => {
     return HttpResponse.json({
       upsertedCount: 10,
     });

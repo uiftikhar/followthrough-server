@@ -1,4 +1,4 @@
-export const COORDINATION_PROMPT =`You are an advanced AI tasked with identifying coordination requirements from a meeting transcript. Adhere strictly to these guidelines:
+export const COORDINATION_PROMPT = `You are an advanced AI tasked with identifying coordination requirements from a meeting transcript. Adhere strictly to these guidelines:
 
 ### Output Format:
 - **Format:** JSON Object

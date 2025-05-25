@@ -1,13 +1,13 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { EmailService } from './email.service';
-import { GmailConnector } from './connectors/gmail.connector';
-import { OutlookConnector } from './connectors/outlook.connector';
-import { EmailConnectorFactory } from './connectors/email-connector.factory';
-import { MCPModule } from '../mcp/mcp.module';
-import { EmailWorkflowModule } from './workflow/email-workflow.module';
-import { EmailTriageController } from './email-triage.controller';
-import { EmailActionController } from './email-action.controller';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { EmailService } from "./email.service";
+import { GmailConnector } from "./connectors/gmail.connector";
+import { OutlookConnector } from "./connectors/outlook.connector";
+import { EmailConnectorFactory } from "./connectors/email-connector.factory";
+import { MCPModule } from "../mcp/mcp.module";
+import { EmailWorkflowModule } from "./workflow/email-workflow.module";
+import { EmailTriageController } from "./email-triage.controller";
+import { EmailActionController } from "./email-action.controller";
 
 /**
  * EmailModule - Application Layer
@@ -19,11 +19,11 @@ import { EmailActionController } from './email-action.controller';
   imports: [
     ConfigModule,
     MCPModule,
-    EmailWorkflowModule,  // Provides workflow services and UnifiedWorkflowService
+    EmailWorkflowModule, // Provides workflow services and UnifiedWorkflowService
   ],
   controllers: [
     EmailTriageController,
-    EmailActionController,  // NEW - Phase 6 user action handlers
+    EmailActionController, // NEW - Phase 6 user action handlers
   ],
   providers: [
     EmailService,
@@ -31,9 +31,6 @@ import { EmailActionController } from './email-action.controller';
     OutlookConnector,
     EmailConnectorFactory,
   ],
-  exports: [
-    EmailService,
-    EmailWorkflowModule,
-  ],
+  exports: [EmailService, EmailWorkflowModule],
 })
-export class EmailModule {} 
+export class EmailModule {}

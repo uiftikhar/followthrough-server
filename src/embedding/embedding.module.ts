@@ -1,22 +1,22 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { CacheModule } from '@nestjs/cache-manager';
-import { EmbeddingService } from './embedding.service';
-import { ChunkingService } from './chunking.service';
-import { DocumentProcessorService } from './document-processor.service';
-import { PineconeModule } from '../pinecone/pinecone.module';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { CacheModule } from "@nestjs/cache-manager";
+import { EmbeddingService } from "./embedding.service";
+import { ChunkingService } from "./chunking.service";
+import { DocumentProcessorService } from "./document-processor.service";
+import { PineconeModule } from "../pinecone/pinecone.module";
 import {
   EMBEDDING_SERVICE,
   CHUNKING_SERVICE,
   DOCUMENT_PROCESSOR_SERVICE,
-} from './constants/injection-tokens';
-import { LlmModule } from '../langgraph/llm/llm.module';
-import { DimensionAdapterService } from './dimension-adapter.service';
-import { SemanticChunkingService } from './semantic-chunking.service';
-import { SimilarityUtilsService } from './similarity-utils.service';
-import { SentenceParserService } from './sentence-parser.service';
-import { ChunkOptimizationService } from './chunk-optimization.service';
-import { OpenAIService } from './openai.service';
+} from "./constants/injection-tokens";
+import { LlmModule } from "../langgraph/llm/llm.module";
+import { DimensionAdapterService } from "./dimension-adapter.service";
+import { SemanticChunkingService } from "./semantic-chunking.service";
+import { SimilarityUtilsService } from "./similarity-utils.service";
+import { SentenceParserService } from "./sentence-parser.service";
+import { ChunkOptimizationService } from "./chunk-optimization.service";
+import { OpenAIService } from "./openai.service";
 
 @Module({
   imports: [

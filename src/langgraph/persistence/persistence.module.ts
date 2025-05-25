@@ -1,6 +1,6 @@
-import { Module } from '@nestjs/common';
-import { StateStorageService } from './state-storage.service';
-import { StorageModule } from '../../storage/storage.module';
+import { Module } from "@nestjs/common";
+import { StateStorageService } from "./state-storage.service";
+import { StorageModule } from "../../storage/storage.module";
 
 @Module({
   imports: [StorageModule],

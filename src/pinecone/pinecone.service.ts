@@ -1,17 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { RecordMetadata } from '@pinecone-database/pinecone';
-import { PineconeConnectionService } from './pinecone-connection.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { RecordMetadata } from "@pinecone-database/pinecone";
+import { PineconeConnectionService } from "./pinecone-connection.service";
 import {
   PineconeIndexService,
   VectorIndexes,
   IndexConfig,
-} from './pinecone-index.service';
-import { VectorRecord, QueryOptions } from './pinecone.types';
+} from "./pinecone-index.service";
+import { VectorRecord, QueryOptions } from "./pinecone.types";
 
 @Injectable()
 export class PineconeService {
   private readonly logger = new Logger(PineconeService.name);
-  private defaultNamespace = 'default';
+  private defaultNamespace = "default";
 
   constructor(
     private readonly connectionService: PineconeConnectionService,
@@ -28,7 +28,7 @@ export class PineconeService {
       await this.indexService.ensureIndexExists(name, config);
       this.logger.log(`Index ${name} initialized successfully`);
     }
-    this.logger.log('Pinecone indexes initialized successfully');
+    this.logger.log("Pinecone indexes initialized successfully");
   }
 
   /**

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 
 @Injectable()
 export class SentenceParserService {
@@ -8,8 +8,8 @@ export class SentenceParserService {
    * Parse text into sentences using basic regex patterns
    */
   parseSentences(text: string): string[] {
-    if (!text || typeof text !== 'string') {
-      this.logger.warn('Empty or non-string text provided to parseSentences');
+    if (!text || typeof text !== "string") {
+      this.logger.warn("Empty or non-string text provided to parseSentences");
       return [];
     }
 
@@ -30,7 +30,7 @@ export class SentenceParserService {
       this.logger.log(`Basic parsing found ${sentences.length} sentences`);
 
       if (sentences.length === 0) {
-        this.logger.warn('No sentences found in text using basic parsing');
+        this.logger.warn("No sentences found in text using basic parsing");
       } else if (sentences.length < 3 && text.length > 500) {
         this.logger.warn(
           `Unusually few sentences (${sentences.length}) for text length ${text.length}`,
@@ -52,9 +52,9 @@ export class SentenceParserService {
    * Advanced sentence parsing with better handling of edge cases
    */
   parseAdvancedSentences(text: string): string[] {
-    if (!text || typeof text !== 'string') {
+    if (!text || typeof text !== "string") {
       this.logger.warn(
-        'Empty or non-string text provided to parseAdvancedSentences',
+        "Empty or non-string text provided to parseAdvancedSentences",
       );
       return [];
     }
@@ -64,18 +64,18 @@ export class SentenceParserService {
 
       // Handle common abbreviations to avoid incorrect splitting
       const preprocessed = text
-        .replace(/Mr\./g, 'Mr_DOT_')
-        .replace(/Mrs\./g, 'Mrs_DOT_')
-        .replace(/Dr\./g, 'Dr_DOT_')
-        .replace(/Ph\.D\./g, 'PhD_DOT_')
-        .replace(/i\.e\./g, 'ie_DOT_')
-        .replace(/e\.g\./g, 'eg_DOT_')
-        .replace(/vs\./g, 'vs_DOT_')
-        .replace(/etc\./g, 'etc_DOT_')
-        .replace(/(\d+)\.(\d+)/g, '$1_DOT_$2'); // Handle decimal numbers
+        .replace(/Mr\./g, "Mr_DOT_")
+        .replace(/Mrs\./g, "Mrs_DOT_")
+        .replace(/Dr\./g, "Dr_DOT_")
+        .replace(/Ph\.D\./g, "PhD_DOT_")
+        .replace(/i\.e\./g, "ie_DOT_")
+        .replace(/e\.g\./g, "eg_DOT_")
+        .replace(/vs\./g, "vs_DOT_")
+        .replace(/etc\./g, "etc_DOT_")
+        .replace(/(\d+)\.(\d+)/g, "$1_DOT_$2"); // Handle decimal numbers
 
       this.logger.log(
-        'Text preprocessed to handle abbreviations and special cases',
+        "Text preprocessed to handle abbreviations and special cases",
       );
 
       // More comprehensive sentence regex
@@ -89,15 +89,15 @@ export class SentenceParserService {
         .map((s) =>
           s
             .trim()
-            .replace(/Mr_DOT_/g, 'Mr.')
-            .replace(/Mrs_DOT_/g, 'Mrs.')
-            .replace(/Dr_DOT_/g, 'Dr.')
-            .replace(/PhD_DOT_/g, 'Ph.D.')
-            .replace(/ie_DOT_/g, 'i.e.')
-            .replace(/eg_DOT_/g, 'e.g.')
-            .replace(/vs_DOT_/g, 'vs.')
-            .replace(/etc_DOT_/g, 'etc.')
-            .replace(/(\d+)_DOT_(\d+)/g, '$1.$2'),
+            .replace(/Mr_DOT_/g, "Mr.")
+            .replace(/Mrs_DOT_/g, "Mrs.")
+            .replace(/Dr_DOT_/g, "Dr.")
+            .replace(/PhD_DOT_/g, "Ph.D.")
+            .replace(/ie_DOT_/g, "i.e.")
+            .replace(/eg_DOT_/g, "e.g.")
+            .replace(/vs_DOT_/g, "vs.")
+            .replace(/etc_DOT_/g, "etc.")
+            .replace(/(\d+)_DOT_(\d+)/g, "$1.$2"),
         )
         .filter((s) => s.length > 0);
 
@@ -106,9 +106,9 @@ export class SentenceParserService {
       );
 
       if (sentences.length === 0) {
-        this.logger.warn('No sentences found in text using advanced parsing');
+        this.logger.warn("No sentences found in text using advanced parsing");
         if (text.trim().length > 0) {
-          this.logger.log('Returning original text as single sentence');
+          this.logger.log("Returning original text as single sentence");
           return [text.trim()];
         }
       } else if (sentences.length < 3 && text.length > 500) {
@@ -132,9 +132,9 @@ export class SentenceParserService {
    * Split text by semantic boundaries, considering both punctuation and content
    */
   splitBySemanticBoundaries(text: string): string[] {
-    if (!text || typeof text !== 'string') {
+    if (!text || typeof text !== "string") {
       this.logger.warn(
-        'Empty or non-string text provided to splitBySemanticBoundaries',
+        "Empty or non-string text provided to splitBySemanticBoundaries",
       );
       return [];
     }
@@ -187,7 +187,7 @@ export class SentenceParserService {
 
       if (allSentences.length === 0 && text.trim().length > 0) {
         this.logger.warn(
-          'No semantic units found, returning original text as single unit',
+          "No semantic units found, returning original text as single unit",
         );
         return [text.trim()];
       }
@@ -248,7 +248,7 @@ export class SentenceParserService {
           );
         } else {
           // If no good breaking point, just split at a space near max length
-          const lastSpace = remainingText.lastIndexOf(' ', maxLength);
+          const lastSpace = remainingText.lastIndexOf(" ", maxLength);
           breakPoint = lastSpace > maxLength / 2 ? lastSpace : maxLength;
           this.logger.log(
             `No pattern found, using space at position ${breakPoint}`,
@@ -260,7 +260,7 @@ export class SentenceParserService {
 
         if (splitCount > 20) {
           this.logger.warn(
-            'Force split loop exceeded 20 iterations, breaking to avoid infinite loop',
+            "Force split loop exceeded 20 iterations, breaking to avoid infinite loop",
           );
           // Add the remaining text and break
           if (remainingText.length > 0) {

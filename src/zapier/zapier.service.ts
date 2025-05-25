@@ -1,6 +1,6 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as crypto from 'crypto';
+import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as crypto from "crypto";
 
 @Injectable()
 export class ZapierService {
@@ -22,7 +22,7 @@ export class ZapierService {
   getUserIdFromApiKey(apiKey: string): string {
     const keyData = this.apiKeys.get(apiKey);
     if (!keyData) {
-      throw new UnauthorizedException('Invalid API key');
+      throw new UnauthorizedException("Invalid API key");
     }
     return keyData.userId;
   }
@@ -31,7 +31,7 @@ export class ZapierService {
    * Generates a new API key for a user
    */
   generateApiKey(userId: string): string {
-    const apiKey = crypto.randomBytes(32).toString('hex');
+    const apiKey = crypto.randomBytes(32).toString("hex");
     this.apiKeys.set(apiKey, {
       userId,
       createdAt: new Date(),
@@ -66,29 +66,29 @@ export class ZapierService {
    */
   async handleWebhook(payload: any, event: string): Promise<any> {
     this.logger.log(`Received webhook for event: ${event}`);
-    this.logger.debug('Webhook payload:', payload);
-    
+    this.logger.debug("Webhook payload:", payload);
+
     // Process webhook based on event type
     switch (event) {
-      case 'task.created':
+      case "task.created":
         return this.handleTaskCreated(payload);
-      case 'meeting.scheduled':
+      case "meeting.scheduled":
         return this.handleMeetingScheduled(payload);
       default:
         this.logger.warn(`Unknown webhook event: ${event}`);
-        return { status: 'error', message: `Unknown event type: ${event}` };
+        return { status: "error", message: `Unknown event type: ${event}` };
     }
   }
 
   private async handleTaskCreated(payload: any): Promise<any> {
     // Implement task creation logic
-    this.logger.log('Processing task creation', payload);
-    return { status: 'success', message: 'Task received' };
+    this.logger.log("Processing task creation", payload);
+    return { status: "success", message: "Task received" };
   }
 
   private async handleMeetingScheduled(payload: any): Promise<any> {
     // Implement meeting scheduling logic
-    this.logger.log('Processing meeting scheduling', payload);
-    return { status: 'success', message: 'Meeting received' };
+    this.logger.log("Processing meeting scheduling", payload);
+    return { status: "success", message: "Meeting received" };
   }
-} 
+}
