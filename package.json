@@ -50,7 +50,9 @@
     "class-validator": "^0.14.2",
     "crypto": "^1.0.1",
     "dotenv": "^16.5.0",
+    "googleapis": "^149.0.0",
     "joi": "^17.13.3",
+    "keyv": "^5.3.3",
     "langchain": "^0.3.25",
     "mongoose": "^8.14.3",
     "nestjs-pino": "^4.4.0",
@@ -66,8 +68,7 @@
     "sqlite3": "^5.1.7",
     "swagger-ui-express": "^5.0.1",
     "typeorm": "^0.3.24",
-    "uuid": "^11.1.0",
-    "keyv": "^5.3.3"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
