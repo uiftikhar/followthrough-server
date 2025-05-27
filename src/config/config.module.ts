@@ -26,29 +26,6 @@ import { join } from "path";
             database: process.env.DB_DATABASE || "meetings.db",
             synchronize: process.env.DB_SYNCHRONIZE === "true",
           },
-          storage: {
-            fileStoragePath:
-              process.env.FILE_STORAGE_PATH ||
-              join(process.cwd(), "data", "file-storage"),
-            transcriptsPath:
-              process.env.TRANSCRIPTS_PATH ||
-              join(process.cwd(), "data", "transcripts"),
-            meetingsPath:
-              process.env.MEETINGS_PATH ||
-              join(process.cwd(), "data", "meeting-analysis", "meetings"),
-            teamsPath:
-              process.env.TEAMS_PATH ||
-              join(process.cwd(), "data", "meeting-analysis", "teams"),
-            resultsPath:
-              process.env.RESULTS_PATH ||
-              join(process.cwd(), "data", "meeting-analysis", "results"),
-            sessionsPath:
-              process.env.SESSIONS_PATH ||
-              join(process.cwd(), "data", "meeting-analysis", "sessions"),
-            memoryPath:
-              process.env.MEMORY_PATH ||
-              join(process.cwd(), "data", "meeting-analysis", "memory"),
-          },
           auth: {
             jwtSecret: process.env.JWT_SECRET || "supersecret",
             jwtExpiresIn: process.env.JWT_EXPIRES_IN || "1d",
