@@ -18,11 +18,15 @@ export class Resource {
   uri?: string;
 
   constructor(data: Partial<Resource>) {
-    this.id = data.id || '';
-    this.name = data.name || '';
-    this.type = data.type || '';
+    this.id = data.id || "";
+    this.name = data.name || "";
+    this.type = data.type || "";
     this.description = data.description;
-    this.metadata = data.metadata || { id: this.id, name: this.name, type: this.type };
+    this.metadata = data.metadata || {
+      id: this.id,
+      name: this.name,
+      type: this.type,
+    };
     this.content = data.content;
     this.uri = data.uri;
   }
@@ -49,4 +53,4 @@ export class Resource {
       metadata: this.metadata,
     };
   }
-} 
+}

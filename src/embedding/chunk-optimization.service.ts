@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { SimilarityUtilsService } from './similarity-utils.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { SimilarityUtilsService } from "./similarity-utils.service";
 
 interface SentenceWithIndex {
   text: string;
@@ -23,14 +23,14 @@ export class ChunkOptimizationService {
     try {
       if (!sentences || sentences.length === 0) {
         this.logger.warn(
-          'Empty sentences array provided to createInitialChunks',
+          "Empty sentences array provided to createInitialChunks",
         );
         return [];
       }
 
       if (!similarityMatrix || similarityMatrix.length === 0) {
         this.logger.warn(
-          'Invalid similarity matrix provided to createInitialChunks',
+          "Invalid similarity matrix provided to createInitialChunks",
         );
         return sentences.map((_, i) => [i]); // One sentence per chunk fallback
       }
@@ -107,7 +107,7 @@ export class ChunkOptimizationService {
 
       if (chunks.length === 0) {
         this.logger.warn(
-          'No chunks created, using fallback of one chunk containing all sentences',
+          "No chunks created, using fallback of one chunk containing all sentences",
         );
         return [Array.from(Array(sentences.length).keys())];
       }
@@ -150,14 +150,14 @@ export class ChunkOptimizationService {
     try {
       if (chunks.length === 0) {
         this.logger.warn(
-          'Empty chunks array provided to optimizeAndRebalanceChunks',
+          "Empty chunks array provided to optimizeAndRebalanceChunks",
         );
         return [];
       }
 
       if (!similarityMatrix || similarityMatrix.length === 0) {
         this.logger.warn(
-          'Invalid similarity matrix provided to optimizeAndRebalanceChunks',
+          "Invalid similarity matrix provided to optimizeAndRebalanceChunks",
         );
         return chunks; // Return input chunks as fallback
       }
@@ -166,7 +166,7 @@ export class ChunkOptimizationService {
         `Optimizing chunks with min size ${minChunkSize}, max size ${maxChunkSize}`,
       );
       this.logger.log(
-        `Initial state: ${chunks.length} chunks with sizes: ${chunks.map((c) => c.length).join(', ')}`,
+        `Initial state: ${chunks.length} chunks with sizes: ${chunks.map((c) => c.length).join(", ")}`,
       );
 
       // First merge small chunks that are similar
@@ -496,7 +496,7 @@ export class ChunkOptimizationService {
     return chunks.map((chunkIndices, index) => {
       // Get the sentences in this chunk
       const chunkSentences = chunkIndices.map((idx) => sentences[idx]);
-      const chunkText = chunkSentences.join(' ');
+      const chunkText = chunkSentences.join(" ");
 
       // Determine if this is the first chunk
       const isFirst = index === 0;
@@ -530,7 +530,7 @@ export class ChunkOptimizationService {
   private extractDocumentTitle(text: string): string | null {
     // Simple title extraction - first non-blank line
     const lines = text
-      .split('\n')
+      .split("\n")
       .map((l) => l.trim())
       .filter((l) => l);
 

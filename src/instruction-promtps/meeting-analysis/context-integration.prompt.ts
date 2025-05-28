@@ -1,4 +1,4 @@
-export const CONTEXT_INTEGRATION_PROMPT =  `You are an advanced AI tasked with integrating contextual information from previous meetings into the current meeting analysis. Adhere strictly to these guidelines:
+export const CONTEXT_INTEGRATION_PROMPT = `You are an advanced AI tasked with integrating contextual information from previous meetings into the current meeting analysis. Adhere strictly to these guidelines:
 
 ### Output Format:
 - **Format:** JSON Object

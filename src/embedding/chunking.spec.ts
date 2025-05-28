@@ -1,8 +1,8 @@
-import { Test } from '@nestjs/testing';
-import { ChunkingService, ChunkingOptions } from './chunking.service';
-import { Logger } from '@nestjs/common';
+import { Test } from "@nestjs/testing";
+import { ChunkingService, ChunkingOptions } from "./chunking.service";
+import { Logger } from "@nestjs/common";
 
-describe('ChunkingService', () => {
+describe("ChunkingService", () => {
   let chunkingService: ChunkingService;
 
   beforeEach(async () => {
@@ -24,13 +24,13 @@ describe('ChunkingService', () => {
     chunkingService = moduleRef.get<ChunkingService>(ChunkingService);
   });
 
-  describe('chunkByTokens', () => {
-    it('should split text into chunks based on tokens', () => {
+  describe("chunkByTokens", () => {
+    it("should split text into chunks based on tokens", () => {
       // Arrange
       const text =
-        'This is a test sentence. This is another test sentence. ' +
-        'Adding more text to ensure we get chunks. ' +
-        'We need enough text to exceed the chunk size of 5 tokens.';
+        "This is a test sentence. This is another test sentence. " +
+        "Adding more text to ensure we get chunks. " +
+        "We need enough text to exceed the chunk size of 5 tokens.";
 
       // Act
       const chunks = chunkingService.chunkByTokens(text, {
@@ -39,12 +39,12 @@ describe('ChunkingService', () => {
       });
 
       // Let's spy on the implementation to debug the issue
-      console.log('Chunks length:', chunks.length);
+      console.log("Chunks length:", chunks.length);
       if (chunks.length > 0) {
-        console.log('First chunk:', chunks[0]);
+        console.log("First chunk:", chunks[0]);
       } else {
-        console.log('Input text length:', text.length);
-        console.log('Input text:', text);
+        console.log("Input text length:", text.length);
+        console.log("Input text:", text);
       }
 
       // Assert
@@ -54,24 +54,24 @@ describe('ChunkingService', () => {
         expect(true).toBe(true);
       } else {
         expect(chunks.length).toBeGreaterThan(0);
-        expect(chunks[0]).toContain('This is');
+        expect(chunks[0]).toContain("This is");
       }
     });
 
-    it('should handle empty text', () => {
+    it("should handle empty text", () => {
       // Act
-      const chunks = chunkingService.chunkByTokens('');
+      const chunks = chunkingService.chunkByTokens("");
 
       // Assert
       expect(chunks.length).toBe(1);
     });
   });
 
-  describe('chunkBySentences', () => {
-    it('should split text into chunks based on sentences', () => {
+  describe("chunkBySentences", () => {
+    it("should split text into chunks based on sentences", () => {
       // Arrange
       const text =
-        'This is sentence one. This is sentence two. This is sentence three. This is sentence four.';
+        "This is sentence one. This is sentence two. This is sentence three. This is sentence four.";
 
       // Act
       const chunks = chunkingService.chunkBySentences(text, {
@@ -81,18 +81,18 @@ describe('ChunkingService', () => {
 
       // Assert
       expect(chunks.length).toBe(4);
-      expect(chunks[0]).toContain('sentence one');
-      expect(chunks[1]).toContain('sentence two');
-      expect(chunks[2]).toContain('sentence three');
-      expect(chunks[3]).toContain('sentence four');
+      expect(chunks[0]).toContain("sentence one");
+      expect(chunks[1]).toContain("sentence two");
+      expect(chunks[2]).toContain("sentence three");
+      expect(chunks[3]).toContain("sentence four");
     });
   });
 
-  describe('chunkByParagraphs', () => {
-    it('should split text into chunks based on paragraphs', () => {
+  describe("chunkByParagraphs", () => {
+    it("should split text into chunks based on paragraphs", () => {
       // Arrange
       const text =
-        'Paragraph one.\n\nParagraph two.\n\nParagraph three.\n\nParagraph four.';
+        "Paragraph one.\n\nParagraph two.\n\nParagraph three.\n\nParagraph four.";
 
       // Act
       const chunks = chunkingService.chunkByParagraphs(text, {
@@ -101,18 +101,18 @@ describe('ChunkingService', () => {
 
       // Assert
       expect(chunks.length).toBe(4);
-      expect(chunks[0]).toContain('Paragraph one');
-      expect(chunks[1]).toContain('Paragraph two');
-      expect(chunks[2]).toContain('Paragraph three');
-      expect(chunks[3]).toContain('Paragraph four');
+      expect(chunks[0]).toContain("Paragraph one");
+      expect(chunks[1]).toContain("Paragraph two");
+      expect(chunks[2]).toContain("Paragraph three");
+      expect(chunks[3]).toContain("Paragraph four");
     });
   });
 
-  describe('smartChunk', () => {
-    it('should use token chunking by default', () => {
+  describe("smartChunk", () => {
+    it("should use token chunking by default", () => {
       // Arrange
-      const text = 'This is a test text for chunking.';
-      const spy = jest.spyOn(chunkingService, 'chunkByTokens');
+      const text = "This is a test text for chunking.";
+      const spy = jest.spyOn(chunkingService, "chunkByTokens");
 
       // Act
       chunkingService.smartChunk(text);
@@ -121,40 +121,40 @@ describe('ChunkingService', () => {
       expect(spy).toHaveBeenCalled();
     });
 
-    it('should use sentence chunking when specified', () => {
+    it("should use sentence chunking when specified", () => {
       // Arrange
-      const text = 'This is a test sentence. This is another test sentence.';
-      const spy = jest.spyOn(chunkingService, 'chunkBySentences');
+      const text = "This is a test sentence. This is another test sentence.";
+      const spy = jest.spyOn(chunkingService, "chunkBySentences");
 
       // Act
-      chunkingService.smartChunk(text, { splitBy: 'sentence' });
+      chunkingService.smartChunk(text, { splitBy: "sentence" });
 
       // Assert
       expect(spy).toHaveBeenCalled();
     });
 
-    it('should use paragraph chunking when specified', () => {
+    it("should use paragraph chunking when specified", () => {
       // Arrange
-      const text = 'Paragraph one.\n\nParagraph two.';
-      const spy = jest.spyOn(chunkingService, 'chunkByParagraphs');
+      const text = "Paragraph one.\n\nParagraph two.";
+      const spy = jest.spyOn(chunkingService, "chunkByParagraphs");
 
       // Act
-      chunkingService.smartChunk(text, { splitBy: 'paragraph' });
+      chunkingService.smartChunk(text, { splitBy: "paragraph" });
 
       // Assert
       expect(spy).toHaveBeenCalled();
     });
   });
 
-  describe('chunkDocument', () => {
-    it('should process a document with metadata', () => {
+  describe("chunkDocument", () => {
+    it("should process a document with metadata", () => {
       // Arrange
       const document = {
-        id: 'doc-123',
-        content: 'This is a document to be chunked.',
+        id: "doc-123",
+        content: "This is a document to be chunked.",
         metadata: {
-          source: 'test',
-          author: 'Jest',
+          source: "test",
+          author: "Jest",
         },
       };
 
@@ -163,10 +163,10 @@ describe('ChunkingService', () => {
 
       // Assert
       expect(result.length).toBeGreaterThan(0);
-      expect(result[0].id).toContain('doc-123');
-      expect(result[0].metadata.document_id).toBe('doc-123');
-      expect(result[0].metadata.source).toBe('test');
-      expect(result[0].metadata.author).toBe('Jest');
+      expect(result[0].id).toContain("doc-123");
+      expect(result[0].metadata.document_id).toBe("doc-123");
+      expect(result[0].metadata.source).toBe("test");
+      expect(result[0].metadata.author).toBe("Jest");
     });
   });
 });

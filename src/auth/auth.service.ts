@@ -2,12 +2,12 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
-} from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
-import { User } from './entities/user.schema';
-import { UserRepository } from './repositories/user.repository';
+} from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { ConfigService } from "@nestjs/config";
+import * as bcrypt from "bcrypt";
+import { User } from "./entities/user.schema";
+import { UserRepository } from "./repositories/user.repository";
 
 @Injectable()
 export class AuthService {
@@ -21,13 +21,13 @@ export class AuthService {
     const user = await this.userRepository.findByEmail(email);
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     return user;
@@ -35,22 +35,22 @@ export class AuthService {
 
   async login(user: User) {
     // Ensure we have a valid user ID string
-    const userId = user._id ? user._id.toString() : user.id || '';
+    const userId = user._id ? user._id.toString() : user.id || "";
 
     if (!userId) {
-      throw new Error('User has no valid ID');
+      throw new Error("User has no valid ID");
     }
 
     const payload = { sub: userId, email: user.email };
 
     const accessToken = this.jwtService.sign(payload, {
-      secret: this.configService.get('JWT_SECRET'),
-      expiresIn: this.configService.get('JWT_EXPIRATION', '1d'),
+      secret: this.configService.get("JWT_SECRET"),
+      expiresIn: this.configService.get("JWT_EXPIRATION", "1d"),
     });
 
     const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get('JWT_SECRET'),
-      expiresIn: '7d', // 7 days for refresh token
+      secret: this.configService.get("JWT_SECRET"),
+      expiresIn: "7d", // 7 days for refresh token
     });
 
     // Hash refresh token before storing
@@ -80,7 +80,7 @@ export class AuthService {
     const existingUser = await this.userRepository.findByEmail(userData.email);
 
     if (existingUser) {
-      throw new BadRequestException('User with this email already exists');
+      throw new BadRequestException("User with this email already exists");
     }
 
     // Hash password
@@ -102,7 +102,7 @@ export class AuthService {
     const user = await this.userRepository.findById(userId);
 
     if (!user || !user.refreshToken) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     // Verify refresh token
@@ -112,7 +112,7 @@ export class AuthService {
     );
 
     if (!isRefreshTokenValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     // Generate new tokens
@@ -121,6 +121,6 @@ export class AuthService {
 
   async logout(userId: string) {
     await this.userRepository.updateRefreshToken(userId, null);
-    return { message: 'Logged out successfully' };
+    return { message: "Logged out successfully" };
   }
 }

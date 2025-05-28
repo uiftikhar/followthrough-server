@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Pinecone } from '@pinecone-database/pinecone';
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { Pinecone } from "@pinecone-database/pinecone";
 
 @Injectable()
 export class PineconeConfigService {
@@ -12,7 +12,7 @@ export class PineconeConfigService {
     if (!PineconeConfigService.instance) {
       const apiKey = process.env.PINECONE_API_KEY;
       if (!apiKey) {
-        throw new Error('PINECONE_API_KEY environment variable not set');
+        throw new Error("PINECONE_API_KEY environment variable not set");
       }
       PineconeConfigService.instance = new Pinecone({
         apiKey,
@@ -22,10 +22,10 @@ export class PineconeConfigService {
   }
 
   getPinecone(): Pinecone {
-    const apiKey = this.configService.get<string>('PINECONE_API_KEY');
+    const apiKey = this.configService.get<string>("PINECONE_API_KEY");
 
     if (!apiKey) {
-      throw new Error('PINECONE_API_KEY is not defined in the configuration');
+      throw new Error("PINECONE_API_KEY is not defined in the configuration");
     }
 
     if (!PineconeConfigService.instance) {

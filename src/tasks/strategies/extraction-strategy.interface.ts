@@ -1,5 +1,5 @@
-import { Email } from '../../email/models/email.model';
-import { Task } from '../models/task.model';
+import { Email } from "../../email/models/email.model";
+import { Task } from "../models/task.model";
 
 /**
  * Interface for email task extraction strategies
@@ -11,4 +11,4 @@ export interface IExtractionStrategy {
    * @returns Array of extracted tasks
    */
   extractTasks(email: Email): Promise<Task[]>;
-} 
+}

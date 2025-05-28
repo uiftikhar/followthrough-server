@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { StateStorageService } from '../persistence/state-storage.service';
-import { Annotation } from '@langchain/langgraph';
-import { BaseMessage } from '@langchain/core/messages';
+import { Injectable, Logger } from "@nestjs/common";
+import { StateStorageService } from "../persistence/state-storage.service";
+import { Annotation } from "@langchain/langgraph";
+import { BaseMessage } from "@langchain/core/messages";
 
 /**
  * Generic state management service for LangGraph
@@ -39,7 +39,7 @@ export class StateService {
         reducer: (x, y) => y ?? x,
         default: () => null,
       }),
-      currentPhase: this.createStringAnnotation('initialization'),
+      currentPhase: this.createStringAnnotation("initialization"),
       errors: this.createArrayAnnotation(),
     };
   }
@@ -47,7 +47,7 @@ export class StateService {
   /**
    * Create an annotation for a string
    */
-  createStringAnnotation(defaultValue = '') {
+  createStringAnnotation(defaultValue = "") {
     return Annotation<string>({
       reducer: (x, y) => y ?? x,
       default: () => defaultValue,
@@ -77,7 +77,7 @@ export class StateService {
   /**
    * Create an annotation for a routing value
    */
-  createRoutingAnnotation(defaultNode = 'start') {
+  createRoutingAnnotation(defaultNode = "start") {
     return Annotation<string>({
       reducer: (x, y) => y ?? x,
       default: () => defaultNode,
@@ -95,8 +95,10 @@ export class StateService {
     metadata?: Record<string, any>;
     useRAG?: boolean;
   }): Promise<any> {
-    this.logger.log(`Creating initial state for graph execution for session ${options.sessionId}`);
-    
+    this.logger.log(
+      `Creating initial state for graph execution for session ${options.sessionId}`,
+    );
+
     return {
       transcript: options.transcript,
       sessionId: options.sessionId,

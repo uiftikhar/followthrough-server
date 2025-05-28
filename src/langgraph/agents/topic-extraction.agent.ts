@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { BaseAgent, AgentConfig } from './base-agent';
-import { LlmService } from '../llm/llm.service';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { Injectable } from "@nestjs/common";
+import { BaseAgent, AgentConfig } from "./base-agent";
+import { LlmService } from "../llm/llm.service";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 
 export interface Topic {
   name: string;
@@ -15,12 +15,12 @@ export interface Topic {
 export class TopicExtractionAgent extends BaseAgent {
   constructor(protected readonly llmService: LlmService) {
     const config: AgentConfig = {
-      name: 'TopicExtractor',
+      name: "TopicExtractor",
       systemPrompt:
-        'You are a specialized agent for extracting key topics from meeting transcripts. Identify main themes, discussions, and subject areas covered in the transcript.',
+        "You are a specialized agent for extracting key topics from meeting transcripts. Identify main themes, discussions, and subject areas covered in the transcript.",
       llmOptions: {
         temperature: 0.3,
-        model: 'gpt-4o',
+        model: "gpt-4o",
       },
     };
     super(llmService, config);
@@ -76,10 +76,10 @@ export class TopicExtractionAgent extends BaseAgent {
    * Process a state object for topic extraction
    */
   async processState(state: any): Promise<any> {
-    this.logger.debug('Processing state for topic extraction');
+    this.logger.debug("Processing state for topic extraction");
 
     if (!state.transcript) {
-      this.logger.warn('No transcript found in state');
+      this.logger.warn("No transcript found in state");
       return state;
     }
 

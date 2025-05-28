@@ -1,15 +1,15 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { PineconeService } from './pinecone.service';
-import { PineconeConnectionService } from './pinecone-connection.service';
-import { PineconeConfigService } from './pinecone-config.service';
-import { PineconeIndexService } from './pinecone-index.service';
-import { PineconeInitializer } from './initialize-indexes';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { PineconeService } from "./pinecone.service";
+import { PineconeConnectionService } from "./pinecone-connection.service";
+import { PineconeConfigService } from "./pinecone-config.service";
+import { PineconeIndexService } from "./pinecone-index.service";
+import { PineconeInitializer } from "./initialize-indexes";
 import {
   PINECONE_SERVICE,
   PINECONE_CONNECTION_SERVICE,
   PINECONE_INDEX_SERVICE,
-} from './constants/injection-tokens';
+} from "./constants/injection-tokens";
 
 @Module({
   imports: [ConfigModule],

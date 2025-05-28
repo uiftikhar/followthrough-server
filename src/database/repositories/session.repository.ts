@@ -1,7 +1,7 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Session, SessionDocument } from '../schemas/session.schema';
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import { Session, SessionDocument } from "../schemas/session.schema";
 
 @Injectable()
 export class SessionRepository {
@@ -26,42 +26,52 @@ export class SessionRepository {
   async getSessionById(sessionId: string): Promise<Session> {
     this.logger.log(`Fetching session ${sessionId}`);
     const session = await this.sessionModel.findOne({ sessionId }).exec();
-    
+
     if (!session) {
       throw new NotFoundException(`Session ${sessionId} not found`);
     }
-    
+
     return session;
   }
 
   /**
    * Get a session by ID, with user ID verification
    */
-  async getSessionByIdAndUserId(sessionId: string, userId: string): Promise<Session> {
+  async getSessionByIdAndUserId(
+    sessionId: string,
+    userId: string,
+  ): Promise<Session> {
     this.logger.log(`Fetching session ${sessionId} for user ${userId}`);
-    const session = await this.sessionModel.findOne({ sessionId, userId }).exec();
-    
+    const session = await this.sessionModel
+      .findOne({ sessionId, userId })
+      .exec();
+
     if (!session) {
-      throw new NotFoundException(`Session ${sessionId} not found for user ${userId}`);
+      throw new NotFoundException(
+        `Session ${sessionId} not found for user ${userId}`,
+      );
     }
-    
+
     return session;
   }
 
   /**
    * Update a session
    */
-  async updateSession(sessionId: string, sessionData: Partial<Session>): Promise<Session> {
+  async updateSession(
+    sessionId: string,
+    sessionData: Partial<Session>,
+  ): Promise<Session> {
     this.logger.log(`Updating session ${sessionId}`);
-    
+
     const session = await this.sessionModel
       .findOneAndUpdate({ sessionId }, sessionData, { new: true })
       .exec();
-    
+
     if (!session) {
       throw new NotFoundException(`Session ${sessionId} not found`);
     }
-    
+
     return session;
   }
 
@@ -69,20 +79,22 @@ export class SessionRepository {
    * Update a session, with user ID verification
    */
   async updateSessionWithUserId(
-    sessionId: string, 
+    sessionId: string,
     userId: string,
-    sessionData: Partial<Session>
+    sessionData: Partial<Session>,
   ): Promise<Session> {
     this.logger.log(`Updating session ${sessionId} for user ${userId}`);
-    
+
     const session = await this.sessionModel
       .findOneAndUpdate({ sessionId, userId }, sessionData, { new: true })
       .exec();
-    
+
     if (!session) {
-      throw new NotFoundException(`Session ${sessionId} not found for user ${userId}`);
+      throw new NotFoundException(
+        `Session ${sessionId} not found for user ${userId}`,
+      );
     }
-    
+
     return session;
   }
 
@@ -100,7 +112,7 @@ export class SessionRepository {
   async deleteSession(sessionId: string): Promise<void> {
     this.logger.log(`Deleting session ${sessionId}`);
     const result = await this.sessionModel.deleteOne({ sessionId }).exec();
-    
+
     if (result.deletedCount === 0) {
       throw new NotFoundException(`Session ${sessionId} not found`);
     }
@@ -109,12 +121,19 @@ export class SessionRepository {
   /**
    * Delete a session, with user ID verification
    */
-  async deleteSessionWithUserId(sessionId: string, userId: string): Promise<void> {
+  async deleteSessionWithUserId(
+    sessionId: string,
+    userId: string,
+  ): Promise<void> {
     this.logger.log(`Deleting session ${sessionId} for user ${userId}`);
-    const result = await this.sessionModel.deleteOne({ sessionId, userId }).exec();
-    
+    const result = await this.sessionModel
+      .deleteOne({ sessionId, userId })
+      .exec();
+
     if (result.deletedCount === 0) {
-      throw new NotFoundException(`Session ${sessionId} not found for user ${userId}`);
+      throw new NotFoundException(
+        `Session ${sessionId} not found for user ${userId}`,
+      );
     }
   }
-} 
+}

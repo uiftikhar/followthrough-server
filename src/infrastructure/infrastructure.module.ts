@@ -1,10 +1,10 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { CacheModule } from '@nestjs/cache-manager';
-import { EventEmitterModule } from '@nestjs/event-emitter';
-import { DatabaseModule } from '../database/database.module';
-import { StorageModule } from '../storage/storage.module';
-import { configValidationSchema } from '../config/validation.schema';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { CacheModule } from "@nestjs/cache-manager";
+import { EventEmitterModule } from "@nestjs/event-emitter";
+import { DatabaseModule } from "../database/database.module";
+import { StorageModule } from "../storage/storage.module";
+import { configValidationSchema } from "../config/validation.schema";
 
 /**
  * InfrastructureModule - Foundation layer module
@@ -15,7 +15,7 @@ import { configValidationSchema } from '../config/validation.schema';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ".env",
       validationSchema: configValidationSchema,
     }),
     DatabaseModule,
@@ -27,7 +27,7 @@ import { configValidationSchema } from '../config/validation.schema';
     }),
     EventEmitterModule.forRoot({
       wildcard: true,
-      delimiter: '.',
+      delimiter: ".",
       maxListeners: 100,
       verboseMemoryLeak: true,
     }),
@@ -40,4 +40,4 @@ import { configValidationSchema } from '../config/validation.schema';
     EventEmitterModule,
   ],
 })
-export class InfrastructureModule {} 
+export class InfrastructureModule {}

@@ -1,16 +1,16 @@
 // Import handlers from our MSW setup
-import { server } from '../test/mocks/server';
-import { http, HttpResponse } from 'msw';
+import { server } from "../test/mocks/server";
+import { http, HttpResponse } from "msw";
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { EmbeddingService, EmbeddingModel } from './embedding.service';
-import { ConfigService } from '@nestjs/config';
-import { LlmService } from '../langgraph/llm/llm.service';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { EMBEDDING_SERVICE } from './constants/injection-tokens';
-import { LLM_SERVICE } from '../langgraph/llm/constants/injection-tokens';
+import { Test, TestingModule } from "@nestjs/testing";
+import { EmbeddingService, EmbeddingModel } from "./embedding.service";
+import { ConfigService } from "@nestjs/config";
+import { LlmService } from "../langgraph/llm/llm.service";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { EMBEDDING_SERVICE } from "./constants/injection-tokens";
+import { LLM_SERVICE } from "../langgraph/llm/constants/injection-tokens";
 
-describe('EmbeddingService', () => {
+describe("EmbeddingService", () => {
   let embeddingService: EmbeddingService;
   let mockConfigService: any;
   let mockCacheManager: any;
@@ -21,9 +21,9 @@ describe('EmbeddingService', () => {
     // Create mocks
     mockConfigService = {
       get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
-        if (key === 'EMBEDDING_MODEL') return EmbeddingModel.OPENAI_3_LARGE;
-        if (key === 'EMBEDDING_DIMENSIONS') return 1024;
-        if (key === 'OPENAI_API_KEY') return 'mock-api-key';
+        if (key === "EMBEDDING_MODEL") return EmbeddingModel.OPENAI_3_LARGE;
+        if (key === "EMBEDDING_DIMENSIONS") return 1024;
+        if (key === "OPENAI_API_KEY") return "mock-api-key";
         return defaultValue;
       }),
     };
@@ -38,11 +38,11 @@ describe('EmbeddingService', () => {
         .fn()
         .mockImplementation(async (text, model) => {
           // This will delegate to the MSW server
-          const response = await fetch('https://api.openai.com/v1/embeddings', {
-            method: 'POST',
+          const response = await fetch("https://api.openai.com/v1/embeddings", {
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
-              Authorization: 'Bearer mock-api-key',
+              "Content-Type": "application/json",
+              Authorization: "Bearer mock-api-key",
             },
             body: JSON.stringify({
               model,
@@ -98,21 +98,21 @@ describe('EmbeddingService', () => {
     await moduleRef.close();
   });
 
-  describe('generateEmbedding', () => {
-    it('should return cached embedding when available', async () => {
+  describe("generateEmbedding", () => {
+    it("should return cached embedding when available", async () => {
       // Arrange
       const cachedEmbedding = Array(1024).fill(0.2);
       mockCacheManager.get.mockResolvedValueOnce(cachedEmbedding);
 
       // Act
-      const result = await embeddingService.generateEmbedding('cached text');
+      const result = await embeddingService.generateEmbedding("cached text");
 
       // Assert
       expect(result).toEqual(cachedEmbedding);
       expect(mockCacheManager.get).toHaveBeenCalled();
     });
 
-    it('should generate new embeddings using OpenAI when cache is empty', async () => {
+    it("should generate new embeddings using OpenAI when cache is empty", async () => {
       // Arrange - ensure cache returns null
       mockCacheManager.get.mockResolvedValueOnce(null);
 
@@ -120,18 +120,18 @@ describe('EmbeddingService', () => {
       // The dimension size keeps changing in the implementation, so we'll be flexible
       const customEmbedding = Array(24).fill(0);
       server.use(
-        http.post('https://api.openai.com/v1/embeddings', () => {
-          console.log('Intercepted OpenAI embeddings request');
+        http.post("https://api.openai.com/v1/embeddings", () => {
+          console.log("Intercepted OpenAI embeddings request");
           return HttpResponse.json({
             data: [
               {
                 embedding: customEmbedding,
                 index: 0,
-                object: 'embedding',
+                object: "embedding",
               },
             ],
-            model: 'llama-text-embed-v2',
-            object: 'list',
+            model: "llama-text-embed-v2",
+            object: "list",
             usage: { prompt_tokens: 10, total_tokens: 10 },
           });
         }),
@@ -139,17 +139,17 @@ describe('EmbeddingService', () => {
 
       try {
         // Act
-        console.log('Calling generateEmbedding...');
-        const result = await embeddingService.generateEmbedding('test text', {
+        console.log("Calling generateEmbedding...");
+        const result = await embeddingService.generateEmbedding("test text", {
           model: EmbeddingModel.OPENAI_3_LARGE,
         });
 
         console.log(
-          'Result received:',
+          "Result received:",
           Array.isArray(result) ? `Array[${result.length}]` : typeof result,
         );
         if (Array.isArray(result) && result.length > 0) {
-          console.log('First few values:', result.slice(0, 5));
+          console.log("First few values:", result.slice(0, 5));
         }
 
         // Assert
@@ -159,14 +159,14 @@ describe('EmbeddingService', () => {
         expect(mockCacheManager.get).toHaveBeenCalled();
         expect(mockCacheManager.set).toHaveBeenCalled();
       } catch (error) {
-        console.error('Test error:', error);
+        console.error("Test error:", error);
         throw error;
       }
     });
   });
 
-  describe('calculateSimilarity', () => {
-    it('should calculate cosine similarity between two embeddings', () => {
+  describe("calculateSimilarity", () => {
+    it("should calculate cosine similarity between two embeddings", () => {
       // Arrange
       const embedding1 = [1, 0, 0];
       const embedding2 = [0, 1, 0];
@@ -181,7 +181,7 @@ describe('EmbeddingService', () => {
       expect(similarity).toBe(0);
     });
 
-    it('should return 1 for identical embeddings', () => {
+    it("should return 1 for identical embeddings", () => {
       // Arrange
       const embedding = [0.5, 0.5, 0.5];
 
@@ -195,7 +195,7 @@ describe('EmbeddingService', () => {
       expect(similarity).toBeCloseTo(1, 10);
     });
 
-    it('should throw an error for different dimensions', () => {
+    it("should throw an error for different dimensions", () => {
       // Arrange
       const embedding1 = [1, 2, 3];
       const embedding2 = [1, 2];
@@ -203,7 +203,7 @@ describe('EmbeddingService', () => {
       // Act & Assert
       expect(() =>
         embeddingService.calculateSimilarity(embedding1, embedding2),
-      ).toThrow('Embeddings must have the same dimensions');
+      ).toThrow("Embeddings must have the same dimensions");
     });
   });
 });

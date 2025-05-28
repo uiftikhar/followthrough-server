@@ -12,7 +12,8 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
+    "lint:fix": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix  ",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -49,7 +50,9 @@
     "class-validator": "^0.14.2",
     "crypto": "^1.0.1",
     "dotenv": "^16.5.0",
+    "googleapis": "^149.0.0",
     "joi": "^17.13.3",
+    "keyv": "^5.3.3",
     "langchain": "^0.3.25",
     "mongoose": "^8.14.3",
     "nestjs-pino": "^4.4.0",
@@ -66,7 +69,7 @@
     "swagger-ui-express": "^5.0.1",
     "typeorm": "^0.3.24",
     "uuid": "^11.1.0",
-    "keyv": "^5.3.3"
+    "zapier-platform-core": "^17.0.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

@@ -6,12 +6,12 @@ export interface MeetingAnalysisState {
    * ID of the meeting being analyzed
    */
   meetingId: string;
-  
+
   /**
    * Transcript of the meeting
    */
   transcript: string;
-  
+
   /**
    * Extracted topics from the meeting
    */
@@ -22,7 +22,7 @@ export interface MeetingAnalysisState {
     relevance?: number;
     duration?: number;
   }>;
-  
+
   /**
    * Extracted action items from the meeting
    */
@@ -30,9 +30,9 @@ export interface MeetingAnalysisState {
     description: string;
     assignee?: string;
     dueDate?: string;
-    status?: 'pending' | 'completed';
+    status?: "pending" | "completed";
   }>;
-  
+
   /**
    * Sentiment analysis of the meeting
    */
@@ -43,7 +43,7 @@ export interface MeetingAnalysisState {
       score: number;
     }>;
   };
-  
+
   /**
    * Summary of the meeting
    */
@@ -56,22 +56,28 @@ export interface MeetingAnalysisState {
     }>;
     next_steps?: string[];
   };
-  
+
   /**
    * Additional context or metadata for the meeting
    */
   context?: Record<string, any>;
-  
+
   /**
    * Additional metadata, including RAG context
    */
   metadata?: Record<string, any>;
-  
+
   /**
    * Current processing stage
    */
-  stage?: 'initialization' | 'topic_extraction' | 'action_item_extraction' | 'sentiment_analysis' | 'summary_generation' | 'completed';
-  
+  stage?:
+    | "initialization"
+    | "topic_extraction"
+    | "action_item_extraction"
+    | "sentiment_analysis"
+    | "summary_generation"
+    | "completed";
+
   /**
    * Error information, if any
    */
@@ -80,4 +86,4 @@ export interface MeetingAnalysisState {
     stage: string;
     timestamp: string;
   };
-} 
+}

@@ -1,32 +1,32 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Topic } from '../../agents/topic-extraction.agent';
-import { ActionItem } from '../../agents/action-item.agent';
-import { SentimentAnalysis } from '../../agents/sentiment-analysis.agent';
-import { MeetingSummary } from '../../agents/summary.agent';
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Topic } from "../../agents/topic-extraction.agent";
+import { ActionItem } from "../../agents/action-item.agent";
+import { SentimentAnalysis } from "../../agents/sentiment-analysis.agent";
+import { MeetingSummary } from "../../agents/summary.agent";
 
 export class AnalysisErrorDto {
-  @ApiProperty({ description: 'Step where the error occurred' })
+  @ApiProperty({ description: "Step where the error occurred" })
   step: string;
 
-  @ApiProperty({ description: 'Error message' })
+  @ApiProperty({ description: "Error message" })
   error: string;
 
-  @ApiProperty({ description: 'Timestamp when the error occurred' })
+  @ApiProperty({ description: "Timestamp when the error occurred" })
   timestamp: string;
 }
 
 export class AnalysisResultDto {
-  @ApiProperty({ description: 'Unique session ID for this analysis' })
+  @ApiProperty({ description: "Unique session ID for this analysis" })
   sessionId: string;
 
   @ApiProperty({
-    description: 'Status of the analysis',
-    enum: ['pending', 'in_progress', 'completed', 'failed'],
+    description: "Status of the analysis",
+    enum: ["pending", "in_progress", "completed", "failed"],
   })
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  status: "pending" | "in_progress" | "completed" | "failed";
 
   @ApiProperty({
-    description: 'Progress percentage of the analysis (0-100)',
+    description: "Progress percentage of the analysis (0-100)",
     type: Number,
     minimum: 0,
     maximum: 100,
@@ -34,63 +34,63 @@ export class AnalysisResultDto {
   progress: number;
 
   @ApiProperty({
-    description: 'List of completed analysis steps',
+    description: "List of completed analysis steps",
     type: [String],
-    example: ['topics', 'action_items', 'sentiment', 'summary']
+    example: ["topics", "action_items", "sentiment", "summary"],
   })
   completedSteps: string[];
 
   @ApiPropertyOptional({
-    description: 'Timestamp when the analysis was started',
+    description: "Timestamp when the analysis was started",
   })
   createdAt?: Date;
 
   @ApiPropertyOptional({
-    description: 'Timestamp when the analysis was completed',
+    description: "Timestamp when the analysis was completed",
   })
   completedAt?: Date;
 
   @ApiPropertyOptional({
-    description: 'The analyzed meeting transcript',
+    description: "The analyzed meeting transcript",
     type: String,
   })
   transcript?: string;
 
   @ApiPropertyOptional({
-    description: 'Topics identified in the meeting',
+    description: "Topics identified in the meeting",
     type: [Object],
   })
   topics?: Topic[];
 
   @ApiPropertyOptional({
-    description: 'Action items identified in the meeting',
+    description: "Action items identified in the meeting",
     type: [Object],
   })
   actionItems?: ActionItem[];
 
   @ApiPropertyOptional({
-    description: 'Sentiment analysis of the meeting',
+    description: "Sentiment analysis of the meeting",
     type: Object,
   })
   sentiment?: SentimentAnalysis;
 
   @ApiPropertyOptional({
-    description: 'Meeting summary',
+    description: "Meeting summary",
     type: Object,
   })
   summary?: MeetingSummary;
 
   @ApiPropertyOptional({
-    description: 'Errors encountered during analysis',
+    description: "Errors encountered during analysis",
     type: [AnalysisErrorDto],
   })
   errors?: AnalysisErrorDto[];
 
-  @ApiPropertyOptional({ description: 'Additional information or message' })
+  @ApiPropertyOptional({ description: "Additional information or message" })
   message?: string;
-  
-  @ApiPropertyOptional({ 
-    description: 'Retrieved context from RAG for enhanced analysis',
+
+  @ApiPropertyOptional({
+    description: "Retrieved context from RAG for enhanced analysis",
     type: Object,
   })
   context?: any;

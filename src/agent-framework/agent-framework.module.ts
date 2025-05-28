@@ -1,10 +1,10 @@
-import { Module } from '@nestjs/common';
-import { LlmModule } from '../llm/llm.module';
-import { RagCoreModule } from '../rag-core/rag-core.module';
+import { Module } from "@nestjs/common";
+import { LlmModule } from "../llm/llm.module";
+import { RagCoreModule } from "../rag-core/rag-core.module";
 
 // Non-domain-specific agents only
-import { ContextIntegrationAgent } from '../langgraph/agents/context-integration.agent';
-import { MasterSupervisorAgent } from '../langgraph/agents/master-supervisor.agent';
+import { ContextIntegrationAgent } from "../langgraph/agents/context-integration.agent";
+import { MasterSupervisorAgent } from "../langgraph/agents/master-supervisor.agent";
 
 /**
  * AgentFrameworkModule - Platform Services Layer
@@ -13,26 +13,20 @@ import { MasterSupervisorAgent } from '../langgraph/agents/master-supervisor.age
  * Domain-specific agents and factories moved to domain modules
  */
 @Module({
-  imports: [
-    LlmModule,
-    RagCoreModule,
-  ],
+  imports: [LlmModule, RagCoreModule],
   providers: [
     // Non-domain-specific agents only
     ContextIntegrationAgent,
     MasterSupervisorAgent,
-    
+
     // Framework configurations
     {
-      provide: 'AGENT_FACTORY_CONFIG',
+      provide: "AGENT_FACTORY_CONFIG",
       useValue: {
-        defaultLlmOptions: { model: 'gpt-4o', temperature: 0.3 },
+        defaultLlmOptions: { model: "gpt-4o", temperature: 0.3 },
       },
     },
   ],
-  exports: [
-    ContextIntegrationAgent,
-    MasterSupervisorAgent,
-  ],
+  exports: [ContextIntegrationAgent, MasterSupervisorAgent],
 })
-export class AgentFrameworkModule {} 
+export class AgentFrameworkModule {}

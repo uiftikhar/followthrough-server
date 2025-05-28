@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type UserDocument = User & Document;
 
@@ -32,11 +32,11 @@ export class User {
 export const UserSchema = SchemaFactory.createForClass(User);
 
 // Add virtual property for fullName
-UserSchema.virtual('fullName').get(function () {
+UserSchema.virtual("fullName").get(function () {
   return `${this.firstName} ${this.lastName}`;
 });
 
 // Add a virtual 'id' field that gets the _id as a string
-UserSchema.virtual('id').get(function () {
+UserSchema.virtual("id").get(function () {
   return this._id.toHexString();
 });

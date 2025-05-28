@@ -5,15 +5,15 @@
  */
 
 export enum AgentExpertise {
-  TOPIC_ANALYSIS = 'topic_analysis',
-  ACTION_ITEM_EXTRACTION = 'action_item_extraction',
-  DECISION_TRACKING = 'decision_tracking',
-  SENTIMENT_ANALYSIS = 'sentiment_analysis',
-  PARTICIPANT_DYNAMICS = 'participant_dynamics',
-  SUMMARY_GENERATION = 'summary_generation',
-  CONTEXT_INTEGRATION = 'context_integration',
-  COORDINATION = 'coordination',
-  MANAGEMENT = 'management',
+  TOPIC_ANALYSIS = "topic_analysis",
+  ACTION_ITEM_EXTRACTION = "action_item_extraction",
+  DECISION_TRACKING = "decision_tracking",
+  SENTIMENT_ANALYSIS = "sentiment_analysis",
+  PARTICIPANT_DYNAMICS = "participant_dynamics",
+  SUMMARY_GENERATION = "summary_generation",
+  CONTEXT_INTEGRATION = "context_integration",
+  COORDINATION = "coordination",
+  MANAGEMENT = "management",
 }
 
 export interface MeetingAnalysisAgentConfig {
@@ -44,4 +44,4 @@ export interface IMeetingAnalysisAgent {
    * Analyze a specific part of a meeting
    */
   analyze(transcript: string, options?: Record<string, any>): Promise<any>;
-} 
+}

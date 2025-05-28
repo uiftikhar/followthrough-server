@@ -1,5 +1,5 @@
-import { Module, OnModuleInit } from '@nestjs/common';
-import { ToolService } from './tool.service';
+import { Module, OnModuleInit } from "@nestjs/common";
+import { ToolService } from "./tool.service";
 
 @Module({
   providers: [ToolService],

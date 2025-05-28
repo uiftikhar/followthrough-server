@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Meeting, MeetingDocument } from '../schemas/meeting.schema';
+import { Injectable } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import { Meeting, MeetingDocument } from "../schemas/meeting.schema";
 
 @Injectable()
 export class MeetingRepository {

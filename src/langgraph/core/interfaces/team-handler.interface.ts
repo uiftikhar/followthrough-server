@@ -9,17 +9,17 @@ export interface TeamHandler<TInput = any, TOutput = any> {
    * @returns Promise resolving to the processed output
    */
   process(input: TInput): Promise<TOutput>;
-  
+
   /**
    * Get the team name
    * @returns The name of the team
    */
   getTeamName(): string;
-  
+
   /**
    * Check if this team can handle the given input
    * @param input The input to check
    * @returns True if this team can handle the input, false otherwise
    */
   canHandle?(input: any): Promise<boolean>;
-} 
+}

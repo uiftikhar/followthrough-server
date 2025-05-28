@@ -1,17 +1,21 @@
-import { 
-  Controller, 
-  Post, 
-  Body, 
-  UseGuards, 
-  HttpCode, 
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  HttpCode,
   HttpStatus,
   ValidationPipe,
-} from '@nestjs/common';
-import { ZapierService } from './zapier.service';
-import { WebhookRequestDto, TaskCreateDto, MeetingScheduleDto } from './dto/webhook.dto';
-import { ZapierApiKeyGuard } from './guards/api-key.guard';
+} from "@nestjs/common";
+import { ZapierService } from "./zapier.service";
+import {
+  WebhookRequestDto,
+  TaskCreateDto,
+  MeetingScheduleDto,
+} from "./dto/webhook.dto";
+import { ZapierApiKeyGuard } from "./guards/api-key.guard";
 
-@Controller('api/zapier/webhooks')
+@Controller("api/zapier/webhooks")
 export class WebhookController {
   constructor(private readonly zapierService: ZapierService) {}
 
@@ -19,20 +23,23 @@ export class WebhookController {
   @UseGuards(ZapierApiKeyGuard)
   @HttpCode(HttpStatus.OK)
   async processWebhook(@Body(ValidationPipe) webhookDto: WebhookRequestDto) {
-    return this.zapierService.handleWebhook(webhookDto.payload, webhookDto.event);
+    return this.zapierService.handleWebhook(
+      webhookDto.payload,
+      webhookDto.event,
+    );
   }
 
-  @Post('task')
+  @Post("task")
   @UseGuards(ZapierApiKeyGuard)
   @HttpCode(HttpStatus.OK)
   async createTask(@Body(ValidationPipe) taskDto: TaskCreateDto) {
-    return this.zapierService.handleWebhook(taskDto, 'task.created');
+    return this.zapierService.handleWebhook(taskDto, "task.created");
   }
 
-  @Post('meeting')
+  @Post("meeting")
   @UseGuards(ZapierApiKeyGuard)
   @HttpCode(HttpStatus.OK)
   async scheduleMeeting(@Body(ValidationPipe) meetingDto: MeetingScheduleDto) {
-    return this.zapierService.handleWebhook(meetingDto, 'meeting.scheduled');
+    return this.zapierService.handleWebhook(meetingDto, "meeting.scheduled");
   }
-} 
+}

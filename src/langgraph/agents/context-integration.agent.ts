@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { BaseAgent, AgentConfig } from './base-agent';
-import { LlmService } from '../llm/llm.service';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { CONTEXT_INTEGRATION_PROMPT } from '../../instruction-promtps';
+import { Injectable } from "@nestjs/common";
+import { BaseAgent, AgentConfig } from "./base-agent";
+import { LlmService } from "../llm/llm.service";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { CONTEXT_INTEGRATION_PROMPT } from "../../instruction-promtps";
 
 export interface RetrievedContext {
   source: string;
@@ -38,11 +38,11 @@ export interface EnrichedContext {
 export class ContextIntegrationAgent extends BaseAgent {
   constructor(protected readonly llmService: LlmService) {
     const config: AgentConfig = {
-      name: 'ContextIntegrationAgent',
+      name: "ContextIntegrationAgent",
       systemPrompt: CONTEXT_INTEGRATION_PROMPT,
       llmOptions: {
         temperature: 0.3,
-        model: 'gpt-4o',
+        model: "gpt-4o",
       },
     };
     super(llmService, config);
@@ -103,10 +103,10 @@ export class ContextIntegrationAgent extends BaseAgent {
    * Process a state object for context integration
    */
   async processState(state: any): Promise<any> {
-    this.logger.debug('Processing state for context integration');
+    this.logger.debug("Processing state for context integration");
 
     if (!state.transcript || !state.topics || !state.retrievedContext) {
-      this.logger.warn('Missing required data for context integration');
+      this.logger.warn("Missing required data for context integration");
       return state;
     }
 

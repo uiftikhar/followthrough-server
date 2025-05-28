@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { BaseAgent, AgentConfig } from './base-agent';
-import { LlmService } from '../llm/llm.service';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { ANALYZE_PARTICIPATION_PROMPT } from '../../instruction-promtps';
+import { Injectable } from "@nestjs/common";
+import { BaseAgent, AgentConfig } from "./base-agent";
+import { LlmService } from "../llm/llm.service";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { ANALYZE_PARTICIPATION_PROMPT } from "../../instruction-promtps";
 
 export interface ParticipationAnalysis {
   participants: Array<{
@@ -13,12 +13,12 @@ export interface ParticipationAnalysis {
     interaction_patterns?: Array<{
       interacted_with: string;
       interaction_type:
-        | 'agreement'
-        | 'disagreement'
-        | 'question'
-        | 'answer'
-        | 'support'
-        | 'challenge';
+        | "agreement"
+        | "disagreement"
+        | "question"
+        | "answer"
+        | "support"
+        | "challenge";
       frequency: number;
     }>;
   }>;
@@ -44,11 +44,11 @@ export interface ParticipationAnalysis {
 export class ParticipationAgent extends BaseAgent {
   constructor(protected readonly llmService: LlmService) {
     const config: AgentConfig = {
-      name: 'ParticipationAgent',
+      name: "ParticipationAgent",
       systemPrompt: ANALYZE_PARTICIPATION_PROMPT,
       llmOptions: {
         temperature: 0.3,
-        model: 'gpt-4o',
+        model: "gpt-4o",
       },
     };
     super(llmService, config);
@@ -100,7 +100,7 @@ export class ParticipationAgent extends BaseAgent {
         participants: [],
         group_dynamics: {
           balanced: false,
-          key_observations: ['Unable to parse participation details'],
+          key_observations: ["Unable to parse participation details"],
         },
       };
     }
@@ -110,10 +110,10 @@ export class ParticipationAgent extends BaseAgent {
    * Process a state object for participation analysis
    */
   async processState(state: any): Promise<any> {
-    this.logger.debug('Processing state for participation analysis');
+    this.logger.debug("Processing state for participation analysis");
 
     if (!state.transcript) {
-      this.logger.warn('No transcript found in state');
+      this.logger.warn("No transcript found in state");
       return state;
     }
 

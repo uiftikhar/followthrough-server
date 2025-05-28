@@ -1,18 +1,18 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { EmbeddingService } from './embedding.service';
-import { ChunkingService } from './chunking.service';
-import { SentenceParserService } from './sentence-parser.service';
-import { SimilarityUtilsService } from './similarity-utils.service';
-import { ChunkOptimizationService } from './chunk-optimization.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { EmbeddingService } from "./embedding.service";
+import { ChunkingService } from "./chunking.service";
+import { SentenceParserService } from "./sentence-parser.service";
+import { SimilarityUtilsService } from "./similarity-utils.service";
+import { ChunkOptimizationService } from "./chunk-optimization.service";
 
 export interface SemanticChunkingOptions {
   similarityThreshold?: number;
   minChunkSize?: number;
   maxChunkSize?: number;
-  overlapStrategy?: 'none' | 'adjacent' | 'semantic';
+  overlapStrategy?: "none" | "adjacent" | "semantic";
   rebalanceChunks?: boolean;
   addContextPrefix?: boolean;
-  parsingStrategy?: 'basic' | 'advanced' | 'semantic';
+  parsingStrategy?: "basic" | "advanced" | "semantic";
 }
 
 export interface ChunkedDocument {
@@ -32,7 +32,7 @@ export class SemanticChunkingService {
     private readonly similarityUtils: SimilarityUtilsService,
     private readonly chunkOptimization: ChunkOptimizationService,
   ) {
-    this.logger.log('Semantic Chunking Service initialized');
+    this.logger.log("Semantic Chunking Service initialized");
   }
 
   /**
@@ -43,8 +43,8 @@ export class SemanticChunkingService {
     options: SemanticChunkingOptions = {},
   ): Promise<string[]> {
     if (!text || text.trim().length === 0) {
-      this.logger.warn('Empty text provided for semantic chunking');
-      return [''];
+      this.logger.warn("Empty text provided for semantic chunking");
+      return [""];
     }
 
     this.logger.log(
@@ -53,20 +53,20 @@ export class SemanticChunkingService {
 
     try {
       // Parse sentences based on strategy
-      const strategy = options.parsingStrategy || 'advanced';
+      const strategy = options.parsingStrategy || "advanced";
       this.logger.log(`Using parsing strategy: ${strategy}`);
       const sentences = this.parseSentences(text, strategy);
       this.logger.log(`Parsed ${sentences.length} sentences from text`);
 
       if (sentences.length <= 1) {
         this.logger.log(
-          'Text contains only one sentence, returning without chunking',
+          "Text contains only one sentence, returning without chunking",
         );
         return [text];
       }
 
       // Generate embeddings for each sentence
-      this.logger.log('Generating embeddings for sentences');
+      this.logger.log("Generating embeddings for sentences");
       const embeddings = await this.generateSentenceEmbeddings(sentences);
 
       // If embedding generation failed, fall back to basic chunking
@@ -74,16 +74,16 @@ export class SemanticChunkingService {
         this.logger.warn(
           `Embedding generation failed or incomplete: expected ${sentences.length} embeddings but got ${embeddings ? embeddings.length : 0}`,
         );
-        this.logger.warn('Falling back to basic chunking');
+        this.logger.warn("Falling back to basic chunking");
         return this.chunkingService.smartChunk(text, {
           chunkSize: options.maxChunkSize || 10,
           chunkOverlap: 2,
-          splitBy: 'sentence',
+          splitBy: "sentence",
         });
       }
 
       // Compute similarity matrix between sentences
-      this.logger.log('Computing similarity matrix between sentences');
+      this.logger.log("Computing similarity matrix between sentences");
       const similarities =
         this.similarityUtils.computeSimilarityMatrix(embeddings);
       this.logger.log(
@@ -104,7 +104,7 @@ export class SemanticChunkingService {
       );
 
       // Create initial chunks
-      this.logger.log('Creating initial chunks based on similarity');
+      this.logger.log("Creating initial chunks based on similarity");
       const initialChunks = this.chunkOptimization.createInitialChunks(
         sentences,
         similarities,
@@ -117,7 +117,7 @@ export class SemanticChunkingService {
       if (!options.rebalanceChunks) {
         // Convert index-based chunks to text
         const finalChunks = initialChunks.map((chunk) =>
-          chunk.map((idx) => sentences[idx]).join(' '),
+          chunk.map((idx) => sentences[idx]).join(" "),
         );
 
         this.logger.log(`Returning ${finalChunks.length} unoptimized chunks`);
@@ -125,7 +125,7 @@ export class SemanticChunkingService {
       }
 
       // Optimize and rebalance chunks
-      this.logger.log('Optimizing and rebalancing chunks');
+      this.logger.log("Optimizing and rebalancing chunks");
       const optimizedChunks = this.chunkOptimization.optimizeAndRebalanceChunks(
         initialChunks,
         similarities,
@@ -137,12 +137,12 @@ export class SemanticChunkingService {
 
       // Convert to text chunks
       let finalChunks = optimizedChunks.map((chunk) =>
-        chunk.map((idx) => sentences[idx]).join(' '),
+        chunk.map((idx) => sentences[idx]).join(" "),
       );
 
       // Apply context prefixes if requested
       if (options.addContextPrefix) {
-        this.logger.log('Adding context prefixes to chunks');
+        this.logger.log("Adding context prefixes to chunks");
         finalChunks = this.chunkOptimization.applyContextPrefixToChunks(
           optimizedChunks.map((chunk) => chunk.map((idx) => idx.toString())),
           sentences,
@@ -159,11 +159,11 @@ export class SemanticChunkingService {
         `Error during semantic chunking: ${error.message}`,
         error.stack,
       );
-      this.logger.warn('Falling back to basic chunking due to error');
+      this.logger.warn("Falling back to basic chunking due to error");
       return this.chunkingService.smartChunk(text, {
         chunkSize: options.maxChunkSize || 10,
         chunkOverlap: 2,
-        splitBy: 'sentence',
+        splitBy: "sentence",
       });
     }
   }
@@ -173,22 +173,22 @@ export class SemanticChunkingService {
    */
   private parseSentences(
     text: string,
-    strategy: 'basic' | 'advanced' | 'semantic',
+    strategy: "basic" | "advanced" | "semantic",
   ): string[] {
     try {
       let sentences: string[] = [];
       switch (strategy) {
-        case 'basic':
-          this.logger.log('Using basic sentence parsing');
+        case "basic":
+          this.logger.log("Using basic sentence parsing");
           sentences = this.sentenceParser.parseSentences(text);
           break;
-        case 'semantic':
-          this.logger.log('Using semantic boundary parsing');
+        case "semantic":
+          this.logger.log("Using semantic boundary parsing");
           sentences = this.sentenceParser.splitBySemanticBoundaries(text);
           break;
-        case 'advanced':
+        case "advanced":
         default:
-          this.logger.log('Using advanced sentence parsing');
+          this.logger.log("Using advanced sentence parsing");
           sentences = this.sentenceParser.parseAdvancedSentences(text);
           break;
       }
@@ -198,7 +198,7 @@ export class SemanticChunkingService {
       );
       if (sentences.length === 0) {
         this.logger.warn(
-          'No sentences found, using original text as single sentence',
+          "No sentences found, using original text as single sentence",
         );
         return [text];
       }
@@ -210,7 +210,7 @@ export class SemanticChunkingService {
         error.stack,
       );
       this.logger.warn(
-        'Returning original text as single sentence due to parsing error',
+        "Returning original text as single sentence due to parsing error",
       );
       return [text];
     }
@@ -318,7 +318,7 @@ export class SemanticChunkingService {
           document_id: document.id,
           chunk_index: index,
           chunk_count: chunks.length,
-          chunking_method: 'semantic',
+          chunking_method: "semantic",
         },
       }));
 
@@ -341,7 +341,7 @@ export class SemanticChunkingService {
             document_id: document.id,
             chunk_index: 0,
             chunk_count: 1,
-            chunking_method: 'fallback',
+            chunking_method: "fallback",
             error: error.message,
           },
         },
@@ -387,7 +387,7 @@ export class SemanticChunkingService {
             document_id: doc.id,
             chunk_index: 0,
             chunk_count: 1,
-            chunking_method: 'error_fallback',
+            chunking_method: "error_fallback",
             error: error.message,
           },
         });

@@ -1,8 +1,8 @@
-import { Module } from '@nestjs/common';
-import { InfrastructureModule } from '../infrastructure/infrastructure.module';
-import { LlmService } from '../langgraph/llm/llm.service';
-import { StateStorageService } from '../langgraph/persistence/state-storage.service';
-import { LLM_SERVICE } from '../langgraph/llm/constants/injection-tokens';
+import { Module } from "@nestjs/common";
+import { InfrastructureModule } from "../infrastructure/infrastructure.module";
+import { LlmService } from "../langgraph/llm/llm.service";
+import { StateStorageService } from "../langgraph/persistence/state-storage.service";
+import { LLM_SERVICE } from "../langgraph/llm/constants/injection-tokens";
 
 /**
  * LlmModule - Core Services Layer
@@ -19,10 +19,6 @@ import { LLM_SERVICE } from '../langgraph/llm/constants/injection-tokens';
       useExisting: LlmService,
     },
   ],
-  exports: [
-    LlmService,
-    StateStorageService,
-    LLM_SERVICE,
-  ],
+  exports: [LlmService, StateStorageService, LLM_SERVICE],
 })
-export class LlmModule {} 
+export class LlmModule {}

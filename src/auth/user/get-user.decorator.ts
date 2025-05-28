@@ -1,4 +1,4 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { createParamDecorator, ExecutionContext } from "@nestjs/common";
 
 /**
  * Parameter decorator to extract the user from the request
@@ -8,4 +8,4 @@ export const GetUser = createParamDecorator(
     const request = ctx.switchToHttp().getRequest();
     return request.user;
   },
-); 
+);

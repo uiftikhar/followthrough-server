@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { tool } from '@langchain/core/tools';
-import { z } from 'zod';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
 
-export type IntegrationType = 'jira' | 'asana' | 'slack' | 'github';
+export type IntegrationType = "jira" | "asana" | "slack" | "github";
 
 interface ExternalToolConfig {
   enabled: boolean;
@@ -22,18 +22,18 @@ export class ExternalIntegrationService {
   constructor(private readonly configService: ConfigService) {
     // Load configuration for external tools
     this.toolConfigs = {
-      jira: this.loadToolConfig('jira'),
-      asana: this.loadToolConfig('asana'),
-      slack: this.loadToolConfig('slack'),
-      github: this.loadToolConfig('github'),
+      jira: this.loadToolConfig("jira"),
+      asana: this.loadToolConfig("asana"),
+      slack: this.loadToolConfig("slack"),
+      github: this.loadToolConfig("github"),
     };
 
     // Determine if we're running in test mode
-    this.testMode = configService.get<boolean>('testing.enabled') || false;
+    this.testMode = configService.get<boolean>("testing.enabled") || false;
 
     if (this.testMode) {
       this.logger.warn(
-        'External integrations running in TEST MODE - no real API calls will be made',
+        "External integrations running in TEST MODE - no real API calls will be made",
       );
     }
   }
@@ -71,7 +71,7 @@ export class ExternalIntegrationService {
             key: `PROJECT-${Math.floor(Math.random() * 1000)}`,
             summary,
             description,
-            status: 'Created',
+            status: "Created",
             _testMode: true,
           });
         }
@@ -79,31 +79,31 @@ export class ExternalIntegrationService {
         // Real implementation would call Jira API here
         try {
           // TODO: Implement real Jira API call
-          throw new Error('Real Jira API not implemented yet');
+          throw new Error("Real Jira API not implemented yet");
         } catch (error) {
           this.logger.error(`Error creating Jira ticket: ${error.message}`);
           throw error;
         }
       },
       {
-        name: 'create_jira_ticket',
-        description: 'Create a new ticket in Jira',
+        name: "create_jira_ticket",
+        description: "Create a new ticket in Jira",
         schema: z.object({
-          summary: z.string().describe('The summary of the Jira ticket'),
+          summary: z.string().describe("The summary of the Jira ticket"),
           description: z
             .string()
-            .describe('A detailed description of the ticket'),
-          project: z.string().optional().describe('The project key'),
+            .describe("A detailed description of the ticket"),
+          project: z.string().optional().describe("The project key"),
           issueType: z
             .string()
             .optional()
-            .default('Task')
-            .describe('Type of issue (Bug, Task, etc.)'),
+            .default("Task")
+            .describe("Type of issue (Bug, Task, etc.)"),
           priority: z
             .string()
             .optional()
-            .default('Medium')
-            .describe('Ticket priority'),
+            .default("Medium")
+            .describe("Ticket priority"),
         }),
       },
     );
@@ -123,7 +123,7 @@ export class ExternalIntegrationService {
             id: `MOCK-${Math.floor(Math.random() * 1000)}`,
             name,
             notes,
-            status: 'Created',
+            status: "Created",
             _testMode: true,
           });
         }
@@ -131,21 +131,21 @@ export class ExternalIntegrationService {
         // Real implementation would call Asana API here
         try {
           // TODO: Implement real Asana API call
-          throw new Error('Real Asana API not implemented yet');
+          throw new Error("Real Asana API not implemented yet");
         } catch (error) {
           this.logger.error(`Error creating Asana task: ${error.message}`);
           throw error;
         }
       },
       {
-        name: 'create_asana_task',
-        description: 'Create a new task in Asana',
+        name: "create_asana_task",
+        description: "Create a new task in Asana",
         schema: z.object({
-          name: z.string().describe('The name of the Asana task'),
-          notes: z.string().describe('A detailed description of the task'),
-          projectId: z.string().optional().describe('The project ID'),
-          assignee: z.string().optional().describe('Email of the assignee'),
-          dueDate: z.string().optional().describe('Due date in ISO format'),
+          name: z.string().describe("The name of the Asana task"),
+          notes: z.string().describe("A detailed description of the task"),
+          projectId: z.string().optional().describe("The project ID"),
+          assignee: z.string().optional().describe("Email of the assignee"),
+          dueDate: z.string().optional().describe("Due date in ISO format"),
         }),
       },
     );
@@ -165,8 +165,8 @@ export class ExternalIntegrationService {
             id: `MOCK-${Math.floor(Math.random() * 1000)}`,
             channel,
             message:
-              message.substring(0, 20) + (message.length > 20 ? '...' : ''),
-            status: 'Sent',
+              message.substring(0, 20) + (message.length > 20 ? "..." : ""),
+            status: "Sent",
             timestamp: new Date().toISOString(),
             _testMode: true,
           });
@@ -175,24 +175,24 @@ export class ExternalIntegrationService {
         // Real implementation would call Slack API here
         try {
           // TODO: Implement real Slack API call
-          throw new Error('Real Slack API not implemented yet');
+          throw new Error("Real Slack API not implemented yet");
         } catch (error) {
           this.logger.error(`Error sending Slack message: ${error.message}`);
           throw error;
         }
       },
       {
-        name: 'send_slack_message',
-        description: 'Send a message to a Slack channel',
+        name: "send_slack_message",
+        description: "Send a message to a Slack channel",
         schema: z.object({
           channel: z
             .string()
-            .describe('The channel or user to send the message to'),
-          message: z.string().describe('The message text to send'),
+            .describe("The channel or user to send the message to"),
+          message: z.string().describe("The message text to send"),
           attachments: z
             .array(z.any())
             .optional()
-            .describe('Optional attachments'),
+            .describe("Optional attachments"),
         }),
       },
     );

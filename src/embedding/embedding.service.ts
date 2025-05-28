@@ -1,19 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 // import { LlmService } from '../langgraph/llm/llm.service';
-import { Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import * as crypto from 'crypto';
-import OpenAI from 'openai';
-import { OpenAIEmbeddings } from '@langchain/openai';
+import { Inject } from "@nestjs/common";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Cache } from "cache-manager";
+import * as crypto from "crypto";
+import OpenAI from "openai";
+import { OpenAIEmbeddings } from "@langchain/openai";
 
 export enum EmbeddingModel {
-  OPENAI_ADA_002 = 'text-embedding-ada-002',
-  OPENAI_3_SMALL = 'text-embedding-3-small',
-  OPENAI_3_LARGE = 'text-embedding-3-large',
-  ANTHROPIC = 'claude-3-embedding',
-  LLAMA = 'llama-text-embed-v2',
+  OPENAI_ADA_002 = "text-embedding-ada-002",
+  OPENAI_3_SMALL = "text-embedding-3-small",
+  OPENAI_3_LARGE = "text-embedding-3-large",
+  ANTHROPIC = "claude-3-embedding",
+  LLAMA = "llama-text-embed-v2",
 }
 
 export interface EmbeddingOptions {
@@ -43,25 +43,23 @@ export class EmbeddingService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     this.defaultModel = this.configService.get<EmbeddingModel>(
-      'EMBEDDING_MODEL',
+      "EMBEDDING_MODEL",
       EmbeddingModel.OPENAI_3_LARGE,
     );
     this.defaultDimensions = this.configService.get<number>(
-      'EMBEDDING_DIMENSIONS',
+      "EMBEDDING_DIMENSIONS",
       1024,
     );
 
     // Initialize OpenAI client
     this.openai = new OpenAI({
-      apiKey: this.configService.get<string>('OPENAI_API_KEY'),
+      apiKey: this.configService.get<string>("OPENAI_API_KEY"),
     });
 
     // Initialize LangChain OpenAI embeddings for more advanced features
     this.openaiEmbeddings = new OpenAIEmbeddings({
-      openAIApiKey: this.configService.get<string>('OPENAI_API_KEY'),
-      modelName: this.mapToSupportedModel(
-        EmbeddingModel.OPENAI_3_LARGE
-      ),
+      openAIApiKey: this.configService.get<string>("OPENAI_API_KEY"),
+      modelName: this.mapToSupportedModel(EmbeddingModel.OPENAI_3_LARGE),
       dimensions: this.defaultDimensions,
       timeout: 60000, // 60 second timeout
       maxRetries: 3,
@@ -70,29 +68,31 @@ export class EmbeddingService {
 
   private getCallStack(skip = 0, depth = 1): string[] {
     let raw: string;
-    if (typeof Error.captureStackTrace === 'function') {
+    if (typeof Error.captureStackTrace === "function") {
       const obj: { stack?: string } = {};
       // omit this helper frame
       Error.captureStackTrace(obj, this.getCallStack);
       raw = obj.stack!;
     } else {
-      raw = (new Error()).stack!;
+      raw = new Error().stack!;
     }
     const lines = raw
-      .split('\n')
-      .slice(1)       // drop the “Error” line
-      .map(l => l.trim());
+      .split("\n")
+      .slice(1) // drop the “Error” line
+      .map((l) => l.trim());
     return lines.slice(skip, skip + depth);
   }
 
   private parseFrame(frameLine: string) {
     const match = /at\s+(.*?)\s+\((.*?):(\d+):(\d+)\)$/.exec(frameLine);
-    return match ? {
-      functionName: match[1],
-      file:         match[2],
-      line:         +match[3],
-      column:       +match[4],
-    } : null;
+    return match
+      ? {
+          functionName: match[1],
+          file: match[2],
+          line: +match[3],
+          column: +match[4],
+        }
+      : null;
   }
 
   /**
@@ -101,22 +101,20 @@ export class EmbeddingService {
   private mapToSupportedModel(model: string): string {
     if (model === EmbeddingModel.LLAMA) {
       const rawCaller = this.getCallStack(1, 1)[0];
-      const info      = this.parseFrame(rawCaller);
+      const info = this.parseFrame(rawCaller);
       if (info) {
         this.logger.warn(
           `*********************** mapToSupportedModel was called by ***********************: \n ${info.functionName} ` +
-          `at ${info.file}:${info.line}:${info.column}`
+            `at ${info.file}:${info.line}:${info.column}`,
         );
       }
       this.logger.warn(
         `Mapping unsupported model ${model} to ${EmbeddingModel.OPENAI_3_LARGE}`,
-
       );
       return EmbeddingModel.OPENAI_3_LARGE;
     }
     return model;
   }
-
 
   /**
    * Generate embeddings for a single text
@@ -185,7 +183,7 @@ export class EmbeddingService {
     text: string,
     model: string,
   ): Promise<number[]> {
-    if (model.startsWith('text-embedding')) {
+    if (model.startsWith("text-embedding")) {
       // OpenAI embedding
       const response = await this.openai.embeddings.create({
         model,
@@ -194,7 +192,7 @@ export class EmbeddingService {
 
       return response.data[0].embedding;
     } else if (model === EmbeddingModel.ANTHROPIC) {
-      throw new Error('Anthropic embedding API not yet implemented');
+      throw new Error("Anthropic embedding API not yet implemented");
     } else if (model === EmbeddingModel.LLAMA) {
       // Fallback to OpenAI 3 Large for Llama embedding requests
       const response = await this.openai.embeddings.create({
@@ -318,7 +316,7 @@ export class EmbeddingService {
    */
   private generateCacheKey(text: string, model: string): string {
     // Hash the text to create a deterministic key
-    const hash = crypto.createHash('sha256').update(text).digest('hex');
+    const hash = crypto.createHash("sha256").update(text).digest("hex");
 
     return `embedding:${model}:${hash}`;
   }
@@ -329,7 +327,7 @@ export class EmbeddingService {
   calculateSimilarity(embedding1: number[], embedding2: number[]): number {
     // Ensure embeddings have the same dimensionality
     if (embedding1.length !== embedding2.length) {
-      throw new Error('Embeddings must have the same dimensions');
+      throw new Error("Embeddings must have the same dimensions");
     }
 
     // Calculate dot product

@@ -1,6 +1,6 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document } from "mongoose";
+import { v4 as uuidv4 } from "uuid";
 
 export type MeetingDocument = Meeting & Document;
 
@@ -56,7 +56,7 @@ export class Meeting {
     sentiment: string;
   }>;
 
-  @Prop({ default: 'pending' })
+  @Prop({ default: "pending" })
   status: string;
 
   @Prop({ type: [Object] })

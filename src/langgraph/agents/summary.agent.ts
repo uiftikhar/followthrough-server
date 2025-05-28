@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { BaseAgent, AgentConfig } from './base-agent';
-import { LlmService } from '../llm/llm.service';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { FINAL_MEETING_SUMMARY_PROMPT } from '../../instruction-promtps';
+import { Injectable } from "@nestjs/common";
+import { BaseAgent, AgentConfig } from "./base-agent";
+import { LlmService } from "../llm/llm.service";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { FINAL_MEETING_SUMMARY_PROMPT } from "../../instruction-promtps";
 
 export interface MeetingSummary {
   meetingTitle: string;
@@ -18,11 +18,11 @@ export interface MeetingSummary {
 export class SummaryAgent extends BaseAgent {
   constructor(protected readonly llmService: LlmService) {
     const config: AgentConfig = {
-      name: 'SummaryAgent',
+      name: "SummaryAgent",
       systemPrompt: FINAL_MEETING_SUMMARY_PROMPT,
       llmOptions: {
         temperature: 0.4,
-        model: 'gpt-4o',
+        model: "gpt-4o",
       },
     };
     super(llmService, config);
@@ -81,8 +81,8 @@ export class SummaryAgent extends BaseAgent {
         `Failed to parse summary from response: ${error.message}`,
       );
       return {
-        meetingTitle: 'Meeting Summary',
-        summary: 'This is a placeholder summary due to parsing error.',
+        meetingTitle: "Meeting Summary",
+        summary: "This is a placeholder summary due to parsing error.",
         decisions: [],
         next_steps: [],
       };
@@ -93,10 +93,10 @@ export class SummaryAgent extends BaseAgent {
    * Process a state object to generate a summary
    */
   async processState(state: any): Promise<any> {
-    this.logger.debug('Processing state for summary generation');
+    this.logger.debug("Processing state for summary generation");
 
     if (!state.transcript) {
-      this.logger.warn('No transcript found in state');
+      this.logger.warn("No transcript found in state");
       return state;
     }
 

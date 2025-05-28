@@ -1,9 +1,9 @@
-import { Module } from '@nestjs/common';
-import { InfrastructureModule } from '../../infrastructure/infrastructure.module';
-import { MeetingWorkflowModule } from '../../meeting/workflow/meeting-workflow.module';
-import { AuthModule } from '../../auth/auth.module';
-import { MeetingAnalysisController } from './meeting-analysis.controller';
-import { MeetingAnalysisGateway } from './meeting-analysis.gateway';
+import { Module } from "@nestjs/common";
+import { InfrastructureModule } from "../../infrastructure/infrastructure.module";
+import { MeetingWorkflowModule } from "../../meeting/workflow/meeting-workflow.module";
+import { AuthModule } from "../../auth/auth.module";
+import { MeetingAnalysisController } from "./meeting-analysis.controller";
+import { MeetingAnalysisGateway } from "./meeting-analysis.gateway";
 
 /**
  * MeetingAnalysisModule - API Layer
@@ -17,9 +17,7 @@ import { MeetingAnalysisGateway } from './meeting-analysis.gateway';
     AuthModule, // Keep existing auth
   ],
   controllers: [MeetingAnalysisController],
-  providers: [
-    MeetingAnalysisGateway,
-  ],
+  providers: [MeetingAnalysisGateway],
   exports: [
     // Export for other modules if needed - services come from MeetingWorkflowModule
   ],

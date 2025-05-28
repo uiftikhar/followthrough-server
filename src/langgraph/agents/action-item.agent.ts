@@ -1,15 +1,15 @@
-import { Injectable } from '@nestjs/common';
-import { BaseAgent, AgentConfig } from './base-agent';
-import { LlmService } from '../llm/llm.service';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { EXTRACT_ACTION_ITEMS_PROMPT } from '../../instruction-promtps';
+import { Injectable } from "@nestjs/common";
+import { BaseAgent, AgentConfig } from "./base-agent";
+import { LlmService } from "../llm/llm.service";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { EXTRACT_ACTION_ITEMS_PROMPT } from "../../instruction-promtps";
 
 export interface ActionItem {
   description: string;
   assignee?: string;
   deadline?: string;
-  status?: 'pending' | 'in_progress' | 'completed';
-  priority?: 'low' | 'medium' | 'high';
+  status?: "pending" | "in_progress" | "completed";
+  priority?: "low" | "medium" | "high";
   context?: string;
 }
 
@@ -17,11 +17,11 @@ export interface ActionItem {
 export class ActionItemAgent extends BaseAgent {
   constructor(protected readonly llmService: LlmService) {
     const config: AgentConfig = {
-      name: 'ActionItemExtractor',
+      name: "ActionItemExtractor",
       systemPrompt: EXTRACT_ACTION_ITEMS_PROMPT,
       llmOptions: {
         temperature: 0.2,
-        model: 'gpt-4o',
+        model: "gpt-4o",
       },
     };
     super(llmService, config);
@@ -69,10 +69,10 @@ export class ActionItemAgent extends BaseAgent {
    * Process a state object for action item extraction
    */
   async processState(state: any): Promise<any> {
-    this.logger.debug('Processing state for action item extraction');
+    this.logger.debug("Processing state for action item extraction");
 
     if (!state.transcript) {
-      this.logger.warn('No transcript found in state');
+      this.logger.warn("No transcript found in state");
       return state;
     }
 

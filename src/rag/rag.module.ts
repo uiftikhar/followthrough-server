@@ -1,5 +1,5 @@
-import { Module } from '@nestjs/common';
-import { SharedCoreModule } from '../shared/shared-core.module';
+import { Module } from "@nestjs/common";
+import { SharedCoreModule } from "../shared/shared-core.module";
 // import { RagController } from './rag.controller';
 
 /**

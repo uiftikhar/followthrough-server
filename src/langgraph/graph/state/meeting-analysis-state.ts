@@ -1,14 +1,14 @@
-import { Annotation } from '@langchain/langgraph';
-import { BaseMessage } from '@langchain/core/messages';
-import { Topic } from '../../agents/topic-extraction.agent';
-import { ActionItem } from '../../agents/action-item.agent';
-import { SentimentAnalysis } from '../../agents/sentiment-analysis.agent';
-import { ParticipationAnalysis } from '../../agents/participation.agent';
-import { MeetingSummary } from '../../agents/summary.agent';
+import { Annotation } from "@langchain/langgraph";
+import { BaseMessage } from "@langchain/core/messages";
+import { Topic } from "../../agents/topic-extraction.agent";
+import { ActionItem } from "../../agents/action-item.agent";
+import { SentimentAnalysis } from "../../agents/sentiment-analysis.agent";
+import { ParticipationAnalysis } from "../../agents/participation.agent";
+import { MeetingSummary } from "../../agents/summary.agent";
 import {
   EnrichedContext,
   RetrievedContext,
-} from '../../agents/context-integration.agent';
+} from "../../agents/context-integration.agent";
 
 /**
  * Meeting analysis state definition using LangGraph Annotations API
@@ -23,7 +23,7 @@ export const MeetingAnalysisState = Annotation.Root({
   // Raw meeting transcript
   transcript: Annotation<string>({
     reducer: (x, y) => y ?? x,
-    default: () => '',
+    default: () => "",
   }),
 
   // Analysis results
@@ -65,7 +65,7 @@ export const MeetingAnalysisState = Annotation.Root({
   // Workflow state
   currentPhase: Annotation<string>({
     reducer: (x, y) => y ?? x,
-    default: () => 'initialization',
+    default: () => "initialization",
   }),
 
   // Execution tracking
@@ -82,12 +82,12 @@ export const MeetingAnalysisState = Annotation.Root({
   remaining_steps: Annotation<string[]>({
     reducer: (x, y) => y ?? x, // Complete replacement
     default: () => [
-      'topic_extraction',
-      'action_item_extraction',
-      'sentiment_analysis',
-      'participation_analysis',
-      'context_integration',
-      'summary_generation',
+      "topic_extraction",
+      "action_item_extraction",
+      "sentiment_analysis",
+      "participation_analysis",
+      "context_integration",
+      "summary_generation",
     ],
   }),
 
@@ -99,7 +99,7 @@ export const MeetingAnalysisState = Annotation.Root({
   // Routing
   next_step: Annotation<string>({
     reducer: (x, y) => y ?? x,
-    default: () => 'topic_extraction',
+    default: () => "topic_extraction",
   }),
 
   // Metadata
@@ -128,19 +128,19 @@ export function createInitialState(
     retrievedContext: [],
     enrichedContext: null,
     summary: null,
-    currentPhase: 'initialization',
+    currentPhase: "initialization",
     completed_steps: [],
     in_progress_steps: [],
     remaining_steps: [
-      'topic_extraction',
-      'action_item_extraction',
-      'sentiment_analysis',
-      'participation_analysis',
-      'context_integration',
-      'summary_generation',
+      "topic_extraction",
+      "action_item_extraction",
+      "sentiment_analysis",
+      "participation_analysis",
+      "context_integration",
+      "summary_generation",
     ],
     errors: [],
-    next_step: 'topic_extraction',
+    next_step: "topic_extraction",
     metadata: {},
   };
 }

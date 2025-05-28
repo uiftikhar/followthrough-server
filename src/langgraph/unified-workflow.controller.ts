@@ -1,9 +1,9 @@
-import { Body, Controller, Post, Logger, Get, Param } from '@nestjs/common';
-import { UnifiedWorkflowService } from './unified-workflow.service';
-import { SessionRepository } from '../database/repositories/session.repository';
+import { Body, Controller, Post, Logger, Get, Param } from "@nestjs/common";
+import { UnifiedWorkflowService } from "./unified-workflow.service";
+import { SessionRepository } from "../database/repositories/session.repository";
 
 interface ProcessInputDto {
-  type: 'meeting_transcript' | 'email';
+  type: "meeting_transcript" | "email";
   transcript?: string;
   email?: {
     from: string;
@@ -14,7 +14,7 @@ interface ProcessInputDto {
   userId?: string;
 }
 
-@Controller('unified-workflow')
+@Controller("unified-workflow")
 export class UnifiedWorkflowController {
   private readonly logger = new Logger(UnifiedWorkflowController.name);
 
@@ -23,54 +23,54 @@ export class UnifiedWorkflowController {
     private readonly sessionRepository: SessionRepository,
   ) {}
 
-  @Post('process')
+  @Post("process")
   async processInput(@Body() dto: ProcessInputDto) {
     this.logger.log(`Processing unified workflow input of type: ${dto.type}`);
-    
+
     // Create the input object based on the type
     let input: any;
-    
-    if (dto.type === 'meeting_transcript') {
+
+    if (dto.type === "meeting_transcript") {
       input = {
-        type: 'meeting_transcript',
+        type: "meeting_transcript",
         transcript: dto.transcript,
       };
-    } else if (dto.type === 'email') {
+    } else if (dto.type === "email") {
       input = {
-        type: 'email',
+        type: "email",
         ...dto.email,
       };
     } else {
       // For unknown input types, preserve the original data but ensure it has a type
       const { type, ...rest } = dto;
       input = {
-        type: type || 'unknown',
+        type: type || "unknown",
         ...rest,
       };
     }
-    
+
     const result = await this.unifiedWorkflowService.processInput(
       input,
       dto.metadata,
       dto.userId,
     );
-    
+
     return result;
   }
 
-  @Get('result/:sessionId')
-  async getResult(@Param('sessionId') sessionId: string) {
+  @Get("result/:sessionId")
+  async getResult(@Param("sessionId") sessionId: string) {
     this.logger.log(`Getting result for session: ${sessionId}`);
-    
+
     const session = await this.sessionRepository.getSessionById(sessionId);
-    
+
     if (!session) {
       return {
         sessionId,
-        status: 'not_found',
+        status: "not_found",
       };
     }
-    
+
     return {
       sessionId,
       status: session.status,
@@ -83,10 +83,10 @@ export class UnifiedWorkflowController {
       ...(session.actionItems && { actionItems: session.actionItems }),
       ...(session.sentiment && { sentiment: session.sentiment }),
       ...(session.summary && { summary: session.summary }),
-      ...(session.metadata?.emailTriageResult && { 
-        emailTriageResult: session.metadata.emailTriageResult 
+      ...(session.metadata?.emailTriageResult && {
+        emailTriageResult: session.metadata.emailTriageResult,
       }),
       errors: session.errors,
     };
   }
-} 
+}

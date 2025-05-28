@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Pinecone, Index, RecordMetadata } from '@pinecone-database/pinecone';
-import { ConfigService } from '@nestjs/config';
-import { PineconeConfigService } from './pinecone-config.service';
-import { VectorRecord, QueryOptions, UpsertOptions } from './pinecone.types';
+import { Injectable, Logger } from "@nestjs/common";
+import { Pinecone, Index, RecordMetadata } from "@pinecone-database/pinecone";
+import { ConfigService } from "@nestjs/config";
+import { PineconeConfigService } from "./pinecone-config.service";
+import { VectorRecord, QueryOptions, UpsertOptions } from "./pinecone.types";
 
 @Injectable()
 export class PineconeConnectionService {
@@ -23,7 +23,7 @@ export class PineconeConnectionService {
     indexName: string,
     vector: number[],
     options: QueryOptions,
-    namespace: string = '',
+    namespace: string = "",
   ) {
     try {
       const index = this.pinecone.index(indexName);
@@ -49,7 +49,7 @@ export class PineconeConnectionService {
   async upsertVectors<T extends RecordMetadata = RecordMetadata>(
     indexName: string,
     vectors: VectorRecord<T>[],
-    namespace: string = '',
+    namespace: string = "",
     options?: UpsertOptions,
   ) {
     try {
@@ -134,7 +134,7 @@ export class PineconeConnectionService {
   async deleteVectors(
     indexName: string,
     ids: string[],
-    namespace: string = '',
+    namespace: string = "",
   ): Promise<void> {
     try {
       const index = this.pinecone.index(indexName);
@@ -153,7 +153,7 @@ export class PineconeConnectionService {
   async deleteVectorsByFilter(
     indexName: string,
     filter: Record<string, any>,
-    namespace: string = '',
+    namespace: string = "",
   ): Promise<void> {
     try {
       const index = this.pinecone.index(indexName);
@@ -172,7 +172,7 @@ export class PineconeConnectionService {
   async fetchVectors<T extends RecordMetadata = RecordMetadata>(
     indexName: string,
     ids: string[],
-    namespace: string = '',
+    namespace: string = "",
   ) {
     try {
       const index = this.pinecone.index(indexName).namespace(namespace);

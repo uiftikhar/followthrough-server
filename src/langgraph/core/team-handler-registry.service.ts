@@ -1,6 +1,6 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ModuleRef } from '@nestjs/core';
-import { TeamHandler } from './interfaces/team-handler.interface';
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { ModuleRef } from "@nestjs/core";
+import { TeamHandler } from "./interfaces/team-handler.interface";
 
 /**
  * Registry service for team handlers
@@ -17,7 +17,7 @@ export class TeamHandlerRegistry implements OnModuleInit {
    * Initialize the registry after all modules have been initialized
    */
   async onModuleInit() {
-    this.logger.log('Initializing team handler registry');
+    this.logger.log("Initializing team handler registry");
   }
 
   /**
@@ -27,11 +27,11 @@ export class TeamHandlerRegistry implements OnModuleInit {
    */
   registerHandler(teamName: string, handler: TeamHandler): void {
     this.logger.log(`Registering handler for team "${teamName}"`);
-    
+
     if (this.handlers.has(teamName)) {
       this.logger.warn(`Overriding existing handler for team "${teamName}"`);
     }
-    
+
     this.handlers.set(teamName, handler);
   }
 
@@ -42,11 +42,11 @@ export class TeamHandlerRegistry implements OnModuleInit {
    */
   getHandler(teamName: string): TeamHandler | undefined {
     const handler = this.handlers.get(teamName);
-    
+
     if (!handler) {
       this.logger.warn(`No handler registered for team "${teamName}"`);
     }
-    
+
     return handler;
   }
 
@@ -72,16 +72,16 @@ export class TeamHandlerRegistry implements OnModuleInit {
    * @returns Promise resolving to the appropriate handler, or undefined if none found
    */
   async findHandlerForInput(input: any): Promise<TeamHandler | undefined> {
-    this.logger.debug('Attempting to find handler for input');
-    
+    this.logger.debug("Attempting to find handler for input");
+
     for (const handler of this.handlers.values()) {
-      if (handler.canHandle && await handler.canHandle(input)) {
+      if (handler.canHandle && (await handler.canHandle(input))) {
         this.logger.debug(`Found handler for input: ${handler.getTeamName()}`);
         return handler;
       }
     }
-    
-    this.logger.warn('No handler found for input');
+
+    this.logger.warn("No handler found for input");
     return undefined;
   }
-} 
+}

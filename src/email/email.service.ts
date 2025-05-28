@@ -1,9 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Email } from './models/email.model';
-import { Thread } from './models/thread.model';
-import { EmailQueryDto } from './dtos/email-query.dto';
-import { EmailConnectorFactory, EmailProvider } from './connectors/email-connector.factory';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { Email } from "./models/email.model";
+import { Thread } from "./models/thread.model";
+import { EmailQueryDto } from "./dtos/email-query.dto";
+import {
+  EmailConnectorFactory,
+  EmailProvider,
+} from "./connectors/email-connector.factory";
 
 @Injectable()
 export class EmailService {
@@ -14,15 +17,20 @@ export class EmailService {
     private emailConnectorFactory: EmailConnectorFactory,
   ) {}
 
-  async getEmails(userId: string, provider: EmailProvider, options: EmailQueryDto | any = {}): Promise<Email[]> {
+  async getEmails(
+    userId: string,
+    provider: EmailProvider,
+    options: EmailQueryDto | any = {},
+  ): Promise<Email[]> {
     try {
       const connector = this.emailConnectorFactory.getConnector(provider);
-      
+
       // Convert to EmailQueryDto if it's not already
-      const query = options instanceof EmailQueryDto 
-        ? options 
-        : this.createQueryDto(options);
-      
+      const query =
+        options instanceof EmailQueryDto
+          ? options
+          : this.createQueryDto(options);
+
       return await connector.getEmails(userId, query);
     } catch (error) {
       this.logger.error(`Failed to get emails: ${error.message}`);
@@ -30,7 +38,11 @@ export class EmailService {
     }
   }
 
-  async getEmail(userId: string, provider: EmailProvider, emailId: string): Promise<Email> {
+  async getEmail(
+    userId: string,
+    provider: EmailProvider,
+    emailId: string,
+  ): Promise<Email> {
     try {
       const connector = this.emailConnectorFactory.getConnector(provider);
       return await connector.getEmail(userId, emailId);
@@ -40,7 +52,11 @@ export class EmailService {
     }
   }
 
-  async getThread(userId: string, provider: EmailProvider, threadId: string): Promise<Thread> {
+  async getThread(
+    userId: string,
+    provider: EmailProvider,
+    threadId: string,
+  ): Promise<Thread> {
     try {
       const connector = this.emailConnectorFactory.getConnector(provider);
       return await connector.getThread(userId, threadId);
@@ -50,7 +66,11 @@ export class EmailService {
     }
   }
 
-  async sendEmail(userId: string, provider: EmailProvider, email: Partial<Email>): Promise<Email> {
+  async sendEmail(
+    userId: string,
+    provider: EmailProvider,
+    email: Partial<Email>,
+  ): Promise<Email> {
     try {
       const connector = this.emailConnectorFactory.getConnector(provider);
       return await connector.sendEmail(userId, email);
@@ -61,10 +81,10 @@ export class EmailService {
   }
 
   async updateEmailMetadata(
-    userId: string, 
-    provider: EmailProvider, 
-    emailId: string, 
-    metadata: Record<string, any>
+    userId: string,
+    provider: EmailProvider,
+    emailId: string,
+    metadata: Record<string, any>,
   ): Promise<Email> {
     try {
       const connector = this.emailConnectorFactory.getConnector(provider);
@@ -76,10 +96,10 @@ export class EmailService {
   }
 
   async moveEmail(
-    userId: string, 
-    provider: EmailProvider, 
-    emailId: string, 
-    targetFolder: string
+    userId: string,
+    provider: EmailProvider,
+    emailId: string,
+    targetFolder: string,
   ): Promise<Email> {
     try {
       const connector = this.emailConnectorFactory.getConnector(provider);
@@ -90,7 +110,11 @@ export class EmailService {
     }
   }
 
-  async deleteEmail(userId: string, provider: EmailProvider, emailId: string): Promise<boolean> {
+  async deleteEmail(
+    userId: string,
+    provider: EmailProvider,
+    emailId: string,
+  ): Promise<boolean> {
     try {
       const connector = this.emailConnectorFactory.getConnector(provider);
       return await connector.deleteEmail(userId, emailId);
@@ -101,16 +125,18 @@ export class EmailService {
   }
 
   async markAsRead(
-    userId: string, 
-    provider: EmailProvider, 
-    emailId: string, 
-    isRead: boolean
+    userId: string,
+    provider: EmailProvider,
+    emailId: string,
+    isRead: boolean,
   ): Promise<Email> {
     try {
       const connector = this.emailConnectorFactory.getConnector(provider);
       return await connector.markAsRead(userId, emailId, isRead);
     } catch (error) {
-      this.logger.error(`Failed to mark email as ${isRead ? 'read' : 'unread'}: ${error.message}`);
+      this.logger.error(
+        `Failed to mark email as ${isRead ? "read" : "unread"}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -134,13 +160,14 @@ export class EmailService {
    */
   private createQueryDto(options: any): EmailQueryDto {
     const query = new EmailQueryDto();
-    
+
     // Map fields from options to query object
     if (options.query !== undefined) query.query = options.query;
     if (options.folder !== undefined) query.folder = options.folder;
     if (options.labels !== undefined) query.labels = options.labels;
     if (options.unreadOnly !== undefined) query.unreadOnly = options.unreadOnly;
-    if (options.hasAttachment !== undefined) query.hasAttachment = options.hasAttachment;
+    if (options.hasAttachment !== undefined)
+      query.hasAttachment = options.hasAttachment;
     if (options.startDate !== undefined) query.startDate = options.startDate;
     if (options.endDate !== undefined) query.endDate = options.endDate;
     if (options.from !== undefined) query.from = options.from;
@@ -149,9 +176,11 @@ export class EmailService {
     if (options.sortOrder !== undefined) query.sortOrder = options.sortOrder;
     if (options.limit !== undefined) query.limit = options.limit;
     if (options.offset !== undefined) query.offset = options.offset;
-    if (options.includeMetadata !== undefined) query.includeMetadata = options.includeMetadata;
-    if (options.includeAttachments !== undefined) query.includeAttachments = options.includeAttachments;
-    
+    if (options.includeMetadata !== undefined)
+      query.includeMetadata = options.includeMetadata;
+    if (options.includeAttachments !== undefined)
+      query.includeAttachments = options.includeAttachments;
+
     return query;
   }
-} 
+}

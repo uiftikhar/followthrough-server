@@ -1,24 +1,24 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
-import { IRagService } from '../../../rag/interfaces/rag-service.interface';
-import { RAG_SERVICE } from '../../../rag/constants/injection-tokens';
-import { LLM_SERVICE } from '../../llm/constants/injection-tokens';
-import { STATE_SERVICE } from '../../state/constants/injection-tokens';
-import { LlmService } from '../../llm/llm.service';
-import { StateService } from '../../state/state.service';
-import { 
-  RagEnhancedAgent, 
-  RagAgentConfig, 
-  AgentExpertise 
-} from '../../../rag/agents/rag-enhanced-agent';
-import { Topic } from './interfaces/state.interface';
-import { 
+import { Injectable, Inject, Logger } from "@nestjs/common";
+import { IRagService } from "../../../rag/interfaces/rag-service.interface";
+import { RAG_SERVICE } from "../../../rag/constants/injection-tokens";
+import { LLM_SERVICE } from "../../llm/constants/injection-tokens";
+import { STATE_SERVICE } from "../../state/constants/injection-tokens";
+import { LlmService } from "../../llm/llm.service";
+import { StateService } from "../../state/state.service";
+import {
+  RagEnhancedAgent,
+  RagAgentConfig,
+  AgentExpertise,
+} from "../../../rag/agents/rag-enhanced-agent";
+import { Topic } from "./interfaces/state.interface";
+import {
   TOPIC_EXTRACTION_PROMPT,
-  TOPIC_EXTRACTION_SYSTEM_PROMPT 
-} from '../../../instruction-promtps';
-import { RagService } from '../../../rag/rag.service';
+  TOPIC_EXTRACTION_SYSTEM_PROMPT,
+} from "../../../instruction-promtps";
+import { RagService } from "../../../rag/rag.service";
 
 // Define the token here to avoid circular import
-export const RAG_TOPIC_EXTRACTION_CONFIG = 'RAG_TOPIC_EXTRACTION_CONFIG';
+export const RAG_TOPIC_EXTRACTION_CONFIG = "RAG_TOPIC_EXTRACTION_CONFIG";
 
 export interface RagTopicExtractionConfig extends RagAgentConfig {
   expertise?: AgentExpertise[];
@@ -46,20 +46,20 @@ export class RagTopicExtractionAgent extends RagEnhancedAgent {
     const ragConfig = config.ragOptions || {
       includeRetrievedContext: true,
       retrievalOptions: {
-        indexName: 'meeting-analysis',
-        namespace: 'topics',
+        indexName: "meeting-analysis",
+        namespace: "topics",
         topK: 5,
         minScore: 0.7,
       },
     };
 
     super(llmService, stateService, ragService, {
-      name: config.name || 'Topic Extraction Agent',
+      name: config.name || "Topic Extraction Agent",
       systemPrompt: config.systemPrompt || TOPIC_EXTRACTION_SYSTEM_PROMPT,
       llmOptions: config.llmOptions,
       ragOptions: ragConfig,
     });
-    
+
     // Override expertisePrompts with topic-specific prompts
     (this as any).expertisePrompts = {
       [AgentExpertise.TOPIC_ANALYSIS]: TOPIC_EXTRACTION_PROMPT,
@@ -71,21 +71,26 @@ export class RagTopicExtractionAgent extends RagEnhancedAgent {
    */
   protected extractQueryFromState(state: any): string {
     // Extract a query focused on topic extraction
-    let query = '';
+    let query = "";
 
-    this.logger.log('********* RAG TOPIC **********: extractQueryFromState');
-    if (typeof state === 'object') {
+    this.logger.log("********* RAG TOPIC **********: extractQueryFromState");
+    if (typeof state === "object") {
       if (state.transcript) {
         // Use a shorter version of the transcript focused on topics
-        const transcript = typeof state.transcript === 'string'
-          ? state.transcript.substring(0, 500)
-          : JSON.stringify(state.transcript).substring(0, 500);
+        const transcript =
+          typeof state.transcript === "string"
+            ? state.transcript.substring(0, 500)
+            : JSON.stringify(state.transcript).substring(0, 500);
 
         query = `Extract topics from the following meeting transcript: ${transcript}`;
 
         // If we have existing topics, add them to focus the query
-        if (state.topics && Array.isArray(state.topics) && state.topics.length > 0) {
-          const topicStr = state.topics.map((t: any) => t.name || t).join(', ');
+        if (
+          state.topics &&
+          Array.isArray(state.topics) &&
+          state.topics.length > 0
+        ) {
+          const topicStr = state.topics.map((t: any) => t.name || t).join(", ");
           query = `Previous topics: ${topicStr}\n\n${query}`;
         }
       } else {
@@ -114,18 +119,18 @@ export class RagTopicExtractionAgent extends RagEnhancedAgent {
     },
   ): Promise<Topic[]> {
     try {
-      this.logger.log('********* RAG TOPIC **********: extractTopics');
+      this.logger.log("********* RAG TOPIC **********: extractTopics");
       // Create a base state for RAG enhancement
-      const baseState = { 
+      const baseState = {
         transcript,
         meetingId: options?.meetingId || `meeting-${Date.now()}`,
-        participantNames: options?.participantNames || []
+        participantNames: options?.participantNames || [],
       };
 
       // Prepare retrieval options
       const retrievalOptions = {
-        indexName: 'meeting-analysis',
-        namespace: 'topics',
+        indexName: "meeting-analysis",
+        namespace: "topics",
         topK: options?.retrievalOptions?.topK || 5,
         minScore: options?.retrievalOptions?.minScore || 0.7,
       };
@@ -140,7 +145,10 @@ export class RagTopicExtractionAgent extends RagEnhancedAgent {
         retrievalOptions,
       );
 
-      this.logger.log('********* RAG TOPIC **********: extractTopics - enhancedState\n', enhancedState);
+      this.logger.log(
+        "********* RAG TOPIC **********: extractTopics - enhancedState\n",
+        enhancedState,
+      );
 
       // Add format instructions to the enhanced state using type assertion
       const stateWithFormat = {
@@ -162,7 +170,7 @@ Your output MUST be a valid JSON array of topic objects with this exact structur
 ]
 If you cannot extract proper topics, return an array with at least one valid topic object.
 DO NOT include markdown formatting or any text outside the JSON array.
-`
+`,
       };
 
       // Generate topic-specific prompt
@@ -179,12 +187,16 @@ ${stateWithFormat.formatInstructions}`;
       // Process the result to ensure we get properly structured topics
       return this.processTopicsResult(result);
     } catch (error) {
-      this.logger.error(`Error extracting topics with RAG: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error extracting topics with RAG: ${error.message}`,
+        error.stack,
+      );
       // Return a fallback topic rather than throwing an error
       return [
         {
-          name: 'Error Processing Topics',
-          description: 'There was an error processing the meeting topics. Please try again.',
+          name: "Error Processing Topics",
+          description:
+            "There was an error processing the meeting topics. Please try again.",
           relevance: 1,
         },
       ];
@@ -196,21 +208,23 @@ ${stateWithFormat.formatInstructions}`;
    */
   private async executeLlmRequest(prompt: string, state: any): Promise<any> {
     try {
-      this.logger.log('Executing LLM request for topic extraction');
-      
+      this.logger.log("Executing LLM request for topic extraction");
+
       // Set up LLM options
       const llmOptions = {
-        model: 'gpt-4o',
+        model: "gpt-4o",
         temperature: 0.7,
       };
-      
+
       // Get the LLM chat model
       const llm = this.llmService.getChatModel(llmOptions);
-      
+
       // Add retrieved context if available
       let promptWithContext = prompt;
       if (state.retrievedContext) {
-        const formattedContext = this.formatRetrievedContext(state.retrievedContext);
+        const formattedContext = this.formatRetrievedContext(
+          state.retrievedContext,
+        );
         if (formattedContext) {
           promptWithContext = `${formattedContext}\n\n${prompt}`;
         }
@@ -220,22 +234,25 @@ ${stateWithFormat.formatInstructions}`;
       if (state.formatInstructions) {
         promptWithContext += `\n\n${state.formatInstructions}`;
       }
-      
+
       // Invoke the LLM
       const messages = [
-        { role: 'system', content: TOPIC_EXTRACTION_SYSTEM_PROMPT },
-        { role: 'user', content: promptWithContext }
+        { role: "system", content: TOPIC_EXTRACTION_SYSTEM_PROMPT },
+        { role: "user", content: promptWithContext },
       ];
-      
+
       const response = await llm.invoke(messages);
-      
+
       // Parse and return the result
       const content = response.content.toString();
-      this.logger.log('Topic extraction LLM request completed');
-      
+      this.logger.log("Topic extraction LLM request completed");
+
       return content;
     } catch (error) {
-      this.logger.error(`Error executing LLM request for topics: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error executing LLM request for topics: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -244,35 +261,39 @@ ${stateWithFormat.formatInstructions}`;
    * Process the result from the LLM to ensure proper topic structure
    */
   private processTopicsResult(result: any): Topic[] {
-    this.logger.log('Processing topics result from LLM');
+    this.logger.log("Processing topics result from LLM");
     this.logger.log(`Result type: ${typeof result}, preview: ${result}...`);
-    
+
     try {
       let cleanedResult = result;
-      
+
       // If result is a string, clean it first
-      if (typeof result === 'string') {
-        this.logger.log('Result is string, cleaning and parsing');
-        
+      if (typeof result === "string") {
+        this.logger.log("Result is string, cleaning and parsing");
+
         // Remove markdown code block formatting
         cleanedResult = result
-          .replace(/```json\s*/g, '')
-          .replace(/```\s*/g, '')
+          .replace(/```json\s*/g, "")
+          .replace(/```\s*/g, "")
           .trim();
-        
+
         // Try to extract JSON from the cleaned string
         try {
           cleanedResult = JSON.parse(cleanedResult);
-          this.logger.log('Successfully parsed cleaned JSON string');
+          this.logger.log("Successfully parsed cleaned JSON string");
         } catch (parseError) {
-          this.logger.warn(`Failed to parse cleaned JSON: ${parseError.message}`);
-          
+          this.logger.warn(
+            `Failed to parse cleaned JSON: ${parseError.message}`,
+          );
+
           // Try to find JSON array pattern in the string
           const arrayMatch = cleanedResult.match(/\[\s*\{[\s\S]*\}\s*\]/);
           if (arrayMatch) {
             try {
               cleanedResult = JSON.parse(arrayMatch[0]);
-              this.logger.log('Successfully extracted and parsed JSON array from string');
+              this.logger.log(
+                "Successfully extracted and parsed JSON array from string",
+              );
             } catch (e) {
               this.logger.warn(`Failed to parse extracted array: ${e.message}`);
             }
@@ -283,13 +304,19 @@ ${stateWithFormat.formatInstructions}`;
               try {
                 const parsedObj = JSON.parse(objectMatch[0]);
                 cleanedResult = parsedObj.topics || [parsedObj];
-                this.logger.log('Successfully extracted and parsed JSON object from string');
+                this.logger.log(
+                  "Successfully extracted and parsed JSON object from string",
+                );
               } catch (e) {
-                this.logger.warn(`Failed to parse extracted object: ${e.message}`);
+                this.logger.warn(
+                  `Failed to parse extracted object: ${e.message}`,
+                );
                 return this.createFallbackTopics(cleanedResult);
               }
             } else {
-              this.logger.warn('No JSON pattern found, creating fallback topics');
+              this.logger.warn(
+                "No JSON pattern found, creating fallback topics",
+              );
               return this.createFallbackTopics(cleanedResult);
             }
           }
@@ -298,27 +325,35 @@ ${stateWithFormat.formatInstructions}`;
 
       // If result is already an array of topics, validate it
       if (Array.isArray(cleanedResult)) {
-        this.logger.log('Result is array, validating topics');
+        this.logger.log("Result is array, validating topics");
         const validatedTopics = this.validateTopics(cleanedResult);
         if (validatedTopics.length > 0) {
-          this.logger.log(`Successfully validated ${validatedTopics.length} topics from array`);
+          this.logger.log(
+            `Successfully validated ${validatedTopics.length} topics from array`,
+          );
           return validatedTopics;
         }
       }
 
       // If result is an object with a topics property
-      if (cleanedResult && cleanedResult.topics && Array.isArray(cleanedResult.topics)) {
-        this.logger.log('Found topics array in result object');
+      if (
+        cleanedResult &&
+        cleanedResult.topics &&
+        Array.isArray(cleanedResult.topics)
+      ) {
+        this.logger.log("Found topics array in result object");
         const validatedTopics = this.validateTopics(cleanedResult.topics);
         if (validatedTopics.length > 0) {
-          this.logger.log(`Successfully validated ${validatedTopics.length} topics from object`);
+          this.logger.log(
+            `Successfully validated ${validatedTopics.length} topics from object`,
+          );
           return validatedTopics;
         }
       }
 
       // If result is an object but not an array, try to convert it to a topic
-      if (typeof cleanedResult === 'object' && cleanedResult !== null) {
-        this.logger.log('Converting object result to topic');
+      if (typeof cleanedResult === "object" && cleanedResult !== null) {
+        this.logger.log("Converting object result to topic");
         const validatedTopics = this.validateTopics([cleanedResult]);
         if (validatedTopics.length > 0) {
           return validatedTopics;
@@ -326,7 +361,7 @@ ${stateWithFormat.formatInstructions}`;
       }
 
       // Final fallback
-      this.logger.warn('All parsing attempts failed, creating fallback topic');
+      this.logger.warn("All parsing attempts failed, creating fallback topic");
       return this.createFallbackTopics(result);
     } catch (error) {
       this.logger.error(`Error processing topics result: ${error.message}`);
@@ -340,11 +375,12 @@ ${stateWithFormat.formatInstructions}`;
   private createFallbackTopics(originalResult: any): Topic[] {
     return [
       {
-        name: 'Meeting Discussion',
-        description: 'Topics were discussed but could not be parsed from the response. Raw response: ' + 
-                    (typeof originalResult === 'string' 
-                      ? originalResult.substring(0, 200) 
-                      : JSON.stringify(originalResult).substring(0, 200)),
+        name: "Meeting Discussion",
+        description:
+          "Topics were discussed but could not be parsed from the response. Raw response: " +
+          (typeof originalResult === "string"
+            ? originalResult.substring(0, 200)
+            : JSON.stringify(originalResult).substring(0, 200)),
         relevance: 3,
         subtopics: [],
         keywords: [],
@@ -357,45 +393,54 @@ ${stateWithFormat.formatInstructions}`;
    * Extract topics from unstructured text
    */
   private extractTopicsFromText(text: string): Topic[] {
-    this.logger.log('Extracting topics from unstructured text');
-    
+    this.logger.log("Extracting topics from unstructured text");
+
     const topics: Topic[] = [];
-    
+
     // Common patterns for topic identification in text
     const topicPatterns = [
       /(?:topic|subject|discussion about|talking about|regarding|discussed):\s*([^\n\.]+)/gi,
       /(?:^|\n)\s*[-•*]\s*([^\n]+)/g, // Bullet points
       /(?:^|\n)\s*\d+\.\s*([^\n]+)/g, // Numbered lists
-      /(?:we|they|team|group)\s+(?:talked about|discussed|covered|addressed)\s+([^\n\.]+)/gi
+      /(?:we|they|team|group)\s+(?:talked about|discussed|covered|addressed)\s+([^\n\.]+)/gi,
     ];
-    
+
     for (const pattern of topicPatterns) {
       let match;
       while ((match = pattern.exec(text)) !== null) {
         const topicText = match[1].trim();
-        if (topicText.length > 3 && topicText.length < 100) { // Reasonable topic length
+        if (topicText.length > 3 && topicText.length < 100) {
+          // Reasonable topic length
           topics.push({
-            name: topicText.length > 50 ? topicText.substring(0, 47) + '...' : topicText,
+            name:
+              topicText.length > 50
+                ? topicText.substring(0, 47) + "..."
+                : topicText,
             description: `Extracted from discussion: ${topicText}`,
             relevance: 4,
           });
         }
       }
     }
-    
+
     // If no patterns matched, try to create a general topic
     if (topics.length === 0) {
-      const sentences = text.split(/[\.!?]+/).filter(s => s.trim().length > 10);
+      const sentences = text
+        .split(/[\.!?]+/)
+        .filter((s) => s.trim().length > 10);
       if (sentences.length > 0) {
         const firstSentence = sentences[0].trim();
         topics.push({
-          name: firstSentence.length > 50 ? firstSentence.substring(0, 47) + '...' : firstSentence,
-          description: 'General discussion topic extracted from content',
+          name:
+            firstSentence.length > 50
+              ? firstSentence.substring(0, 47) + "..."
+              : firstSentence,
+          description: "General discussion topic extracted from content",
           relevance: 3,
         });
       }
     }
-    
+
     this.logger.log(`Extracted ${topics.length} topics from text`);
     return topics.slice(0, 5); // Limit to 5 topics
   }
@@ -413,22 +458,22 @@ ${stateWithFormat.formatInstructions}`;
         (topic) =>
           topic &&
           (topic.name || topic.title) &&
-          typeof (topic.name || topic.title) === 'string' &&
-          (topic.name || topic.title).trim() !== '',
+          typeof (topic.name || topic.title) === "string" &&
+          (topic.name || topic.title).trim() !== "",
       )
       .map((topic) => {
         // Ensure all required properties are present
         return {
-          name: topic.name || topic.title || 'Unnamed Topic',
-          description: topic.description || topic.content || '',
-          relevance: typeof topic.relevance === 'number' ? topic.relevance : 5,
+          name: topic.name || topic.title || "Unnamed Topic",
+          description: topic.description || topic.content || "",
+          relevance: typeof topic.relevance === "number" ? topic.relevance : 5,
           subtopics: Array.isArray(topic.subtopics) ? topic.subtopics : [],
           keywords: Array.isArray(topic.keywords) ? topic.keywords : [],
           participants: Array.isArray(topic.participants)
             ? topic.participants
             : [],
           duration:
-            typeof topic.duration === 'number' ? topic.duration : undefined,
+            typeof topic.duration === "number" ? topic.duration : undefined,
         };
       });
   }
@@ -452,15 +497,15 @@ TOPICS FROM RELATED MEETINGS:
 ${context.documents
   .map((doc: any, index: number) => {
     const metadata = doc.metadata || {};
-    const meetingId = metadata.meetingId || metadata.meeting_id || 'unknown';
-    const date = metadata.date || 'unknown';
+    const meetingId = metadata.meetingId || metadata.meeting_id || "unknown";
+    const date = metadata.date || "unknown";
     const relevance = doc.score
       ? ` (Relevance: ${(doc.score * 100).toFixed(1)}%)`
-      : '';
+      : "";
 
     return `Meeting ${meetingId} (${date})${relevance}:\n${doc.content}`;
   })
-  .join('\n\n')}
+  .join("\n\n")}
 ---------------------------
 
 Use the above topics from previous related meetings as context.
@@ -470,4 +515,4 @@ However, your primary task is to extract topics from the CURRENT transcript.
 IMPORTANT: Return your response as a valid JSON array of topic objects with the exact structure shown.
 `;
   }
-} 
+}

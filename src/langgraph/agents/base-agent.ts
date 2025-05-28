@@ -1,11 +1,11 @@
-import { Logger } from '@nestjs/common';
-import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { Logger } from "@nestjs/common";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import {
   BaseMessage,
   HumanMessage,
   SystemMessage,
-} from '@langchain/core/messages';
-import { LlmService, LLMOptions } from '../llm/llm.service';
+} from "@langchain/core/messages";
+import { LlmService, LLMOptions } from "../llm/llm.service";
 
 export interface AgentConfig {
   name: string;
@@ -87,7 +87,7 @@ export class BaseAgent {
       messages: [
         ...state.messages,
         {
-          role: 'assistant',
+          role: "assistant",
           content: response,
           name: this.name,
         },
