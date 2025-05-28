@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsObject, IsOptional, IsArray, IsDateString, MaxLength } from "class-validator";
+import { IsNotEmpty, IsString, IsObject, IsOptional, IsArray, IsDateString, MaxLength, IsUrl } from "class-validator";
 
 export class WebhookRequestDto {
   @IsNotEmpty()
@@ -110,4 +110,37 @@ export class MeetingScheduleDto {
   @IsObject()
   @IsOptional()
   attendees?: Record<string, any>[];
+}
+
+export class GmailSubscriptionDto {
+  @IsNotEmpty()
+  @IsUrl()
+  targetUrl: string;
+
+  @IsOptional()
+  @IsString()
+  query?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  labelIds?: string[];
+
+  @IsNotEmpty()
+  @IsString()
+  userId: string;
+
+  @IsOptional()
+  @IsString()
+  triggerType?: string;
+}
+
+export class GmailUnsubscriptionDto {
+  @IsNotEmpty()
+  @IsString()
+  id: string;
+
+  @IsNotEmpty()
+  @IsString()
+  userId: string;
 }

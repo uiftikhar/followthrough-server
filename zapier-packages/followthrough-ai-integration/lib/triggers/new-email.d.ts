@@ -6,7 +6,7 @@ export interface EmailTrigger {
     to: string;
     body: string;
     timestamp: string;
-    headers: Record<string, string>;
+    headers: string;
     threadId: string;
     snippet: string;
 }
@@ -25,7 +25,7 @@ declare const _default: {
             error?: undefined;
         } | {
             success: boolean;
-            error: string;
+            error: any;
         }>;
         perform: (z: ZObject, bundle: Bundle) => Promise<EmailTrigger[]>;
         performList: (z: ZObject, bundle: Bundle) => Promise<EmailTrigger[]>;
@@ -51,22 +51,15 @@ declare const _default: {
             to: string;
             body: string;
             timestamp: string;
-            headers: {
-                'message-id': string;
-                'reply-to': string;
-            };
+            headers: string;
             threadId: string;
             snippet: string;
         };
-        outputFields: ({
+        outputFields: {
             key: string;
             label: string;
             type: string;
-        } | {
-            key: string;
-            label: string;
-            type?: undefined;
-        })[];
+        }[];
     };
 };
 export default _default;

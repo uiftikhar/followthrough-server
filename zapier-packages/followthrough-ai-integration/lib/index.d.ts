@@ -89,7 +89,7 @@ declare const _default: {
                     error?: undefined;
                 } | {
                     success: boolean;
-                    error: string;
+                    error: any;
                 }>;
                 perform: (z: import("zapier-platform-core").ZObject, bundle: import("zapier-platform-core").Bundle) => Promise<import("./triggers/new-email").EmailTrigger[]>;
                 performList: (z: import("zapier-platform-core").ZObject, bundle: import("zapier-platform-core").Bundle) => Promise<import("./triggers/new-email").EmailTrigger[]>;
@@ -115,22 +115,15 @@ declare const _default: {
                     to: string;
                     body: string;
                     timestamp: string;
-                    headers: {
-                        'message-id': string;
-                        'reply-to': string;
-                    };
+                    headers: string;
                     threadId: string;
                     snippet: string;
                 };
-                outputFields: ({
+                outputFields: {
                     key: string;
                     label: string;
                     type: string;
-                } | {
-                    key: string;
-                    label: string;
-                    type?: undefined;
-                })[];
+                }[];
             };
         };
         [newCalendarEventTrigger.key]: {
