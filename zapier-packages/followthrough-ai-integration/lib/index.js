@@ -33,6 +33,7 @@ exports.default = {
         [send_email_1.default.key]: send_email_1.default,
         [create_calendar_event_1.default.key]: create_calendar_event_1.default,
         [draft_reply_1.default.key]: draft_reply_1.default,
+        [new_email_1.default.key]: new_email_1.default,
         [task_from_email_1.default.key]: task_from_email_1.default,
     },
     // Searches - find something in external service

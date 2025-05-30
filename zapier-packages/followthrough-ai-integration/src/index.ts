@@ -24,7 +24,7 @@ export default {
     [newCalendarEventTrigger.key]: newCalendarEventTrigger,
     [emailMatchingSearchTrigger.key]: emailMatchingSearchTrigger,
   },
-
+  
   // Creates - create something in external service (includes actions)
   creates: {
     [triggerEmailTriageAction.key]: triggerEmailTriageAction,
@@ -32,6 +32,7 @@ export default {
     [sendEmailAction.key]: sendEmailAction,
     [createCalendarEventAction.key]: createCalendarEventAction,
     [draftReplyCreate.key]: draftReplyCreate,
+    [newEmailTrigger.key]: newEmailTrigger,
     [taskFromEmailCreate.key]: taskFromEmailCreate,
   },
 

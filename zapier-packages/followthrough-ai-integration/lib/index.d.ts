@@ -537,6 +537,58 @@ declare const _default: {
                 };
             };
         };
+        [newEmailTrigger.key]: {
+            key: string;
+            noun: string;
+            display: {
+                label: string;
+                description: string;
+            };
+            operation: {
+                type: string;
+                performSubscribe: (z: import("zapier-platform-core").ZObject, bundle: import("zapier-platform-core").Bundle) => Promise<any>;
+                performUnsubscribe: (z: import("zapier-platform-core").ZObject, bundle: import("zapier-platform-core").Bundle) => Promise<{
+                    success: boolean;
+                    error?: undefined;
+                } | {
+                    success: boolean;
+                    error: any;
+                }>;
+                perform: (z: import("zapier-platform-core").ZObject, bundle: import("zapier-platform-core").Bundle) => Promise<import("./triggers/new-email").EmailTrigger[]>;
+                performList: (z: import("zapier-platform-core").ZObject, bundle: import("zapier-platform-core").Bundle) => Promise<import("./triggers/new-email").EmailTrigger[]>;
+                inputFields: ({
+                    key: string;
+                    label: string;
+                    helpText: string;
+                    type: string;
+                    required: boolean;
+                    default: string;
+                } | {
+                    key: string;
+                    label: string;
+                    helpText: string;
+                    type: string;
+                    required: boolean;
+                    default?: undefined;
+                })[];
+                sample: {
+                    id: string;
+                    subject: string;
+                    from: string;
+                    to: string;
+                    body: string;
+                    timestamp: string;
+                    headers: string;
+                    threadId: string;
+                    snippet: string;
+                };
+                outputFields: {
+                    key: string;
+                    label: string;
+                    type: string;
+                }[];
+            };
+        };
         [taskFromEmailCreate.key]: {
             key: string;
             noun: string;

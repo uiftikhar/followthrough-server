@@ -1,6 +1,6 @@
 {
   "name": "followthrough-ai-integration",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Zapier integration for FollowThrough AI - Email triage and meeting analysis with Google OAuth",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
