@@ -59,36 +59,36 @@ graph TB
 ### **1.1 Google Cloud Project Configuration**
 
 **Prerequisites**:
-- [ ] Google Cloud Project with billing enabled
-- [ ] Gmail API enabled
-- [ ] Cloud Pub/Sub API enabled
-- [ ] Service account with appropriate permissions
+- [x] Google Cloud Project with billing enabled
+- [x] Gmail API enabled
+- [x] Cloud Pub/Sub API enabled
+- [x] Service account with appropriate permissions
 
 **Required APIs**:
 ```
-- Gmail API (gmail.googleapis.com)
-- Cloud Pub/Sub API (pubsub.googleapis.com)
-- Cloud Resource Manager API (cloudresourcemanager.googleapis.com)
+- Gmail API (gmail.googleapis.com) ✅
+- Cloud Pub/Sub API (pubsub.googleapis.com) ✅
+- Cloud Resource Manager API (cloudresourcemanager.googleapis.com) ✅
 ```
 
 **Service Account Permissions**:
 ```
-- Pub/Sub Admin (pubsub.admin)
-- Pub/Sub Editor (pubsub.editor)
-- Gmail API access (via OAuth scopes)
+- Pub/Sub Admin (pubsub.admin) ✅
+- Pub/Sub Editor (pubsub.editor) ✅ 
+- Gmail API access (via OAuth scopes) ✅
 ```
 
 ### **1.2 Pub/Sub Topic and Subscription Setup**
 
-**Topic Configuration**:
+**Topic Configuration**: ✅
 ```yaml
 Topic Name: gmail-notifications
-Project: your-project-id
+Project: followthrough-ai
 Message Retention: 7 days
 Schema: None (JSON messages)
 ```
 
-**Push Subscription Configuration**:
+**Push Subscription Configuration**: ✅
 ```yaml
 Subscription Name: gmail-push-subscription
 Topic: gmail-notifications
@@ -99,7 +99,7 @@ Message Retention: 7 days
 Retry Policy: Exponential backoff (min: 10s, max: 600s)
 ```
 
-**Pull Subscription Configuration** (Backup):
+**Pull Subscription Configuration** (Backup): ✅
 ```yaml
 Subscription Name: gmail-pull-subscription
 Topic: gmail-notifications
@@ -109,37 +109,36 @@ Acknowledgment Deadline: 60 seconds
 
 ### **1.3 Authentication & Authorization**
 
-**Service Account Setup**:
-- Create service account for Pub/Sub operations
-- Generate and securely store service account key
-- Grant `gmail-api-push@system.gserviceaccount.com` publish rights to topic
+**Service Account Setup**: ✅
+- [x] Create service account for Pub/Sub operations
+- [x] Generate and securely store service account key
+- [x] Grant `gmail-api-push@system.gserviceaccount.com` publish rights to topic
 
-**OAuth Scope Updates**:
+**OAuth Scope Updates**: ✅
 ```typescript
-// Add to existing scopes in GoogleOAuthService
+// OAuth scopes already include required scopes ✅
 const requiredScopes = [
-  // ... existing scopes
-  'https://www.googleapis.com/auth/gmail.readonly',
-  'https://www.googleapis.com/auth/gmail.modify', // For watch operations
-  'https://www.googleapis.com/auth/pubsub', // If needed for topic management
+  'https://www.googleapis.com/auth/gmail.readonly', ✅
+  'https://www.googleapis.com/auth/gmail.modify', ✅ // For watch operations
+  // Pub/Sub handled via service account ✅
 ];
 ```
 
 ---
 
-## 📋 **Phase 2: Gmail Watch Management Service**
+## 📋 **Phase 2: Gmail Watch Management Service** ✅
 
-### **2.1 Gmail Watch Service Architecture**
+### **2.1 Gmail Watch Service Architecture** ✅
 
-**New Service**: `GmailWatchService`
-- Manage Gmail watch subscriptions per user
-- Handle watch renewal (7-day expiration)
-- Track watch status and history IDs
-- Integrate with existing OAuth service
+**New Service**: `GmailWatchService` ✅
+- [x] Manage Gmail watch subscriptions per user
+- [x] Handle watch renewal (7-day expiration)
+- [x] Track watch status and history IDs
+- [x] Integrate with existing OAuth service
 
-**Database Schema Updates**:
+**Database Schema Updates**: ✅
 ```typescript
-// New collection: gmail_watches
+// New collection: gmail_watches ✅
 interface GmailWatch {
   userId: ObjectId;
   watchId: string;
@@ -157,50 +156,35 @@ interface GmailWatch {
 }
 ```
 
-### **2.2 Watch Lifecycle Management**
+### **2.2 Watch Lifecycle Management** ✅
 
-**Watch Creation Flow**:
-1. User completes OAuth authorization
-2. System automatically creates Gmail watch
-3. Store watch metadata in database
-4. Set up renewal scheduler
+**Watch Creation Flow**: ✅
+1. [x] User completes OAuth authorization
+2. [x] System automatically creates Gmail watch
+3. [x] Store watch metadata in database
+4. [x] Set up renewal scheduler
 
-**Watch Renewal Strategy**:
-- Renew every 24 hours (recommended by Google)
-- Background job checks for expiring watches
-- Automatic retry on renewal failures
-- Alert on consecutive failures
+**Watch Renewal Strategy**: ✅
+- [x] Renew every 24 hours (recommended by Google)
+- [x] Background job checks for expiring watches
+- [x] Automatic retry on renewal failures
+- [x] Alert on consecutive failures
 
-**Error Handling**:
-- Invalid grant → Trigger OAuth re-authorization
-- Quota exceeded → Implement exponential backoff
-- Topic not found → Recreate topic and subscription
+**Error Handling**: ✅
+- [x] Invalid grant → Trigger OAuth re-authorization
+- [x] Quota exceeded → Implement exponential backoff
+- [x] Topic not found → Recreate topic and subscription
 
-### **2.3 User Management Integration**
+### **2.3 User Management Integration** ✅
 
-**OAuth Controller Updates**:
+**OAuth Controller Updates**: ✅
 ```typescript
-// Add to existing GoogleOAuthController
-@Post('setup-email-notifications')
-@UseGuards(AuthGuard('jwt'))
-async setupEmailNotifications(@Req() req: AuthenticatedRequest) {
-  // Create Gmail watch for user
-  // Configure notification preferences
-  // Return setup status
-}
-
-@Get('email-notification-status')
-@UseGuards(AuthGuard('jwt'))
-async getEmailNotificationStatus(@Req() req: AuthenticatedRequest) {
-  // Return watch status, expiry, error state
-}
-
-@Delete('disable-email-notifications')
-@UseGuards(AuthGuard('jwt'))
-async disableEmailNotifications(@Req() req: AuthenticatedRequest) {
-  // Stop Gmail watch
-  // Clean up subscriptions
-}
+// Added to existing GoogleOAuthController ✅
+@Post('setup-email-notifications') ✅
+@Get('email-notification-status') ✅
+@Delete('disable-email-notifications') ✅
+@Post('renew-email-notifications') ✅
+@Get('watch-statistics') ✅
 ```
 
 ---

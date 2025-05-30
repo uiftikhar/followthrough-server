@@ -4,6 +4,7 @@ import {
   Post, 
   Delete, 
   Query, 
+  Body,
   Req, 
   Res, 
   UseGuards,
@@ -13,7 +14,9 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
+import { Types } from 'mongoose';
 import { GoogleOAuthService } from '../services/google-oauth.service';
+import { GmailWatchService } from '../services/gmail-watch.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -23,11 +26,19 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
+interface SetupEmailNotificationsDto {
+  labelIds?: string[];
+  labelFilterBehavior?: 'INCLUDE' | 'EXCLUDE';
+}
+
 @Controller('oauth/google')
 export class GoogleOAuthController {
   private readonly logger = new Logger(GoogleOAuthController.name);
 
-  constructor(private readonly googleOAuthService: GoogleOAuthService) {}
+  constructor(
+    private readonly googleOAuthService: GoogleOAuthService,
+    private readonly gmailWatchService: GmailWatchService,
+  ) {}
 
   /**
    * Get Google OAuth authorization URL
@@ -252,6 +263,192 @@ export class GoogleOAuthController {
         isConnected: false,
         error: error.message,
       };
+    }
+  }
+
+  /**
+   * Setup Gmail email notifications (create watch)
+   * Requires JWT authentication
+   */
+  @Post('setup-email-notifications')
+  @UseGuards(AuthGuard('jwt'))
+  async setupEmailNotifications(
+    @Req() req: AuthenticatedRequest,
+    @Body() setupDto: SetupEmailNotificationsDto = {},
+  ) {
+    try {
+      const userId = req.user.id;
+      
+      // Check if user is connected
+      const isConnected = await this.googleOAuthService.isConnected(userId);
+      if (!isConnected) {
+        throw new HttpException(
+          'User not connected to Google',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Check if user already has an active watch
+      const existingWatch = await this.gmailWatchService.getWatchInfo(new Types.ObjectId(userId));
+      if (existingWatch && existingWatch.isActive) {
+        return {
+          success: true,
+          message: 'Gmail notifications already enabled',
+          watchInfo: existingWatch,
+        };
+      }
+
+      // Create new Gmail watch
+      const watchInfo = await this.gmailWatchService.createWatch({
+        userId: new Types.ObjectId(userId),
+        labelIds: setupDto.labelIds || ['INBOX'],
+        labelFilterBehavior: setupDto.labelFilterBehavior || 'INCLUDE',
+      });
+
+      this.logger.log(`Gmail notifications setup for user: ${userId}`);
+
+      return {
+        success: true,
+        message: 'Gmail notifications enabled successfully',
+        watchInfo,
+      };
+    } catch (error) {
+      this.logger.error('Failed to setup Gmail notifications:', error);
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new HttpException(
+        'Failed to setup Gmail notifications',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get Gmail notification status
+   * Requires JWT authentication
+   */
+  @Get('email-notification-status')
+  @UseGuards(AuthGuard('jwt'))
+  async getEmailNotificationStatus(@Req() req: AuthenticatedRequest) {
+    try {
+      const userId = req.user.id;
+      
+      const watchInfo = await this.gmailWatchService.getWatchInfo(new Types.ObjectId(userId));
+      
+      return {
+        success: true,
+        isEnabled: !!watchInfo?.isActive,
+        watchInfo,
+      };
+    } catch (error) {
+      this.logger.error('Failed to get email notification status:', error);
+      throw new HttpException(
+        'Failed to get email notification status',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Disable Gmail email notifications (stop watch)
+   * Requires JWT authentication
+   */
+  @Delete('disable-email-notifications')
+  @UseGuards(AuthGuard('jwt'))
+  async disableEmailNotifications(@Req() req: AuthenticatedRequest) {
+    try {
+      const userId = req.user.id;
+      
+      const stopped = await this.gmailWatchService.stopWatch(new Types.ObjectId(userId));
+      
+      if (!stopped) {
+        return {
+          success: true,
+          message: 'No active Gmail notifications found',
+        };
+      }
+
+      this.logger.log(`Gmail notifications disabled for user: ${userId}`);
+
+      return {
+        success: true,
+        message: 'Gmail notifications disabled successfully',
+      };
+    } catch (error) {
+      this.logger.error('Failed to disable Gmail notifications:', error);
+      throw new HttpException(
+        'Failed to disable Gmail notifications',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Renew Gmail watch (manual renewal)
+   * Requires JWT authentication
+   */
+  @Post('renew-email-notifications')
+  @UseGuards(AuthGuard('jwt'))
+  async renewEmailNotifications(@Req() req: AuthenticatedRequest) {
+    try {
+      const userId = req.user.id;
+      
+      // Get existing watch
+      const existingWatch = await this.gmailWatchService.getWatchInfo(new Types.ObjectId(userId));
+      if (!existingWatch) {
+        throw new HttpException(
+          'No Gmail watch found for user',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Renew the watch
+      const watchInfo = await this.gmailWatchService.renewWatch(existingWatch.watchId);
+
+      this.logger.log(`Gmail watch renewed for user: ${userId}`);
+
+      return {
+        success: true,
+        message: 'Gmail notifications renewed successfully',
+        watchInfo,
+      };
+    } catch (error) {
+      this.logger.error('Failed to renew Gmail notifications:', error);
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new HttpException(
+        'Failed to renew Gmail notifications',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get Gmail watch statistics (admin endpoint)
+   * Requires JWT authentication
+   */
+  @Get('watch-statistics')
+  @UseGuards(AuthGuard('jwt'))
+  async getWatchStatistics(@Req() req: AuthenticatedRequest) {
+    try {
+      const statistics = await this.gmailWatchService.getStatistics();
+
+      return {
+        success: true,
+        statistics,
+      };
+    } catch (error) {
+      this.logger.error('Failed to get watch statistics:', error);
+      throw new HttpException(
+        'Failed to get watch statistics',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }

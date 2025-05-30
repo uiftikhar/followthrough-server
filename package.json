@@ -8,7 +8,7 @@
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start --watch",
+    "start": "node dist/main",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.50.4",
+    "@google-cloud/pubsub": "^5.0.0",
     "@langchain/anthropic": "^0.3.20",
     "@langchain/community": "^0.3.43",
     "@langchain/core": "^0.3.56",
