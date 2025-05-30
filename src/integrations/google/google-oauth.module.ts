@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ScheduleModule } from '@nestjs/schedule';
+
+// Import workflow services
+import { LanggraphModule } from '../../langgraph/langgraph.module';
 
 // Schemas
 import { UserGoogleTokens, UserGoogleTokensSchema } from '../../database/schemas/user-google-tokens.schema';
@@ -16,10 +20,12 @@ import { GoogleOAuthService } from './services/google-oauth.service';
 import { GmailService } from './services/gmail.service';
 import { PubSubService } from './services/pubsub.service';
 import { GmailWatchService } from './services/gmail-watch.service';
+import { GmailBackgroundService } from './services/gmail-background.service';
 
 // Controllers
 import { GoogleOAuthController } from './controllers/google-oauth.controller';
 import { GmailWebhookController } from './controllers/gmail-webhook.controller';
+import { GmailClientController } from './controllers/gmail-client.controller';
 
 // Guards
 import { GoogleAuthGuard } from './guards/google-auth.guard';
@@ -34,6 +40,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
  * - Gmail push notifications via Google Cloud Pub/Sub
  * - Gmail watch management and lifecycle
  * - Real-time email processing webhooks
+ * - Background jobs for watch renewal and health monitoring
  * - Integration guards for protected routes
  * 
  * Usage:
@@ -44,10 +51,13 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
  * 5. Use PubSubService for push notification handling
  * 6. Use GoogleAuthGuard to protect Google API endpoints
  * 7. Configure Gmail push notifications via endpoints
+ * 8. Monitor system health and automatic renewals via GmailBackgroundService
  */
 @Module({
   imports: [
     ConfigModule, // For Google OAuth and Pub/Sub configuration
+    ScheduleModule.forRoot(), // For cron jobs and background tasks
+    LanggraphModule, // For UnifiedWorkflowService integration
     MongooseModule.forFeature([
       { name: UserGoogleTokens.name, schema: UserGoogleTokensSchema },
       { name: GmailWatch.name, schema: GmailWatchSchema },
@@ -56,6 +66,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
   controllers: [
     GoogleOAuthController, // OAuth flow and Gmail watch management endpoints
     GmailWebhookController, // Gmail push notification webhooks
+    GmailClientController, // Gmail client management endpoints
   ],
   providers: [
     // Core services
@@ -64,6 +75,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
     GmailService,
     PubSubService,
     GmailWatchService,
+    GmailBackgroundService, // Background jobs and health monitoring
     
     // Repositories
     UserGoogleTokensRepository,
@@ -78,6 +90,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
     GmailService,
     GmailWatchService,
     PubSubService,
+    GmailBackgroundService,
     GoogleAuthGuard,
     UserGoogleTokensRepository,
     GmailWatchRepository,

@@ -62,7 +62,7 @@ import { GoogleOAuthModule } from "./integrations/google/google-oauth.module";
     LoggingModule,
     AuthModule,
     GoogleOAuthModule,
-    ZapierModule,
+    // ZapierModule,
 
     // Future modules
     // EmailAgentsModule,

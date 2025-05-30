@@ -86,7 +86,6 @@ import {
 import { EMBEDDING_SERVICE } from "src/embedding";
 import { DimensionAdapterService } from "src/embedding/dimension-adapter.service";
 import { OpenAIService } from "src/embedding/openai.service";
-import { GoogleOAuthModule } from "src/integrations/google/google-oauth.module";
 
 /**
  * SharedCoreModule - Directly provides ALL shared services
@@ -100,7 +99,6 @@ import { GoogleOAuthModule } from "src/integrations/google/google-oauth.module";
     DatabaseModule,
     StorageModule,
 
-    GoogleOAuthModule,
 
     // Cache configuration
     CacheModule.register({

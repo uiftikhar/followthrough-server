@@ -12,9 +12,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Types } from 'mongoose';
 import { PubSubService, PubSubMessage, GmailNotification } from '../services/pubsub.service';
 import { GmailService } from '../services/gmail.service';
 import { GoogleOAuthService } from '../services/google-oauth.service';
+import { GmailWatchService } from '../services/gmail-watch.service';
+import { UnifiedWorkflowService } from '../../../langgraph/unified-workflow.service';
+import { gmail_v1 } from 'googleapis';
 import * as crypto from 'crypto';
 
 interface PubSubPushPayload {
@@ -34,6 +38,22 @@ interface WebhookVerificationParams {
   'hub.verify_token'?: string;
 }
 
+interface GmailEmailData {
+  id: string;
+  threadId: string;
+  body: string;
+  metadata: {
+    subject: string;
+    from: string;
+    to: string;
+    timestamp: string;
+    headers?: any;
+    gmailSource: boolean;
+    messageId: string;
+    labels?: string[];
+  };
+}
+
 @Controller('api/gmail/webhooks')
 export class GmailWebhookController {
   private readonly logger = new Logger(GmailWebhookController.name);
@@ -43,6 +63,8 @@ export class GmailWebhookController {
     private readonly pubSubService: PubSubService,
     private readonly gmailService: GmailService,
     private readonly googleOAuthService: GoogleOAuthService,
+    private readonly gmailWatchService: GmailWatchService,
+    private readonly unifiedWorkflowService: UnifiedWorkflowService,
     private readonly configService: ConfigService,
   ) {
     this.webhookSecret = this.configService.get<string>('GMAIL_WEBHOOK_SECRET') || '';
@@ -85,6 +107,12 @@ export class GmailWebhookController {
 
       // Process the Gmail notification
       const processed = await this.processGmailNotification(gmailNotification);
+
+      // Record notification in watch statistics
+      const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(gmailNotification.emailAddress);
+      if (watchInfo) {
+        await this.gmailWatchService.recordNotification(watchInfo.watchId);
+      }
 
       this.logger.log(`Successfully processed Gmail notification for: ${gmailNotification.emailAddress}`);
       
@@ -161,15 +189,20 @@ export class GmailWebhookController {
     status: string;
     pubsub: boolean;
     subscriptions: any;
+    watchStats: any;
   }> {
     try {
-      const pubsubHealthy = await this.pubSubService.testConnection();
-      const subscriptionHealth = await this.pubSubService.getSubscriptionHealth();
+      const [pubsubHealthy, subscriptionHealth, watchStats] = await Promise.all([
+        this.pubSubService.testConnection(),
+        this.pubSubService.getSubscriptionHealth(),
+        this.gmailWatchService.getStatistics(),
+      ]);
 
       return {
         status: pubsubHealthy ? 'healthy' : 'unhealthy',
         pubsub: pubsubHealthy,
         subscriptions: subscriptionHealth,
+        watchStats,
       };
     } catch (error) {
       this.logger.error('Health check failed:', error);
@@ -177,6 +210,7 @@ export class GmailWebhookController {
         status: 'unhealthy',
         pubsub: false,
         subscriptions: null,
+        watchStats: null,
       };
     }
   }
@@ -186,15 +220,21 @@ export class GmailWebhookController {
    */
   private async processGmailNotification(notification: GmailNotification): Promise<number> {
     try {
-      // Find user by email address
-      const user = await this.findUserByEmail(notification.emailAddress);
-      if (!user) {
-        this.logger.warn(`No user found for email: ${notification.emailAddress}`);
+      this.logger.log(`Processing Gmail notification for: ${notification.emailAddress}`);
+
+      // Find watch info by email address
+      const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(notification.emailAddress);
+      if (!watchInfo || !watchInfo.isActive) {
+        this.logger.warn(`No active watch found for email: ${notification.emailAddress}`);
         return 0;
       }
 
-      // Get Gmail history since last known history ID
-      const newEmails = await this.getNewEmailsFromHistory(user.userId, notification.historyId);
+      // Get new emails from Gmail history since last known history ID
+      const newEmails = await this.getNewEmailsFromHistory(
+        watchInfo.watchId, 
+        notification.emailAddress,
+        notification.historyId
+      );
       
       if (newEmails.length === 0) {
         this.logger.log(`No new emails found for: ${notification.emailAddress}`);
@@ -205,11 +245,16 @@ export class GmailWebhookController {
       let processedCount = 0;
       for (const email of newEmails) {
         try {
-          await this.triggerEmailTriage(user.userId, email);
+          await this.triggerEmailTriage(watchInfo.watchId, email);
           processedCount++;
         } catch (error) {
           this.logger.error(`Failed to process email ${email.id}:`, error);
         }
+      }
+
+      // Record processed emails in watch statistics
+      if (processedCount > 0) {
+        await this.gmailWatchService.recordEmailsProcessed(watchInfo.watchId, processedCount);
       }
 
       this.logger.log(`Processed ${processedCount}/${newEmails.length} new emails for: ${notification.emailAddress}`);
@@ -221,60 +266,213 @@ export class GmailWebhookController {
   }
 
   /**
-   * Find user by email address
+   * Get new emails from Gmail history using History API
    */
-  private async findUserByEmail(emailAddress: string): Promise<{ userId: string } | null> {
+  private async getNewEmailsFromHistory(
+    watchId: string, 
+    emailAddress: string, 
+    currentHistoryId: string
+  ): Promise<GmailEmailData[]> {
     try {
-      // This would typically query your user database
-      // For now, we'll use the Google OAuth service to find the user
-      const userInfo = await this.googleOAuthService.getGoogleUserInfo(emailAddress);
+      // Get watch info to find last processed history ID - need to find user by email
+      const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(emailAddress);
+      if (!watchInfo || !watchInfo.isActive) {
+        throw new Error(`Active watch not found for email: ${emailAddress}`);
+      }
+
+      const lastHistoryId = watchInfo.historyId;
       
-      if (userInfo) {
-        return { userId: userInfo.googleUserId };
+      this.logger.log(`Fetching Gmail history from ${lastHistoryId} to ${currentHistoryId} for ${emailAddress}`);
+
+      // Get authenticated Gmail client - we need to find the user associated with this email
+      // For now, we'll use a different approach to get the user ID
+      const userTokens = await this.googleOAuthService.getGoogleUserInfo(emailAddress);
+      if (!userTokens) {
+        throw new Error(`No user tokens found for email: ${emailAddress}`);
       }
       
-      return null;
-    } catch (error) {
-      this.logger.error(`Failed to find user by email ${emailAddress}:`, error);
-      return null;
-    }
-  }
+      const client = await this.googleOAuthService.getAuthenticatedClient(userTokens.googleUserId);
+      const gmail = google.gmail({ version: 'v1', auth: client });
 
-  /**
-   * Get new emails from Gmail history
-   */
-  private async getNewEmailsFromHistory(userId: string, historyId: string): Promise<any[]> {
-    try {
-      // This would use the Gmail History API to get changes since historyId
-      // For now, we'll get recent messages from inbox
-      const result = await this.gmailService.getMessages(userId, {
-        query: 'in:inbox',
-        maxResults: 10,
+      // Get history of changes since last known history ID
+      const historyResponse = await gmail.users.history.list({
+        userId: 'me',
+        startHistoryId: lastHistoryId,
+        historyTypes: ['messageAdded'],
+        labelId: 'INBOX', // Focus on inbox messages
+        maxResults: 100,
       });
 
-      return result.messages;
+      const histories = historyResponse.data.history || [];
+      const newEmails: GmailEmailData[] = [];
+
+      // Process each history entry
+      for (const history of histories) {
+        if (history.messagesAdded) {
+          for (const messageAdded of history.messagesAdded) {
+            try {
+              const emailData = await this.transformGmailMessage(
+                gmail, 
+                messageAdded.message!,
+                emailAddress
+              );
+              if (emailData) {
+                newEmails.push(emailData);
+              }
+            } catch (error) {
+              this.logger.error(`Failed to transform Gmail message ${messageAdded.message?.id}:`, error);
+            }
+          }
+        }
+      }
+
+      // Update watch with new history ID
+      await this.gmailWatchService.recordNotification(watchId);
+      // Note: In production, you'd want to update the history ID in the watch record
+
+      this.logger.log(`Found ${newEmails.length} new emails in history for ${emailAddress}`);
+      return newEmails;
     } catch (error) {
-      this.logger.error(`Failed to get new emails for user ${userId}:`, error);
+      this.logger.error(`Failed to get emails from history for ${emailAddress}:`, error);
       return [];
     }
   }
 
   /**
-   * Trigger email triage for a specific email
+   * Transform Gmail API message to our email format
    */
-  private async triggerEmailTriage(userId: string, email: any): Promise<void> {
+  private async transformGmailMessage(
+    gmail: gmail_v1.Gmail,
+    message: gmail_v1.Schema$Message,
+    emailAddress: string
+  ): Promise<GmailEmailData | null> {
     try {
-      // This would integrate with your existing email triage system
-      // For now, we'll just log the action
-      this.logger.log(`Triggering email triage for user ${userId}, email ${email.id}`);
-      
-      // TODO: Integrate with UnifiedWorkflowService or EmailTriageManager
-      // const triageResult = await this.emailTriageService.processEmail({
-      //   userId,
-      //   emailData: email,
-      //   source: 'gmail_push',
-      // });
-      
+      // Get full message details
+      const fullMessage = await gmail.users.messages.get({
+        userId: 'me',
+        id: message.id!,
+        format: 'full',
+      });
+
+      const messageData = fullMessage.data;
+      const headers = messageData.payload?.headers || [];
+
+      // Extract email metadata from headers
+      const getHeader = (name: string) => 
+        headers.find(h => h.name?.toLowerCase() === name.toLowerCase())?.value || '';
+
+      const subject = getHeader('Subject');
+      const from = getHeader('From');
+      const to = getHeader('To');
+      const messageId = getHeader('Message-ID');
+      const date = getHeader('Date');
+
+      // Extract email body
+      const body = this.extractEmailBody(messageData.payload);
+
+      // Skip if essential data is missing
+      if (!subject || !from || !body) {
+        this.logger.warn(`Skipping message ${message.id} - missing essential data`);
+        return null;
+      }
+
+      return {
+        id: message.id!,
+        threadId: message.threadId!,
+        body,
+        metadata: {
+          subject,
+          from,
+          to: to || emailAddress,
+          timestamp: date || new Date().toISOString(),
+          headers: Object.fromEntries(headers.map(h => [h.name!, h.value!])),
+          gmailSource: true,
+          messageId,
+          labels: messageData.labelIds || undefined,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Failed to transform Gmail message ${message.id}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Extract plain text body from Gmail message payload
+   */
+  private extractEmailBody(payload: gmail_v1.Schema$MessagePart | undefined): string {
+    if (!payload) return '';
+
+    // If this part has a body, decode it
+    if (payload.body?.data) {
+      try {
+        return Buffer.from(payload.body.data, 'base64').toString('utf-8');
+      } catch (error) {
+        this.logger.warn('Failed to decode message body:', error);
+      }
+    }
+
+    // If this is a multipart message, recursively search parts
+    if (payload.parts) {
+      for (const part of payload.parts) {
+        // Look for text/plain parts first
+        if (part.mimeType === 'text/plain') {
+          const body = this.extractEmailBody(part);
+          if (body) return body;
+        }
+      }
+
+      // Fallback to text/html parts
+      for (const part of payload.parts) {
+        if (part.mimeType === 'text/html') {
+          const body = this.extractEmailBody(part);
+          if (body) {
+            // Basic HTML to text conversion (remove tags)
+            return body.replace(/<[^>]*>/g, '').trim();
+          }
+        }
+      }
+
+      // Recursively search nested parts
+      for (const part of payload.parts) {
+        const body = this.extractEmailBody(part);
+        if (body) return body;
+      }
+    }
+
+    return '';
+  }
+
+  /**
+   * Trigger email triage for a specific email using UnifiedWorkflowService
+   */
+  private async triggerEmailTriage(watchId: string, email: GmailEmailData): Promise<void> {
+    try {
+      this.logger.log(`Triggering email triage for email ${email.id} from watch ${watchId}`);
+
+      // Transform Gmail email data to unified workflow input format
+      const triageInput = {
+        type: "email_triage",
+        emailData: {
+          id: email.id,
+          body: email.body,
+          metadata: email.metadata,
+        },
+        sessionId: `gmail-${email.id}-${Date.now()}`,
+      };
+
+      // Process through existing unified workflow service
+      const result = await this.unifiedWorkflowService.processInput(
+        triageInput,
+        { 
+          source: 'gmail_push',
+          watchId,
+          ...email.metadata 
+        },
+        watchId // Use watchId as userId context for now
+      );
+
+      this.logger.log(`Email triage completed for ${email.id}, session: ${result.sessionId}`);
     } catch (error) {
       this.logger.error(`Failed to trigger email triage for email ${email.id}:`, error);
       throw error;
@@ -300,8 +498,16 @@ export class GmailWebhookController {
       .update(payload)
       .digest('base64');
 
-    if (signature !== expectedSignature) {
+    // Use constant-time comparison to prevent timing attacks
+    const signatureBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+    
+    if (signatureBuffer.length !== expectedBuffer.length || 
+        !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
       throw new UnauthorizedException('Invalid webhook signature');
     }
   }
-} 
+}
+
+// Import google here to avoid circular dependency issues
+import { google } from 'googleapis'; 
