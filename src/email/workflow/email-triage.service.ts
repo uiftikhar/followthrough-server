@@ -20,9 +20,35 @@ export class EmailTriageService implements TeamHandler, OnModuleInit {
 
   async onModuleInit() {
     // Register with master supervisor as email triage team handler
-    this.logger.log(`Registering email triage team handler: ${this.teamName}`);
-    this.teamHandlerRegistry.registerHandler(this.teamName, this);
-    this.logger.log("Email triage team handler registered successfully");
+    this.logger.log(`Starting registration of email triage team handler: ${this.teamName}`);
+    
+    // Check if registry is available
+    if (!this.teamHandlerRegistry) {
+      this.logger.error('TeamHandlerRegistry is not available during module initialization');
+      return;
+    }
+    
+    this.logger.log('TeamHandlerRegistry is available, proceeding with registration');
+    
+    try {
+      this.teamHandlerRegistry.registerHandler(this.teamName, this);
+      this.logger.log("Email triage team handler registered successfully");
+      
+      // Verify registration
+      const registeredHandler = this.teamHandlerRegistry.getHandler(this.teamName);
+      if (registeredHandler) {
+        this.logger.log('Registration verified: handler is accessible via registry');
+      } else {
+        this.logger.error('Registration failed: handler not found in registry after registration');
+      }
+      
+      // Log all registered teams for debugging
+      const allTeamNames = this.teamHandlerRegistry.getAllTeamNames();
+      this.logger.log(`All registered teams: ${JSON.stringify(allTeamNames)}`);
+      
+    } catch (error) {
+      this.logger.error(`Failed to register email triage team handler: ${error.message}`, error.stack);
+    }
   }
 
   /**

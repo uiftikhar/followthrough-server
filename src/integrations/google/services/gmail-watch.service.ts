@@ -22,6 +22,7 @@ export interface WatchInfo {
   emailsProcessed: number;
   errorCount: number;
   lastError?: string;
+  userId: Types.ObjectId;
 }
 
 @Injectable()
@@ -322,6 +323,22 @@ export class GmailWatchService {
   }
 
   /**
+   * Update history ID for a watch
+   */
+  async updateHistoryId(watchId: string, historyId: string): Promise<void> {
+    try {
+      await this.gmailWatchRepository.updateByWatchId(watchId, {
+        historyId,
+        lastHistoryProcessed: historyId,
+      });
+      this.logger.log(`Updated history ID for watch ${watchId}: ${historyId}`);
+    } catch (error) {
+      this.logger.error(`Failed to update history ID for watch ${watchId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Map database document to WatchInfo interface
    */
   private mapToWatchInfo(watch: GmailWatchDocument): WatchInfo {
@@ -335,6 +352,7 @@ export class GmailWatchService {
       emailsProcessed: watch.emailsProcessed || 0,
       errorCount: watch.errorCount || 0,
       lastError: watch.lastError,
+      userId: watch.userId,
     };
   }
 } 

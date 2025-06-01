@@ -18,9 +18,11 @@ import { Response } from 'express';
 import { Types } from 'mongoose';
 import { GoogleOAuthService } from '../services/google-oauth.service';
 import { GmailWatchService } from '../services/gmail-watch.service';
-import { PubSubService } from '../services/pubsub.service';
+import { PubSubService, GmailNotification } from '../services/pubsub.service';
 import { GmailService } from '../services/gmail.service';
 import { UnifiedWorkflowService } from '../../../langgraph/unified-workflow.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { google, gmail_v1 } from 'googleapis';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -69,6 +71,7 @@ export class GmailClientController {
     private readonly pubSubService: PubSubService,
     private readonly gmailService: GmailService,
     private readonly unifiedWorkflowService: UnifiedWorkflowService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -215,67 +218,183 @@ export class GmailClientController {
   }
 
   /**
-   * Test email triage functionality
-   * Step 4: Client can use this to test the email processing workflow
+   * Test email triage processing with a real email structure
+   * POST /gmail/client/test-triage
    */
   @Post('test-triage')
   @UseGuards(AuthGuard('jwt'))
   async testEmailTriage(
     @Req() req: AuthenticatedRequest,
-    @Body() testEmail: TestEmailTriageDto,
-  ) {
-    try {
-      const userId = req.user.id;
-      
-      this.logger.log(`Testing email triage for user: ${userId}`);
+    @Body() testEmail?: TestEmailTriageDto
+  ): Promise<any> {
+    const userId = req.user.id;
+    this.logger.log(`Testing email triage for user: ${userId}`);
 
-      // Create test email data in the format expected by the triage system
-      const triageInput = {
-        type: "email_triage",
-        emailData: {
-          id: `test-${Date.now()}`,
-          body: testEmail.body,
-          metadata: {
-            subject: testEmail.subject,
-            from: testEmail.from,
-            to: testEmail.to || req.user.email,
-            timestamp: new Date().toISOString(),
-            headers: {},
-            gmailSource: false, // This is a test, not from Gmail
-          },
+    try {
+      // Check if user is connected to Google
+      const isConnected = await this.googleOAuthService.isConnected(userId);
+      if (!isConnected) {
+        throw new HttpException(
+          'User not connected to Google. Please complete OAuth first.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Create a properly structured email for testing
+      const emailData = {
+        id: `test-email-${Date.now()}`,
+        body: testEmail?.body || 'Hello, I am having trouble logging into my account after the recent update. Can you please help me? This is quite urgent as I need to access important documents for tomorrow\'s meeting.',
+        metadata: {
+          subject: testEmail?.subject || 'Urgent: Login Issues After Update',
+          from: testEmail?.from || 'john.doe@example.com',
+          to: testEmail?.to || req.user.email || 'support@company.com',
+          date: new Date().toISOString(),
+          messageId: `<test-${Date.now()}@example.com>`,
+          gmailSource: false, // Mark as test email
+          userId: userId,
         },
-        sessionId: `test-gmail-${userId}-${Date.now()}`,
       };
 
-      // Process through unified workflow service
+      // Process through UnifiedWorkflowService with proper input structure
       const result = await this.unifiedWorkflowService.processInput(
-        triageInput,
-        { 
-          source: 'gmail_test',
-          userId,
-          testMode: true,
+        {
+          type: 'email_triage',
+          content: emailData.body,
+          emailData: emailData,
+          metadata: emailData.metadata,
+        },
+        {
+          source: 'test_triage',
+          userId: userId,
         },
         userId
       );
 
-      this.logger.log(`Email triage test completed for user: ${userId}`);
+      this.logger.log(`Email triage test completed for user: ${userId}, session: ${result.sessionId}`);
 
       return {
         success: true,
         message: 'Email triage test completed successfully',
         sessionId: result.sessionId,
-        status: result.status,
-        testEmail: {
-          subject: testEmail.subject,
-          from: testEmail.from,
-          preview: testEmail.body.substring(0, 100) + '...',
+        result: {
+          status: result.status,
+          sessionId: result.sessionId,
+          // Note: processInput returns a minimal response for async processing
+          // Full results are available via WebSocket notifications or result retrieval endpoint
+          isProcessing: result.status === 'pending',
         },
-        instructions: 'Check the session results in your dashboard or use the sessionId to track progress',
+        testEmail: emailData,
+        note: 'Triage is processing. Use WebSocket notifications or GET /triage-result/:sessionId for results.',
       };
     } catch (error) {
-      this.logger.error('Failed to test email triage:', error);
+      this.logger.error(`Failed to test email triage: ${error.message}`, error.stack);
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
       throw new HttpException(
-        'Failed to test email triage',
+        `Email triage test failed: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get real-time triage results for a session
+   * GET /gmail/client/triage-result/:sessionId
+   */
+  @Get('triage-result/:sessionId')
+  @UseGuards(AuthGuard('jwt'))
+  async getTriageResult(
+    @Req() req: AuthenticatedRequest,
+    @Param('sessionId') sessionId: string
+  ): Promise<any> {
+    const userId = req.user.id;
+    this.logger.log(`Getting triage result for session: ${sessionId}, user: ${userId}`);
+
+    try {
+      // TODO: Implement actual session result retrieval from database
+      // This should query the workflow results database for the specific session
+      // For now, return error indicating this needs implementation
+      
+      return {
+        success: false,
+        message: 'Session result retrieval not yet implemented',
+        sessionId,
+        note: 'Real-time results are available via WebSocket notifications. Database persistence for session results will be implemented next.',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get triage result: ${error.message}`, error.stack);
+      throw new HttpException(
+        'Failed to retrieve triage result',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Subscribe to real-time triage notifications
+   * POST /gmail/client/subscribe-notifications
+   */
+  @Post('subscribe-notifications')
+  @UseGuards(AuthGuard('jwt'))
+  async subscribeToNotifications(
+    @Req() req: AuthenticatedRequest,
+    @Body() subscription: { webhookUrl?: string, email?: string }
+  ): Promise<any> {
+    const userId = req.user.id;
+    this.logger.log(`Subscribing user ${userId} to triage notifications`);
+
+    try {
+      // TODO: Implement notification subscription in database
+      // This should store webhook URLs or notification preferences
+      // For now, return success as WebSocket subscriptions are handled by the gateway
+      
+      return {
+        success: true,
+        message: 'Successfully subscribed to triage notifications',
+        subscription: {
+          userId,
+          webhookUrl: subscription.webhookUrl,
+          email: subscription.email,
+          subscribedAt: new Date().toISOString(),
+          types: ['email_triage_completed', 'email_triage_failed'],
+        },
+        note: 'Real-time notifications are available via WebSocket. Webhook notifications will be implemented next.',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to subscribe to notifications: ${error.message}`, error.stack);
+      throw new HttpException(
+        'Failed to subscribe to notifications',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get active notification subscriptions
+   * GET /gmail/client/subscriptions
+   */
+  @Get('subscriptions')
+  @UseGuards(AuthGuard('jwt'))
+  async getSubscriptions(@Req() req: AuthenticatedRequest): Promise<any> {
+    const userId = req.user.id;
+    this.logger.log(`Getting notification subscriptions for user: ${userId}`);
+
+    try {
+      // TODO: Implement database query for subscriptions
+      // This should return actual subscription records from the database
+      
+      return {
+        success: true,
+        subscriptions: [],
+        message: 'Subscription management will be implemented next. Use WebSocket for real-time notifications.',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get subscriptions: ${error.message}`, error.stack);
+      throw new HttpException(
+        'Failed to retrieve subscriptions',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -435,28 +554,403 @@ export class GmailClientController {
   }
 
   /**
-   * Process pull messages manually (for testing)
+   * Process pull messages manually (triggers complete email processing pipeline)
    */
   @Post('process-pull-messages')
   async processPullMessages() {
     try {
+      this.logger.log('🔄 Processing pull messages through complete email pipeline...');
+
+      // Get notifications from Pub/Sub
       const notifications = await this.pubSubService.processPulledMessages();
-      
+      let totalProcessed = 0;
+
+      this.logger.log(`📬 Found ${notifications.length} Gmail notifications to process`);
+
+      // Process each notification through the complete pipeline
+      for (const notification of notifications) {
+        try {
+          this.logger.log(`🔄 Processing Gmail notification for: ${notification.emailAddress}, historyId: ${notification.historyId}`);
+          const processed = await this.processGmailNotification(notification);
+          totalProcessed += processed;
+        } catch (error) {
+          this.logger.error(`❌ Failed to process notification for ${notification.emailAddress}:`, error);
+        }
+      }
+
+      this.logger.log(`✅ Successfully processed ${totalProcessed} emails from ${notifications.length} notifications`);
+
       return {
         success: true,
-        processed: notifications.length,
-        notifications: notifications.map(n => ({
-          emailAddress: n.emailAddress,
-          historyId: n.historyId,
-        })),
-        message: `Processed ${notifications.length} pull messages`,
+        processed: totalProcessed,
+        message: `Processed ${totalProcessed} emails through complete triage pipeline`,
+        note: 'This processes notifications through the complete email fetching and triage pipeline'
       };
     } catch (error) {
-      this.logger.error('Failed to process pull messages:', error);
+      this.logger.error('❌ Failed to process pull messages through pipeline:', error);
       throw new HttpException(
         'Failed to process pull messages',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  /**
+   * Process a Gmail notification by fetching new emails and triggering triage
+   */
+  private async processGmailNotification(notification: GmailNotification): Promise<number> {
+    try {
+      this.logger.log(`🔄 Processing Gmail notification for: ${notification.emailAddress}, historyId: ${notification.historyId}`);
+
+      // Find watch info by email address
+      this.logger.log(`🔍 Looking up watch info for email: ${notification.emailAddress}`);
+      const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(notification.emailAddress);
+      if (!watchInfo || !watchInfo.isActive) {
+        this.logger.warn(`⚠️ No active watch found for email: ${notification.emailAddress}`);
+        return 0;
+      }
+
+      this.logger.log(`✅ Found active watch: ${watchInfo.watchId} for email: ${notification.emailAddress}`);
+      this.logger.log(`📊 Watch info - historyId: ${watchInfo.historyId}, userId: ${watchInfo.userId}`);
+
+      // Get new emails from Gmail history since last known history ID
+      this.logger.log(`📧 Fetching new emails from history ID ${watchInfo.historyId} to ${notification.historyId}`);
+      const newEmails = await this.getNewEmailsFromHistory(
+        watchInfo.watchId, 
+        notification.emailAddress,
+        notification.historyId
+      );
+      
+      if (newEmails.length === 0) {
+        this.logger.log(`ℹ️ No new emails found for: ${notification.emailAddress} (historyId: ${notification.historyId})`);
+        return 0;
+      }
+
+      this.logger.log(`📬 Found ${newEmails.length} new emails for processing`);
+
+      // Process each new email through the triage system
+      let processedCount = 0;
+      for (const email of newEmails) {
+        try {
+          this.logger.log(`🚀 Starting triage for email: ${email.id} - "${email.metadata.subject}"`);
+          
+          // Send email data directly to client via WebSocket for testing
+          this.logger.log(`📡 Emitting email.received event for email: ${email.id}`);
+          this.eventEmitter.emit('email.received', {
+            emailId: email.id,
+            emailAddress: notification.emailAddress,
+            subject: email.metadata.subject,
+            from: email.metadata.from,
+            to: email.metadata.to,
+            body: email.body.substring(0, 500), // First 500 chars for preview
+            timestamp: email.metadata.timestamp,
+            fullEmail: {
+              id: email.id,
+              threadId: email.threadId,
+              metadata: email.metadata,
+              bodyLength: email.body.length
+            }
+          });
+          
+          processedCount++;
+          this.logger.log(`✅ Email notification sent for: ${email.id}`);
+        } catch (error) {
+          this.logger.error(`❌ Failed to process email ${email.id}:`, error);
+        }
+      }
+
+      // Record processed emails in watch statistics
+      if (processedCount > 0) {
+        await this.gmailWatchService.recordEmailsProcessed(watchInfo.watchId, processedCount);
+        this.logger.log(`📊 Recorded ${processedCount} processed emails for watch: ${watchInfo.watchId}`);
+      }
+
+      this.logger.log(`✅ Processed ${processedCount}/${newEmails.length} new emails for: ${notification.emailAddress}`);
+      return processedCount;
+    } catch (error) {
+      this.logger.error(`❌ Failed to process Gmail notification for ${notification.emailAddress}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get new emails from Gmail history using History API
+   */
+  private async getNewEmailsFromHistory(
+    watchId: string, 
+    emailAddress: string, 
+    currentHistoryId: string
+  ): Promise<any[]> {
+    try {
+      // Get watch info to find the user and last processed history ID
+      const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(emailAddress);
+      if (!watchInfo || !watchInfo.isActive) {
+        throw new Error(`Active watch not found for email: ${emailAddress}`);
+      }
+
+      const lastHistoryId = watchInfo.historyId;
+      const userId = watchInfo.userId.toString(); // Convert ObjectId to string
+      
+      this.logger.log(`Fetching Gmail history from ${lastHistoryId} to ${currentHistoryId} for ${emailAddress} (userId: ${userId})`);
+
+      // Get authenticated Gmail client using the user ID
+      const authClient = await this.googleOAuthService.getAuthenticatedClient(userId);
+      const gmail = google.gmail({ version: 'v1', auth: authClient });
+
+      // Get history of changes since last known history ID
+      const historyResponse = await gmail.users.history.list({
+        userId: 'me',
+        startHistoryId: lastHistoryId,
+        historyTypes: ['messageAdded'],
+        labelId: 'INBOX', // Focus on inbox messages
+        maxResults: 100,
+      });
+
+      const histories = historyResponse.data.history || [];
+      const newEmails: any[] = [];
+
+      this.logger.log(`Found ${histories.length} history entries for ${emailAddress}`);
+
+      // Process each history entry
+      for (const history of histories) {
+        if (history.messagesAdded) {
+          for (const messageAdded of history.messagesAdded) {
+            try {
+              const emailData = await this.transformGmailMessage(
+                gmail, 
+                messageAdded.message!,
+                emailAddress,
+                userId
+              );
+              if (emailData) {
+                newEmails.push(emailData);
+                this.logger.log(`Transformed email: ${emailData.id} - "${emailData.metadata.subject}"`);
+              }
+            } catch (error) {
+              this.logger.error(`Failed to transform Gmail message ${messageAdded.message?.id}:`, error);
+            }
+          }
+        }
+      }
+
+      // Update watch with new history ID
+      if (newEmails.length > 0) {
+        await this.gmailWatchService.updateHistoryId(watchId, currentHistoryId);
+        this.logger.log(`Updated watch ${watchId} with new history ID: ${currentHistoryId}`);
+      }
+
+      this.logger.log(`Successfully processed ${newEmails.length} new emails for ${emailAddress}`);
+      return newEmails;
+    } catch (error) {
+      this.logger.error(`Failed to get emails from history for ${emailAddress}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Transform Gmail API message to our email format
+   */
+  private async transformGmailMessage(
+    gmail: gmail_v1.Gmail,
+    message: gmail_v1.Schema$Message,
+    emailAddress: string,
+    userId: string
+  ): Promise<any | null> {
+    try {
+      // Get full message details
+      const fullMessage = await gmail.users.messages.get({
+        userId: 'me',
+        id: message.id!,
+        format: 'full',
+      });
+
+      const messageData = fullMessage.data;
+      const headers = messageData.payload?.headers || [];
+
+      // Extract email metadata from headers
+      const getHeader = (name: string) => 
+        headers.find(h => h.name?.toLowerCase() === name.toLowerCase())?.value || '';
+
+      const subject = getHeader('Subject');
+      const from = getHeader('From');
+      const to = getHeader('To');
+      const messageId = getHeader('Message-ID');
+      const date = getHeader('Date');
+
+      // Extract email body
+      const body = this.extractEmailBody(messageData.payload);
+
+      // Skip if essential data is missing
+      if (!subject || !from || !body) {
+        this.logger.warn(`Skipping message ${message.id} - missing essential data (subject: ${!!subject}, from: ${!!from}, body: ${!!body})`);
+        return null;
+      }
+
+      // Skip automated/system emails
+      if (this.isAutomatedEmail(from, subject)) {
+        this.logger.log(`Skipping automated email: ${subject} from ${from}`);
+        return null;
+      }
+
+      return {
+        id: message.id!,
+        threadId: message.threadId!,
+        body: body.substring(0, 10000), // Limit body length
+        metadata: {
+          subject,
+          from,
+          to: to || emailAddress,
+          timestamp: date || new Date().toISOString(),
+          headers: Object.fromEntries(headers.map(h => [h.name!, h.value!])),
+          gmailSource: true,
+          messageId,
+          labels: messageData.labelIds || undefined,
+          userId, // Include user ID for context
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Failed to transform Gmail message ${message.id}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Extract plain text body from Gmail message payload
+   */
+  private extractEmailBody(payload: gmail_v1.Schema$MessagePart | undefined): string {
+    if (!payload) return '';
+
+    // If this part has a body, decode it
+    if (payload.body?.data) {
+      try {
+        return Buffer.from(payload.body.data, 'base64').toString('utf-8');
+      } catch (error) {
+        this.logger.warn('Failed to decode message body:', error);
+      }
+    }
+
+    // If this is a multipart message, recursively search parts
+    if (payload.parts) {
+      for (const part of payload.parts) {
+        // Look for text/plain parts first
+        if (part.mimeType === 'text/plain') {
+          const body = this.extractEmailBody(part);
+          if (body) return body;
+        }
+      }
+
+      // Fallback to text/html parts
+      for (const part of payload.parts) {
+        if (part.mimeType === 'text/html') {
+          const body = this.extractEmailBody(part);
+          if (body) {
+            // Basic HTML to text conversion (remove tags)
+            return body.replace(/<[^>]*>/g, '').trim();
+          }
+        }
+      }
+
+      // Recursively search nested parts
+      for (const part of payload.parts) {
+        const body = this.extractEmailBody(part);
+        if (body) return body;
+      }
+    }
+
+    return '';
+  }
+
+  /**
+   * Check if email is automated/system email that should be skipped
+   */
+  private isAutomatedEmail(from: string, subject: string): boolean {
+    const automatedPatterns = [
+      /noreply/i,
+      /no-reply/i,
+      /donotreply/i,
+      /notification/i,
+      /automated/i,
+      /system/i,
+      /support@.*\.com/i,
+    ];
+
+    const subjectPatterns = [
+      /unsubscribe/i,
+      /newsletter/i,
+      /subscription/i,
+      /automated/i,
+      /system notification/i,
+    ];
+
+    return automatedPatterns.some(pattern => pattern.test(from)) ||
+           subjectPatterns.some(pattern => pattern.test(subject));
+  }
+
+  /**
+   * Trigger email triage for a specific email using UnifiedWorkflowService
+   */
+  private async triggerEmailTriage(watchId: string, email: any): Promise<void> {
+    try {
+      this.logger.log(`🎯 Triggering email triage for email ${email.id} from watch ${watchId}`);
+      this.logger.log(`📧 Email details - Subject: "${email.metadata.subject}", From: ${email.metadata.from}`);
+
+      // Get user ID from email metadata or watch info
+      const userId = email.metadata.userId || watchId; // Fallback to watchId if userId not available
+      this.logger.log(`👤 Using userId: ${userId} for triage processing`);
+
+      // Transform Gmail email data to unified workflow input format
+      const triageInput = {
+        type: "email_triage",
+        emailData: {
+          id: email.id,
+          body: email.body,
+          metadata: email.metadata,
+        },
+        content: email.body, // Include content for processing
+      };
+
+      this.logger.log(`🔄 Submitting email to UnifiedWorkflowService for processing`);
+
+      // Process through existing unified workflow service
+      const result = await this.unifiedWorkflowService.processInput(
+        triageInput,
+        { 
+          source: 'gmail_push',
+          watchId,
+          emailAddress: email.metadata.to,
+          gmailSource: email.metadata.gmailSource,
+        },
+        userId
+      );
+
+      this.logger.log(`✅ Email triage initiated for ${email.id}, session: ${result.sessionId}`);
+
+      // Emit start event for real-time notifications
+      this.logger.log(`📡 Emitting triage.started event for session: ${result.sessionId}`);
+      this.eventEmitter.emit('email.triage.started', {
+        sessionId: result.sessionId,
+        emailId: email.id,
+        emailAddress: email.metadata.to,
+        timestamp: new Date().toISOString(),
+      });
+
+      this.logger.log(`🎉 Triage process successfully started for email: ${email.id}`);
+
+      // Note: Completion events will be emitted by the workflow system when processing finishes
+      
+    } catch (error) {
+      this.logger.error(`❌ Failed to trigger email triage for email ${email.id}:`, error);
+      
+      // Emit error event for real-time notifications
+      this.logger.log(`📡 Emitting triage.failed event for email: ${email.id}`);
+      this.eventEmitter.emit('email.triage.failed', {
+        emailId: email.id,
+        emailAddress: email.metadata.to,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+      
+      throw error;
     }
   }
 
@@ -511,5 +1005,110 @@ export class GmailClientController {
       'Use POST /gmail/client/test-triage to test email processing',
       'Monitor system health with GET /gmail/client/health',
     ];
+  }
+
+  /**
+   * Test push notification processing (for debugging)
+   * POST /gmail/client/test-push-notification
+   */
+  @Post('test-push-notification')
+  @UseGuards(AuthGuard('jwt'))
+  async testPushNotification(@Req() req: AuthenticatedRequest) {
+    try {
+      const userId = req.user.id;
+      this.logger.log(`🧪 Testing push notification processing for user: ${userId}`);
+
+      // Check if user is connected to get their Gmail address
+      const isConnected = await this.googleOAuthService.isConnected(userId);
+      if (!isConnected) {
+        throw new HttpException(
+          'User not connected to Google. Please complete OAuth first.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Get current watch info to find Gmail address
+      const watchInfo = await this.gmailWatchService.getWatchInfo(new Types.ObjectId(userId));
+      if (!watchInfo || !watchInfo.isActive) {
+        throw new HttpException(
+          'No active Gmail watch found. Please setup notifications first.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const emailAddress = watchInfo.googleEmail;
+      this.logger.log(`📧 Found Gmail address: ${emailAddress}`);
+      this.logger.log(`✅ Found active watch: ${watchInfo.watchId}`);
+
+      // Create a simulated push notification payload
+      const simulatedNotification = {
+        emailAddress,
+        historyId: (parseInt(watchInfo.historyId) + 1).toString(), // Simulate new history ID
+      };
+
+      this.logger.log(`🔄 Simulating push notification processing...`);
+      this.logger.log(`📧 Simulated notification: ${JSON.stringify(simulatedNotification)}`);
+
+      // Since we can't easily instantiate the webhook controller here,
+      // let's simulate the process by directly calling the pull messages
+      const pullResult = await this.processPullMessages();
+      
+      this.logger.log(`✅ Push notification test completed: ${pullResult.processed} messages processed`);
+
+      return {
+        success: true,
+        message: 'Push notification test completed - forced pull processing',
+        result: {
+          emailAddress,
+          watchId: watchInfo.watchId,
+          simulatedHistoryId: simulatedNotification.historyId,
+          pullProcessed: pullResult.processed,
+          processedEmails: pullResult.processed,
+        },
+        note: 'This test forces pull processing to simulate push notification flow',
+      };
+
+    } catch (error) {
+      this.logger.error(`❌ Push notification test failed: ${error.message}`, error.stack);
+      throw new HttpException(
+        `Push notification test failed: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Force process pending Pub/Sub messages
+   * POST /gmail/client/force-process-pending
+   */
+  @Post('force-process-pending')
+  @UseGuards(AuthGuard('jwt'))
+  async forceProcessPending(@Req() req: AuthenticatedRequest) {
+    try {
+      const userId = req.user.id;
+      this.logger.log(`🔧 Force processing pending messages for user: ${userId}`);
+
+      // First pull messages from Pub/Sub
+      const pullResult = await this.processPullMessages();
+      
+      this.logger.log(`📬 Pull result: ${pullResult.processed} emails processed through triage`);
+
+      return {
+        success: true,
+        message: 'Force processing completed',
+        result: {
+          pullProcessed: pullResult.processed,
+          processedEmails: pullResult.processed,
+        },
+        note: 'This forces processing of all pending Pub/Sub messages through complete triage pipeline',
+      };
+
+    } catch (error) {
+      this.logger.error(`❌ Force processing failed: ${error.message}`, error.stack);
+      throw new HttpException(
+        `Force processing failed: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 } 

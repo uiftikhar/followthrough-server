@@ -30,6 +30,9 @@ import { GmailClientController } from './controllers/gmail-client.controller';
 // Guards
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 
+// WebSocket Gateway for real-time notifications
+import { GmailNotificationGateway } from './services/gmail-notification.gateway';
+
 /**
  * GoogleOAuthModule - Server-side Google OAuth integration with Gmail Push Notifications
  * 
@@ -77,6 +80,9 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
     GmailWatchService,
     GmailBackgroundService, // Background jobs and health monitoring
     
+    // Real-time notifications
+    GmailNotificationGateway, // WebSocket gateway for real-time client notifications
+    
     // Repositories
     UserGoogleTokensRepository,
     GmailWatchRepository,
@@ -91,6 +97,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
     GmailWatchService,
     PubSubService,
     GmailBackgroundService,
+    GmailNotificationGateway, // Export gateway for use in other modules
     GoogleAuthGuard,
     UserGoogleTokensRepository,
     GmailWatchRepository,

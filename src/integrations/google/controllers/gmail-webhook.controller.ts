@@ -20,6 +20,7 @@ import { GmailWatchService } from '../services/gmail-watch.service';
 import { UnifiedWorkflowService } from '../../../langgraph/unified-workflow.service';
 import { gmail_v1 } from 'googleapis';
 import * as crypto from 'crypto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 interface PubSubPushPayload {
   message: {
@@ -51,6 +52,7 @@ interface GmailEmailData {
     gmailSource: boolean;
     messageId: string;
     labels?: string[];
+    userId: string;
   };
 }
 
@@ -66,6 +68,7 @@ export class GmailWebhookController {
     private readonly gmailWatchService: GmailWatchService,
     private readonly unifiedWorkflowService: UnifiedWorkflowService,
     private readonly configService: ConfigService,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     this.webhookSecret = this.configService.get<string>('GMAIL_WEBHOOK_SECRET') || '';
     if (!this.webhookSecret) {
@@ -83,11 +86,13 @@ export class GmailWebhookController {
     @Headers() headers: Record<string, string>,
   ): Promise<{ success: boolean; processed: number }> {
     try {
-      this.logger.log(`Received push notification: ${payload.message.messageId}`);
+      this.logger.log(`🔔 PUSH NOTIFICATION RECEIVED: ${payload.message.messageId}`);
+      this.logger.log(`🔍 Payload: ${JSON.stringify({ subscription: payload.subscription, messageId: payload.message.messageId })}`);
 
       // Verify webhook authenticity if secret is configured
       if (this.webhookSecret) {
         this.verifyWebhookSignature(JSON.stringify(payload), headers);
+        this.logger.log(`✅ Webhook signature verified for message: ${payload.message.messageId}`);
       }
 
       // Decode the Pub/Sub message
@@ -98,27 +103,32 @@ export class GmailWebhookController {
         attributes: payload.message.attributes,
       };
 
+      this.logger.log(`📧 Decoding Pub/Sub message: ${payload.message.messageId}`);
       const gmailNotification = this.pubSubService.decodePubSubMessage(pubsubMessage);
       
       if (!gmailNotification) {
-        this.logger.warn(`Failed to decode Gmail notification: ${payload.message.messageId}`);
+        this.logger.warn(`❌ Failed to decode Gmail notification: ${payload.message.messageId}`);
         return { success: false, processed: 0 };
       }
 
+      this.logger.log(`📬 Gmail notification decoded for: ${gmailNotification.emailAddress}, historyId: ${gmailNotification.historyId}`);
+
       // Process the Gmail notification
+      this.logger.log(`🚀 Starting Gmail notification processing for: ${gmailNotification.emailAddress}`);
       const processed = await this.processGmailNotification(gmailNotification);
 
       // Record notification in watch statistics
       const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(gmailNotification.emailAddress);
       if (watchInfo) {
         await this.gmailWatchService.recordNotification(watchInfo.watchId);
+        this.logger.log(`📊 Recorded notification for watch: ${watchInfo.watchId}`);
       }
 
-      this.logger.log(`Successfully processed Gmail notification for: ${gmailNotification.emailAddress}`);
+      this.logger.log(`✅ Successfully processed Gmail notification for: ${gmailNotification.emailAddress}, processed ${processed} emails`);
       
       return { success: true, processed };
     } catch (error) {
-      this.logger.error('Failed to handle push notification:', error);
+      this.logger.error('❌ Failed to handle push notification:', error);
       
       // Return 200 to prevent Pub/Sub retries for permanent failures
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -220,16 +230,21 @@ export class GmailWebhookController {
    */
   private async processGmailNotification(notification: GmailNotification): Promise<number> {
     try {
-      this.logger.log(`Processing Gmail notification for: ${notification.emailAddress}`);
+      this.logger.log(`🔄 Processing Gmail notification for: ${notification.emailAddress}, historyId: ${notification.historyId}`);
 
       // Find watch info by email address
+      this.logger.log(`🔍 Looking up watch info for email: ${notification.emailAddress}`);
       const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(notification.emailAddress);
       if (!watchInfo || !watchInfo.isActive) {
-        this.logger.warn(`No active watch found for email: ${notification.emailAddress}`);
+        this.logger.warn(`⚠️ No active watch found for email: ${notification.emailAddress}`);
         return 0;
       }
 
+      this.logger.log(`✅ Found active watch: ${watchInfo.watchId} for email: ${notification.emailAddress}`);
+      this.logger.log(`📊 Watch info - historyId: ${watchInfo.historyId}, userId: ${watchInfo.userId}`);
+
       // Get new emails from Gmail history since last known history ID
+      this.logger.log(`📧 Fetching new emails from history ID ${watchInfo.historyId} to ${notification.historyId}`);
       const newEmails = await this.getNewEmailsFromHistory(
         watchInfo.watchId, 
         notification.emailAddress,
@@ -237,30 +252,35 @@ export class GmailWebhookController {
       );
       
       if (newEmails.length === 0) {
-        this.logger.log(`No new emails found for: ${notification.emailAddress}`);
+        this.logger.log(`ℹ️ No new emails found for: ${notification.emailAddress} (historyId: ${notification.historyId})`);
         return 0;
       }
+
+      this.logger.log(`📬 Found ${newEmails.length} new emails for processing`);
 
       // Process each new email through the triage system
       let processedCount = 0;
       for (const email of newEmails) {
         try {
+          this.logger.log(`🚀 Starting triage for email: ${email.id} - "${email.metadata.subject}"`);
           await this.triggerEmailTriage(watchInfo.watchId, email);
           processedCount++;
+          this.logger.log(`✅ Triage initiated for email: ${email.id}`);
         } catch (error) {
-          this.logger.error(`Failed to process email ${email.id}:`, error);
+          this.logger.error(`❌ Failed to process email ${email.id}:`, error);
         }
       }
 
       // Record processed emails in watch statistics
       if (processedCount > 0) {
         await this.gmailWatchService.recordEmailsProcessed(watchInfo.watchId, processedCount);
+        this.logger.log(`📊 Recorded ${processedCount} processed emails for watch: ${watchInfo.watchId}`);
       }
 
-      this.logger.log(`Processed ${processedCount}/${newEmails.length} new emails for: ${notification.emailAddress}`);
+      this.logger.log(`✅ Processed ${processedCount}/${newEmails.length} new emails for: ${notification.emailAddress}`);
       return processedCount;
     } catch (error) {
-      this.logger.error(`Failed to process Gmail notification for ${notification.emailAddress}:`, error);
+      this.logger.error(`❌ Failed to process Gmail notification for ${notification.emailAddress}:`, error);
       throw error;
     }
   }
@@ -274,25 +294,20 @@ export class GmailWebhookController {
     currentHistoryId: string
   ): Promise<GmailEmailData[]> {
     try {
-      // Get watch info to find last processed history ID - need to find user by email
+      // Get watch info to find the user and last processed history ID
       const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(emailAddress);
       if (!watchInfo || !watchInfo.isActive) {
         throw new Error(`Active watch not found for email: ${emailAddress}`);
       }
 
       const lastHistoryId = watchInfo.historyId;
+      const userId = watchInfo.userId.toString(); // Convert ObjectId to string
       
-      this.logger.log(`Fetching Gmail history from ${lastHistoryId} to ${currentHistoryId} for ${emailAddress}`);
+      this.logger.log(`Fetching Gmail history from ${lastHistoryId} to ${currentHistoryId} for ${emailAddress} (userId: ${userId})`);
 
-      // Get authenticated Gmail client - we need to find the user associated with this email
-      // For now, we'll use a different approach to get the user ID
-      const userTokens = await this.googleOAuthService.getGoogleUserInfo(emailAddress);
-      if (!userTokens) {
-        throw new Error(`No user tokens found for email: ${emailAddress}`);
-      }
-      
-      const client = await this.googleOAuthService.getAuthenticatedClient(userTokens.googleUserId);
-      const gmail = google.gmail({ version: 'v1', auth: client });
+      // Get authenticated Gmail client using the user ID
+      const authClient = await this.googleOAuthService.getAuthenticatedClient(userId);
+      const gmail = google.gmail({ version: 'v1', auth: authClient });
 
       // Get history of changes since last known history ID
       const historyResponse = await gmail.users.history.list({
@@ -306,6 +321,8 @@ export class GmailWebhookController {
       const histories = historyResponse.data.history || [];
       const newEmails: GmailEmailData[] = [];
 
+      this.logger.log(`Found ${histories.length} history entries for ${emailAddress}`);
+
       // Process each history entry
       for (const history of histories) {
         if (history.messagesAdded) {
@@ -314,10 +331,12 @@ export class GmailWebhookController {
               const emailData = await this.transformGmailMessage(
                 gmail, 
                 messageAdded.message!,
-                emailAddress
+                emailAddress,
+                userId
               );
               if (emailData) {
                 newEmails.push(emailData);
+                this.logger.log(`Transformed email: ${emailData.id} - "${emailData.metadata.subject}"`);
               }
             } catch (error) {
               this.logger.error(`Failed to transform Gmail message ${messageAdded.message?.id}:`, error);
@@ -327,10 +346,12 @@ export class GmailWebhookController {
       }
 
       // Update watch with new history ID
-      await this.gmailWatchService.recordNotification(watchId);
-      // Note: In production, you'd want to update the history ID in the watch record
+      if (newEmails.length > 0) {
+        await this.gmailWatchService.updateHistoryId(watchId, currentHistoryId);
+        this.logger.log(`Updated watch ${watchId} with new history ID: ${currentHistoryId}`);
+      }
 
-      this.logger.log(`Found ${newEmails.length} new emails in history for ${emailAddress}`);
+      this.logger.log(`Successfully processed ${newEmails.length} new emails for ${emailAddress}`);
       return newEmails;
     } catch (error) {
       this.logger.error(`Failed to get emails from history for ${emailAddress}:`, error);
@@ -344,7 +365,8 @@ export class GmailWebhookController {
   private async transformGmailMessage(
     gmail: gmail_v1.Gmail,
     message: gmail_v1.Schema$Message,
-    emailAddress: string
+    emailAddress: string,
+    userId: string
   ): Promise<GmailEmailData | null> {
     try {
       // Get full message details
@@ -372,14 +394,20 @@ export class GmailWebhookController {
 
       // Skip if essential data is missing
       if (!subject || !from || !body) {
-        this.logger.warn(`Skipping message ${message.id} - missing essential data`);
+        this.logger.warn(`Skipping message ${message.id} - missing essential data (subject: ${!!subject}, from: ${!!from}, body: ${!!body})`);
+        return null;
+      }
+
+      // Skip automated/system emails
+      if (this.isAutomatedEmail(from, subject)) {
+        this.logger.log(`Skipping automated email: ${subject} from ${from}`);
         return null;
       }
 
       return {
         id: message.id!,
         threadId: message.threadId!,
-        body,
+        body: body.substring(0, 10000), // Limit body length
         metadata: {
           subject,
           from,
@@ -389,6 +417,7 @@ export class GmailWebhookController {
           gmailSource: true,
           messageId,
           labels: messageData.labelIds || undefined,
+          userId, // Include user ID for context
         },
       };
     } catch (error) {
@@ -444,11 +473,42 @@ export class GmailWebhookController {
   }
 
   /**
+   * Check if email is automated/system email that should be skipped
+   */
+  private isAutomatedEmail(from: string, subject: string): boolean {
+    const automatedPatterns = [
+      /noreply/i,
+      /no-reply/i,
+      /donotreply/i,
+      /notification/i,
+      /automated/i,
+      /system/i,
+      /support@.*\.com/i,
+    ];
+
+    const subjectPatterns = [
+      /unsubscribe/i,
+      /newsletter/i,
+      /subscription/i,
+      /automated/i,
+      /system notification/i,
+    ];
+
+    return automatedPatterns.some(pattern => pattern.test(from)) ||
+           subjectPatterns.some(pattern => pattern.test(subject));
+  }
+
+  /**
    * Trigger email triage for a specific email using UnifiedWorkflowService
    */
   private async triggerEmailTriage(watchId: string, email: GmailEmailData): Promise<void> {
     try {
-      this.logger.log(`Triggering email triage for email ${email.id} from watch ${watchId}`);
+      this.logger.log(`🎯 Triggering email triage for email ${email.id} from watch ${watchId}`);
+      this.logger.log(`📧 Email details - Subject: "${email.metadata.subject}", From: ${email.metadata.from}`);
+
+      // Get user ID from email metadata or watch info
+      const userId = email.metadata.userId || watchId; // Fallback to watchId if userId not available
+      this.logger.log(`👤 Using userId: ${userId} for triage processing`);
 
       // Transform Gmail email data to unified workflow input format
       const triageInput = {
@@ -458,8 +518,10 @@ export class GmailWebhookController {
           body: email.body,
           metadata: email.metadata,
         },
-        sessionId: `gmail-${email.id}-${Date.now()}`,
+        content: email.body, // Include content for processing
       };
+
+      this.logger.log(`🔄 Submitting email to UnifiedWorkflowService for processing`);
 
       // Process through existing unified workflow service
       const result = await this.unifiedWorkflowService.processInput(
@@ -467,14 +529,39 @@ export class GmailWebhookController {
         { 
           source: 'gmail_push',
           watchId,
-          ...email.metadata 
+          emailAddress: email.metadata.to,
+          gmailSource: email.metadata.gmailSource,
         },
-        watchId // Use watchId as userId context for now
+        userId
       );
 
-      this.logger.log(`Email triage completed for ${email.id}, session: ${result.sessionId}`);
+      this.logger.log(`✅ Email triage initiated for ${email.id}, session: ${result.sessionId}`);
+
+      // Emit start event for real-time notifications
+      this.logger.log(`📡 Emitting triage.started event for session: ${result.sessionId}`);
+      this.eventEmitter.emit('email.triage.started', {
+        sessionId: result.sessionId,
+        emailId: email.id,
+        emailAddress: email.metadata.to,
+        timestamp: new Date().toISOString(),
+      });
+
+      this.logger.log(`🎉 Triage process successfully started for email: ${email.id}`);
+
+      // Note: Completion events will be emitted by the workflow system when processing finishes
+      
     } catch (error) {
-      this.logger.error(`Failed to trigger email triage for email ${email.id}:`, error);
+      this.logger.error(`❌ Failed to trigger email triage for email ${email.id}:`, error);
+      
+      // Emit error event for real-time notifications
+      this.logger.log(`📡 Emitting triage.failed event for email: ${email.id}`);
+      this.eventEmitter.emit('email.triage.failed', {
+        emailId: email.id,
+        emailAddress: email.metadata.to,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+      
       throw error;
     }
   }
@@ -505,6 +592,64 @@ export class GmailWebhookController {
     if (signatureBuffer.length !== expectedBuffer.length || 
         !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
       throw new UnauthorizedException('Invalid webhook signature');
+    }
+  }
+
+  /**
+   * Process new emails from Gmail History API and trigger triage
+   */
+  private async processNewEmails(newEmails: any[], emailAddress: string): Promise<void> {
+    this.logger.log(`Processing ${newEmails.length} new emails for ${emailAddress}`);
+
+    for (const email of newEmails) {
+      try {
+        const sessionId = `gmail-${emailAddress}-${Date.now()}`;
+        
+        // Emit start event for real-time tracking
+        this.eventEmitter.emit('email.triage.started', {
+          sessionId,
+          emailId: email.id,
+          emailAddress,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Process email through unified workflow service
+        const result = await this.unifiedWorkflowService.processInput(
+          {
+            type: 'email_triage',
+            content: email.body,
+            emailData: email,
+            metadata: email.metadata,
+          },
+          { 
+            source: 'gmail_push',
+            emailAddress: emailAddress,
+          },
+          sessionId
+        );
+
+        this.logger.log(`Email triage completed for ${email.id}, session: ${result.sessionId}`);
+
+        // Emit completion event for real-time notifications
+        this.eventEmitter.emit('email.triage.completed', {
+          sessionId: result.sessionId,
+          emailId: email.id,
+          emailAddress: emailAddress,
+          result: result,
+          timestamp: new Date().toISOString(),
+        });
+        
+      } catch (error) {
+        this.logger.error(`Failed to trigger email triage for email ${email.id}:`, error);
+        
+        // Emit error event
+        this.eventEmitter.emit('email.triage.failed', {
+          emailId: email.id,
+          emailAddress: emailAddress,
+          error: error.message,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
   }
 }
