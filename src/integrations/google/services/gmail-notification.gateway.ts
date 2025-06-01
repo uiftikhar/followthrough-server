@@ -129,7 +129,7 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
     
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
-    this.server.to(emailRoom).emit('triage.started', {
+    this.server.emit('triage.started', {
       type: 'triage.started',
       emailId: payload.emailId,
       emailAddress: payload.emailAddress,
@@ -149,7 +149,7 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
     
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
-    this.server.to(emailRoom).emit('triage.processing', {
+    this.server.emit('triage.processing', {
       type: 'triage.processing',
       sessionId: payload.sessionId,
       emailId: payload.emailId,
@@ -170,7 +170,7 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
     
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
-    this.server.to(emailRoom).emit('triage.completed', {
+    this.server.emit('triage.completed', {
       type: 'triage.completed',
       sessionId: payload.sessionId,
       emailId: payload.emailId,
@@ -190,7 +190,7 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
     
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
-    this.server.to(emailRoom).emit('triage.failed', {
+    this.server.emit('triage.failed', {
       type: 'triage.failed',
       emailId: payload.emailId,
       emailAddress: payload.emailAddress,
@@ -210,7 +210,7 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
     
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
-    this.server.to(emailRoom).emit('email.received', {
+    this.server.emit('email.received', {
       type: 'email.received',
       emailId: payload.emailId,
       emailAddress: payload.emailAddress,
@@ -280,7 +280,7 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
    */
   sendUserNotification(userId: string, notification: any) {
     const userRoom = `user:${userId}`;
-    this.server.to(userRoom).emit('user.notification', {
+    this.server.emit('user.notification', {
       ...notification,
       userId,
       timestamp: new Date().toISOString(),
