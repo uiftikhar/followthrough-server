@@ -291,11 +291,15 @@ export class GoogleOAuthController {
       // Check if user already has an active watch
       const existingWatch = await this.gmailWatchService.getWatchInfo(new Types.ObjectId(userId));
       if (existingWatch && existingWatch.isActive) {
-        return {
-          success: true,
-          message: 'Gmail notifications already enabled',
-          watchInfo: existingWatch,
-        };
+
+        this.logger.log(`Terminatiing existing watch: ${userId}, ${existingWatch}`);
+        const stopped = await this.gmailWatchService.stopWatch(new Types.ObjectId(userId));
+        this.logger.log(`Stopped watch successfully: ${stopped}`);
+        // return {
+        //   success: true,
+        //   message: 'Gmail notifications already enabled',
+        //   watchInfo: existingWatch,
+        // };
       }
 
       // Create new Gmail watch

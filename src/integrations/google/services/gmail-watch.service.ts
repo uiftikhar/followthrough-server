@@ -43,7 +43,7 @@ export class GmailWatchService {
    */
   async createWatch(params: CreateWatchParams): Promise<WatchInfo> {
     try {
-      this.logger.log(`Creating Gmail watch for user: ${params.userId}`);
+      this.logger.log(`Creating Gmail watch for user: ${params.userId}, ${this.topicName}`);
 
       // Get authenticated Gmail client
       const client = await this.googleOAuthService.getAuthenticatedClient(params.userId.toString());
@@ -163,7 +163,7 @@ export class GmailWatchService {
    */
   async stopWatch(userId: Types.ObjectId): Promise<boolean> {
     try {
-      this.logger.log(`Stopping Gmail watch for user: ${userId}`);
+      this.logger.log(`Stopping Gmail watch for user: ${userId}, ${this.topicName}`);
 
       // Get existing watch from database
       const existingWatch = await this.gmailWatchRepository.findByUserId(userId);

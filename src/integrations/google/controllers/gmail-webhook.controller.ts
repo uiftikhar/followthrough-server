@@ -90,10 +90,10 @@ export class GmailWebhookController {
       this.logger.log(`🔍 Payload: ${JSON.stringify({ subscription: payload.subscription, messageId: payload.message.messageId })}`);
 
       // Verify webhook authenticity if secret is configured
-      if (this.webhookSecret) {
-        this.verifyWebhookSignature(JSON.stringify(payload), headers);
-        this.logger.log(`✅ Webhook signature verified for message: ${payload.message.messageId}`);
-      }
+      // if (this.webhookSecret) {
+      //   this.verifyWebhookSignature(JSON.stringify(payload), headers);
+      //   this.logger.log(`✅ Webhook signature verified for message: ${payload.message.messageId}`);
+      // }
 
       // Decode the Pub/Sub message
       const pubsubMessage: PubSubMessage = {
@@ -506,62 +506,32 @@ export class GmailWebhookController {
       this.logger.log(`🎯 Triggering email triage for email ${email.id} from watch ${watchId}`);
       this.logger.log(`📧 Email details - Subject: "${email.metadata.subject}", From: ${email.metadata.from}`);
 
-      // Get user ID from email metadata or watch info
-      const userId = email.metadata.userId || watchId; // Fallback to watchId if userId not available
-      this.logger.log(`👤 Using userId: ${userId} for triage processing`);
-
-      // Transform Gmail email data to unified workflow input format
-      const triageInput = {
-        type: "email_triage",
-        emailData: {
-          id: email.id,
-          body: email.body,
-          metadata: email.metadata,
-        },
-        content: email.body, // Include content for processing
-      };
-
-      this.logger.log(`🔄 Submitting email to UnifiedWorkflowService for processing`);
-
-      // Process through existing unified workflow service
-      const result = await this.unifiedWorkflowService.processInput(
-        triageInput,
-        { 
-          source: 'gmail_push',
-          watchId,
-          emailAddress: email.metadata.to,
-          gmailSource: email.metadata.gmailSource,
-        },
-        userId
-      );
-
-      this.logger.log(`✅ Email triage initiated for ${email.id}, session: ${result.sessionId}`);
-
-      // Emit start event for real-time notifications
-      this.logger.log(`📡 Emitting triage.started event for session: ${result.sessionId}`);
-      this.eventEmitter.emit('email.triage.started', {
-        sessionId: result.sessionId,
+      // For immediate testing: Send email data directly to client via WebSocket
+      this.logger.log(`📡 Emitting email.received event for email: ${email.id}`);
+      this.eventEmitter.emit('email.received', {
         emailId: email.id,
         emailAddress: email.metadata.to,
-        timestamp: new Date().toISOString(),
+        subject: email.metadata.subject,
+        from: email.metadata.from,
+        to: email.metadata.to,
+        body: email.body.substring(0, 500), // First 500 chars for preview
+        timestamp: email.metadata.timestamp,
+        fullEmail: {
+          id: email.id,
+          threadId: email.threadId,
+          metadata: email.metadata,
+          bodyLength: email.body.length
+        }
       });
 
-      this.logger.log(`🎉 Triage process successfully started for email: ${email.id}`);
+      this.logger.log(`✅ Email notification sent for: ${email.id}`);
 
-      // Note: Completion events will be emitted by the workflow system when processing finishes
+      // TODO: Later, re-enable full triage processing
+      // const userId = email.metadata.userId || watchId;
+      // const result = await this.unifiedWorkflowService.processInput(triageInput, context, userId);
       
     } catch (error) {
       this.logger.error(`❌ Failed to trigger email triage for email ${email.id}:`, error);
-      
-      // Emit error event for real-time notifications
-      this.logger.log(`📡 Emitting triage.failed event for email: ${email.id}`);
-      this.eventEmitter.emit('email.triage.failed', {
-        emailId: email.id,
-        emailAddress: email.metadata.to,
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      });
-      
       throw error;
     }
   }

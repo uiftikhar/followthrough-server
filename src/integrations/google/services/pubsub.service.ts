@@ -31,8 +31,8 @@ export class PubSubService {
     this.projectId = projectId;
     
     this.topicName = this.configService.get<string>('GMAIL_PUBSUB_TOPIC') || 'gmail-notifications';
-    this.pushSubscriptionName = this.configService.get<string>('GMAIL_PUSH_SUBSCRIPTION') || 'gmail-push-subscription';
-    this.pullSubscriptionName = this.configService.get<string>('GMAIL_PULL_SUBSCRIPTION') || 'gmail-pull-subscription';
+    this.pushSubscriptionName = this.configService.get<string>('GMAIL_PUSH_SUBSCRIPTION') || 'gmail-push-notification-subscription';
+    this.pullSubscriptionName = this.configService.get<string>('GMAIL_PULL_SUBSCRIPTION') || 'gmail-pull-notification-subscription';
 
     // Initialize Pub/Sub client
     this.pubSubClient = new PubSub({
@@ -194,6 +194,8 @@ export class PubSubService {
         } catch (error) {
           this.logger.warn('Failed to get push subscription metadata:', error);
         }
+      } else {
+        this.logger.error('Push subscription does not exist');
       }
 
       if (pullExists) {
@@ -205,6 +207,8 @@ export class PubSubService {
         } catch (error) {
           this.logger.warn('Failed to get pull subscription metadata:', error);
         }
+      } else {
+        this.logger.error('Pull subscription does not exist');
       }
 
       return result;

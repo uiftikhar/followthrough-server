@@ -554,6 +554,187 @@ export class GmailClientController {
   }
 
   /**
+   * Diagnose Push Notification Configuration
+   * GET /gmail/client/diagnose-push
+   */
+  @Get('diagnose-push')
+  async diagnosePushNotifications() {
+    try {
+      this.logger.log('🔍 Diagnosing push notification configuration...');
+
+      // Check Pub/Sub connection and subscriptions
+      const pubsubHealthy = await this.pubSubService.testConnection();
+      const subscriptionHealth = await this.pubSubService.getSubscriptionHealth();
+
+      // Check webhook endpoint accessibility
+      const webhookUrl = `${process.env.WEBHOOK_BASE_URL || 'https://ffdf-2-201-41-78.ngrok-free.app'}/api/gmail/webhooks/push`;
+
+      const diagnosis = {
+        pubsub: {
+          connection: pubsubHealthy ? '✅ Connected' : '❌ Failed',
+          topic: pubsubHealthy ? '✅ Accessible' : '❌ Not accessible',
+          pushSubscription: {
+            exists: subscriptionHealth.pushSubscription?.exists ? '✅ Exists' : '❌ Missing',
+            messageCount: subscriptionHealth.pushSubscription?.messageCount || 0,
+            status: subscriptionHealth.pushSubscription?.exists ? 'Active' : 'Not configured'
+          },
+          pullSubscription: {
+            exists: subscriptionHealth.pullSubscription?.exists ? '✅ Exists' : '❌ Missing', 
+            messageCount: subscriptionHealth.pullSubscription?.messageCount || 0,
+            status: subscriptionHealth.pullSubscription?.exists ? 'Active' : 'Not configured'
+          }
+        },
+        webhook: {
+          endpoint: webhookUrl,
+          expectedPath: '/api/gmail/webhooks/push',
+          method: 'POST',
+          authentication: process.env.GMAIL_WEBHOOK_SECRET ? '✅ Configured' : '⚠️ No secret configured'
+        },
+        environment: {
+          projectId: process.env.GOOGLE_CLOUD_PROJECT_ID ? '✅ Set' : '❌ Missing',
+          topic: process.env.GMAIL_PUBSUB_TOPIC || 'gmail-notifications (default)',
+          credentials: process.env.GOOGLE_APPLICATION_CREDENTIALS ? '✅ Set' : '❌ Missing',
+          pushSubscription: process.env.GMAIL_PUSH_SUBSCRIPTION || 'gmail-push-notification-subscription (default)',
+          pullSubscription: process.env.GMAIL_PULL_SUBSCRIPTION || 'gmail-pull-notification-subscription (default)'
+        }
+      };
+
+      // Determine overall status
+      const issues: string[] = [];
+      if (!pubsubHealthy) issues.push('Pub/Sub connection failed');
+      if (!subscriptionHealth.pushSubscription?.exists) issues.push('Push subscription missing');
+      if (!process.env.GOOGLE_CLOUD_PROJECT_ID) issues.push('GOOGLE_CLOUD_PROJECT_ID not set');
+      if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) issues.push('GOOGLE_APPLICATION_CREDENTIALS not set');
+
+      const status = issues.length === 0 ? 'healthy' : 'issues_detected';
+      const recommendation = this.getPushNotificationRecommendation(issues, subscriptionHealth);
+
+      return {
+        success: true,
+        status,
+        diagnosis,
+        issues,
+        recommendation,
+        timestamp: new Date().toISOString()
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Push notification diagnosis failed:', error);
+      return {
+        success: false,
+        status: 'diagnosis_failed',
+        error: error.message,
+        recommendation: [
+          'Check server logs for detailed error information',
+          'Verify Google Cloud credentials and permissions',
+          'Ensure required environment variables are set'
+        ],
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Test Push Notification Webhook Manually
+   * POST /gmail/client/test-webhook
+   */
+  @Post('test-webhook')
+  async testWebhookManually() {
+    try {
+      this.logger.log('🧪 Testing webhook endpoint manually...');
+
+      // Create a mock push notification payload
+      const mockPayload = {
+        message: {
+          data: Buffer.from(JSON.stringify({
+            emailAddress: 'umer229@gmail.com',
+            historyId: '99999999' // Test history ID
+          })).toString('base64'),
+          messageId: `test-${Date.now()}`,
+          publishTime: new Date().toISOString(),
+          attributes: {
+            test: 'true'
+          }
+        },
+        subscription: 'projects/your-project/subscriptions/gmail-push-notification-subscription'
+      };
+
+      // Make internal call to webhook handler
+      const webhookUrl = '/api/gmail/webhooks/push';
+      this.logger.log(`📡 Simulating POST to ${webhookUrl}`);
+      this.logger.log(`📧 Mock payload: ${JSON.stringify(mockPayload, null, 2)}`);
+
+      // Note: We can't easily call the webhook controller directly due to NestJS architecture
+      // This endpoint provides the mock payload for external testing
+
+      return {
+        success: true,
+        message: 'Mock webhook payload generated for testing',
+        webhookUrl,
+        mockPayload,
+        instructions: [
+          `Use curl or Postman to POST this payload to: ${process.env.WEBHOOK_BASE_URL || 'https://ffdf-2-201-41-78.ngrok-free.app'}/api/gmail/webhooks/push`,
+          'Check server logs for webhook processing messages',
+          'Verify WebSocket clients receive notifications'
+        ],
+        curlCommand: `curl -X POST \\
+  ${process.env.WEBHOOK_BASE_URL || 'https://ffdf-2-201-41-78.ngrok-free.app'}/api/gmail/webhooks/push \\
+  -H "Content-Type: application/json" \\
+  -H "ngrok-skip-browser-warning: any-value" \\
+  -d '${JSON.stringify(mockPayload)}'`
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Webhook test failed:', error);
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Get push notification recommendations based on diagnosis
+   */
+  private getPushNotificationRecommendation(issues: string[], subscriptionHealth: any): string[] {
+    const recommendations: string[] = [];
+
+    if (issues.includes('Pub/Sub connection failed')) {
+      recommendations.push('1. Check Google Cloud credentials and project access');
+      recommendations.push('2. Verify GOOGLE_APPLICATION_CREDENTIALS points to valid service account key');
+      recommendations.push('3. Ensure the service account has Pub/Sub subscriber and viewer roles');
+    }
+
+    if (issues.includes('Push subscription missing')) {
+      recommendations.push('4. Run the setup script: ./scripts/setup-pubsub.sh');
+      recommendations.push('5. Or manually create push subscription with webhook endpoint');
+      recommendations.push('6. Verify webhook endpoint is publicly accessible');
+    }
+
+    if (issues.includes('GOOGLE_CLOUD_PROJECT_ID not set')) {
+      recommendations.push('7. Set GOOGLE_CLOUD_PROJECT_ID environment variable');
+    }
+
+    if (issues.includes('GOOGLE_APPLICATION_CREDENTIALS not set')) {
+      recommendations.push('8. Set GOOGLE_APPLICATION_CREDENTIALS environment variable');
+    }
+
+    if (recommendations.length === 0) {
+      if (subscriptionHealth.pushSubscription?.exists) {
+        recommendations.push('✅ Configuration looks good!');
+        recommendations.push('If push notifications still not working:');
+        recommendations.push('- Check Google Cloud Console for subscription delivery attempts');
+        recommendations.push('- Verify webhook endpoint is reachable from Google Cloud');
+        recommendations.push('- Check server logs for push notification webhook calls');
+        recommendations.push('- Test with: POST /gmail/client/test-webhook');
+      }
+    }
+
+    return recommendations;
+  }
+
+  /**
    * Process pull messages manually (triggers complete email processing pipeline)
    */
   @Post('process-pull-messages')

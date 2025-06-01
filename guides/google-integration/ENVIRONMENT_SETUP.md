@@ -8,8 +8,8 @@ Add the following variables to your `.env` file after running the Pub/Sub setup 
 # Gmail Push Notifications (Google Cloud Pub/Sub)
 GOOGLE_CLOUD_PROJECT_ID=your-google-cloud-project-id
 GMAIL_PUBSUB_TOPIC=gmail-notifications
-GMAIL_PUSH_SUBSCRIPTION=gmail-push-subscription
-GMAIL_PULL_SUBSCRIPTION=gmail-pull-subscription
+GMAIL_PUSH_SUBSCRIPTION=gmail-push-notification-subscription
+GMAIL_PULL_SUBSCRIPTION=gmail-pull-notification-subscription
 GOOGLE_APPLICATION_CREDENTIALS=./config/gmail-push-service-account.json
 
 # Webhook Security
@@ -66,5 +66,5 @@ gcloud auth list
 gcloud pubsub topics list --filter="name:gmail-notifications"
 
 # Test subscription access
-gcloud pubsub subscriptions list --filter="name:gmail-push-subscription"
+gcloud pubsub subscriptions list --filter="name:gmail-push-notification-subscription"
 ``` 

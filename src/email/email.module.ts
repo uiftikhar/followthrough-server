@@ -26,6 +26,7 @@ import { EmailActionController } from "./email-action.controller";
     EmailActionController, // NEW - Phase 6 user action handlers
   ],
   providers: [
+    // TOOO: Remove zapier and mcp
     EmailService,
     GmailConnector,
     OutlookConnector,

@@ -126,7 +126,7 @@ X-Goog-Signature: <signature>
     "messageId": "...",
     "publishTime": "..."
   },
-  "subscription": "gmail-push-subscription"
+  "subscription": "gmail-push-notification-subscription"
 }
 ```
 
@@ -245,8 +245,8 @@ curl -X POST http://localhost:3000/gmail/client/test-pubsub
 # Already configured from previous phases
 GOOGLE_CLOUD_PROJECT_ID=followthrough-ai
 GMAIL_PUBSUB_TOPIC=gmail-notifications
-GMAIL_PUSH_SUBSCRIPTION=gmail-push-subscription
-GMAIL_PULL_SUBSCRIPTION=gmail-pull-subscription
+GMAIL_PUSH_SUBSCRIPTION=gmail-push-notification-subscription
+GMAIL_PULL_SUBSCRIPTION=gmail-pull-notification-subscription
 GOOGLE_APPLICATION_CREDENTIALS=./config/gmail-push-service-account.json
 GMAIL_WEBHOOK_SECRET=your-webhook-secret
 ```

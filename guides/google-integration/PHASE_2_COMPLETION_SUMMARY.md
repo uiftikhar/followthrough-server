@@ -83,8 +83,8 @@ GET /oauth/google/watch-statistics
 ```bash
 GOOGLE_CLOUD_PROJECT_ID=followthrough-ai
 GMAIL_PUBSUB_TOPIC=gmail-notifications
-GMAIL_PUSH_SUBSCRIPTION=gmail-push-subscription
-GMAIL_PULL_SUBSCRIPTION=gmail-pull-subscription
+GMAIL_PUSH_SUBSCRIPTION=gmail-push-notification-subscription
+GMAIL_PULL_SUBSCRIPTION=gmail-pull-notification-subscription
 GOOGLE_APPLICATION_CREDENTIALS=./config/gmail-push-service-account.json
 GMAIL_WEBHOOK_SECRET=your-webhook-secret
 ```

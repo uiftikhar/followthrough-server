@@ -165,7 +165,7 @@ The system needs a **push subscription** configured in Google Cloud:
 
 ```bash
 # Create push subscription (if not exists)
-gcloud pubsub subscriptions create gmail-push-subscription \
+gcloud pubsub subscriptions create gmail-push-notification-subscription \
   --topic=gmail-notifications \
   --push-endpoint=https://ffdf-2-201-41-78.ngrok-free.app/api/gmail/webhooks/push \
   --ack-deadline=60
@@ -179,8 +179,8 @@ Ensure these are properly configured:
 # Required for push notifications
 GOOGLE_CLOUD_PROJECT_ID=your-project-id
 GMAIL_PUBSUB_TOPIC=gmail-notifications  
-GMAIL_PUSH_SUBSCRIPTION=gmail-push-subscription
-GMAIL_PULL_SUBSCRIPTION=gmail-pull-subscription
+GMAIL_PUSH_SUBSCRIPTION=gmail-push-notification-subscription
+GMAIL_PULL_SUBSCRIPTION=gmail-pull-notification-subscription
 GOOGLE_APPLICATION_CREDENTIALS=./config/service-account.json
 
 # Optional webhook security

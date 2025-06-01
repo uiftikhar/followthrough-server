@@ -100,7 +100,7 @@ async function testGmailFlow() {
       console.log('📨 Gmail is sending notifications to Pub/Sub');
       console.log('🔧 ACTION NEEDED: Configure push subscription endpoint');
       console.log('   - Go to Google Cloud Console → Pub/Sub → Subscriptions');
-      console.log('   - Edit gmail-push-subscription');
+      console.log('   - Edit gmail-push-notification-subscription');
       console.log('   - Set endpoint to: https://your-domain.com/api/gmail/webhooks/push');
       console.log('   - For local testing, use ngrok: https://your-id.ngrok.io/api/gmail/webhooks/push');
     } else {

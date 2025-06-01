@@ -90,7 +90,7 @@ Schema: None (JSON messages)
 
 **Push Subscription Configuration**: ✅
 ```yaml
-Subscription Name: gmail-push-subscription
+Subscription Name: gmail-push-notification-subscription
 Topic: gmail-notifications
 Delivery Type: Push
 Endpoint URL: https://your-domain.com/api/gmail/webhooks/push
@@ -101,7 +101,7 @@ Retry Policy: Exponential backoff (min: 10s, max: 600s)
 
 **Pull Subscription Configuration** (Backup): ✅
 ```yaml
-Subscription Name: gmail-pull-subscription
+Subscription Name: gmail-pull-notification-subscription
 Topic: gmail-notifications
 Delivery Type: Pull
 Acknowledgment Deadline: 60 seconds
