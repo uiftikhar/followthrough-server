@@ -26,13 +26,13 @@ import { SentenceParserService } from "../embedding/sentence-parser.service";
 import { SimilarityUtilsService } from "../embedding/similarity-utils.service";
 import { ChunkOptimizationService } from "../embedding/chunk-optimization.service";
 
-// LanggraphCore services
+// LanggraphCore services - REMOVED TeamHandlerRegistry (use LanggraphCoreModule instead)
 import { GraphExecutionService } from "../langgraph/core/graph-execution.service";
-import { TeamHandlerRegistry } from "../langgraph/core/team-handler-registry.service";
-import { EnhancedGraphService } from "../langgraph/core/enhanced-graph.service";
 
 // Agent services
 import { AgentFactory } from "../langgraph/agents/agent.factory";
+
+// Individual agents
 import { TopicExtractionAgent } from "../langgraph/agents/topic-extraction.agent";
 import { ActionItemAgent } from "../langgraph/agents/action-item.agent";
 import { SentimentAnalysisAgent } from "../langgraph/agents/sentiment-analysis.agent";
@@ -46,44 +46,46 @@ import { RetrievalService } from "../rag/retrieval.service";
 import { RagService } from "../rag/rag.service";
 import { AdaptiveRagService } from "../rag/adaptive-rag.service";
 
-// RAG Agents and their configs
+// RAG Agent imports and types
+import { RagMeetingAnalysisAgent } from "../langgraph/agents/rag-agents/rag-meeting-agent";
+import { RagTopicExtractionAgent } from "../langgraph/agents/rag-agents/rag-topic-extraction-agent";
+import { RagSentimentAnalysisAgent } from "../langgraph/agents/rag-agents/rag-sentiment-analysis-agent";
+
+// RAG Agent configuration types and tokens
 import {
-  RagMeetingAnalysisAgent,
   RAG_MEETING_ANALYSIS_CONFIG,
   RagMeetingAnalysisConfig,
 } from "../langgraph/agents/rag-agents/rag-meeting-agent";
 import {
-  RagTopicExtractionAgent,
   RAG_TOPIC_EXTRACTION_CONFIG,
   RagTopicExtractionConfig,
 } from "../langgraph/agents/rag-agents/rag-topic-extraction-agent";
 import {
-  RagSentimentAnalysisAgent,
   RAG_SENTIMENT_ANALYSIS_CONFIG,
   RagSentimentAnalysisConfig,
 } from "../langgraph/agents/rag-agents/rag-sentiment-analysis-agent";
+
+// Expertise and prompts
 import { AgentExpertise } from "../rag/agents/rag-enhanced-agent";
 import {
-  MEETING_CHUNK_ANALYSIS_PROMPT,
-  EXTRACT_ACTION_ITEMS_PROMPT,
-  SENTIMENT_ANALYSIS_PROMPT,
-  FINAL_MEETING_SUMMARY_PROMPT,
   TOPIC_EXTRACTION_SYSTEM_PROMPT,
+  SENTIMENT_ANALYSIS_PROMPT,
 } from "../instruction-promtps";
 
 // Injection tokens
+import { LLM_SERVICE } from "../langgraph/llm/constants/injection-tokens";
+import { STATE_SERVICE } from "../langgraph/state/constants/injection-tokens";
 import {
   RAG_SERVICE,
   RETRIEVAL_SERVICE,
   ADAPTIVE_RAG_SERVICE,
 } from "../rag/constants/injection-tokens";
-import { LLM_SERVICE } from "../langgraph/llm/constants/injection-tokens";
-import { STATE_SERVICE } from "../langgraph/state/constants/injection-tokens";
 import {
   PINECONE_CONNECTION_SERVICE,
   PINECONE_SERVICE,
-} from "src/pinecone/constants/injection-tokens";
-import { EMBEDDING_SERVICE } from "src/embedding";
+} from "../pinecone/constants/injection-tokens";
+import { EMBEDDING_SERVICE } from "../embedding";
+
 import { DimensionAdapterService } from "src/embedding/dimension-adapter.service";
 import { OpenAIService } from "src/embedding/openai.service";
 
@@ -91,6 +93,7 @@ import { OpenAIService } from "src/embedding/openai.service";
  * SharedCoreModule - Directly provides ALL shared services
  * This eliminates circular dependencies by being the single source of truth
  * No more complex module re-exports or dependency chains
+ * UPDATED: Removed TeamHandlerRegistry - use LanggraphCoreModule instead
  */
 @Module({
   imports: [
@@ -139,10 +142,8 @@ import { OpenAIService } from "src/embedding/openai.service";
     SemanticChunkingService,
     DocumentProcessorService,
 
-    // LanggraphCore services
+    // LanggraphCore services - REMOVED EnhancedGraphService (back to LanggraphCoreModule)
     GraphExecutionService,
-    TeamHandlerRegistry,
-    EnhancedGraphService,
 
     // Individual agents
     TopicExtractionAgent,
@@ -293,10 +294,8 @@ import { OpenAIService } from "src/embedding/openai.service";
     SemanticChunkingService,
     DocumentProcessorService,
 
-    // Export LanggraphCore services
+    // Export LanggraphCore services - REMOVED EnhancedGraphService export
     GraphExecutionService,
-    TeamHandlerRegistry,
-    EnhancedGraphService,
 
     // Export agents
     TopicExtractionAgent,

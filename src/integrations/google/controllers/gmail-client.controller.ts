@@ -815,7 +815,7 @@ export class GmailClientController {
         try {
           this.logger.log(`🚀 Starting triage for email: ${email.id} - "${email.metadata.subject}"`);
           
-          // Send email data directly to client via WebSocket for testing
+          // Send immediate email received notification
           this.logger.log(`📡 Emitting email.received event for email: ${email.id}`);
           this.eventEmitter.emit('email.received', {
             emailId: email.id,
@@ -832,11 +832,35 @@ export class GmailClientController {
               bodyLength: email.body.length
             }
           });
+
+          // Emit triage started event
+          this.logger.log(`📡 Emitting triage.started event`);
+          this.eventEmitter.emit('email.triage.started', {
+            emailId: email.id,
+            emailAddress: notification.emailAddress,
+            subject: email.metadata.subject,
+            from: email.metadata.from,
+            timestamp: new Date().toISOString(),
+            source: 'gmail_manual_pull'
+          });
+
+          // Trigger actual triage processing
+          await this.triggerEmailTriage(watchInfo.watchId, email);
           
           processedCount++;
-          this.logger.log(`✅ Email notification sent for: ${email.id}`);
+          this.logger.log(`✅ Email triage initiated for: ${email.id}`);
         } catch (error) {
           this.logger.error(`❌ Failed to process email ${email.id}:`, error);
+
+          // Emit failure event
+          this.eventEmitter.emit('email.triage.failed', {
+            emailId: email.id,
+            emailAddress: notification.emailAddress,
+            subject: email.metadata.subject,
+            error: error.message,
+            timestamp: new Date().toISOString(),
+            source: 'gmail_manual_pull'
+          });
         }
       }
 
@@ -1073,10 +1097,9 @@ export class GmailClientController {
   private async triggerEmailTriage(watchId: string, email: any): Promise<void> {
     try {
       this.logger.log(`🎯 Triggering email triage for email ${email.id} from watch ${watchId}`);
-      this.logger.log(`📧 Email details - Subject: "${email.metadata.subject}", From: ${email.metadata.from}`);
 
-      // Get user ID from email metadata or watch info
-      const userId = email.metadata.userId || watchId; // Fallback to watchId if userId not available
+      // Get user ID from email metadata
+      const userId = email.metadata.userId || watchId;
       this.logger.log(`👤 Using userId: ${userId} for triage processing`);
 
       // Transform Gmail email data to unified workflow input format
@@ -1087,7 +1110,7 @@ export class GmailClientController {
           body: email.body,
           metadata: email.metadata,
         },
-        content: email.body, // Include content for processing
+        content: email.body,
       };
 
       this.logger.log(`🔄 Submitting email to UnifiedWorkflowService for processing`);
@@ -1096,7 +1119,7 @@ export class GmailClientController {
       const result = await this.unifiedWorkflowService.processInput(
         triageInput,
         { 
-          source: 'gmail_push',
+          source: 'gmail_manual_pull',
           watchId,
           emailAddress: email.metadata.to,
           gmailSource: email.metadata.gmailSource,
@@ -1106,31 +1129,20 @@ export class GmailClientController {
 
       this.logger.log(`✅ Email triage initiated for ${email.id}, session: ${result.sessionId}`);
 
-      // Emit start event for real-time notifications
-      this.logger.log(`📡 Emitting triage.started event for session: ${result.sessionId}`);
-      this.eventEmitter.emit('email.triage.started', {
+      // Emit processing event with session info
+      this.logger.log(`📡 Emitting triage.processing event for session: ${result.sessionId}`);
+      this.eventEmitter.emit('email.triage.processing', {
         sessionId: result.sessionId,
         emailId: email.id,
         emailAddress: email.metadata.to,
+        subject: email.metadata.subject,
+        status: result.status,
         timestamp: new Date().toISOString(),
+        source: 'gmail_manual_pull'
       });
 
-      this.logger.log(`🎉 Triage process successfully started for email: ${email.id}`);
-
-      // Note: Completion events will be emitted by the workflow system when processing finishes
-      
     } catch (error) {
       this.logger.error(`❌ Failed to trigger email triage for email ${email.id}:`, error);
-      
-      // Emit error event for real-time notifications
-      this.logger.log(`📡 Emitting triage.failed event for email: ${email.id}`);
-      this.eventEmitter.emit('email.triage.failed', {
-        emailId: email.id,
-        emailAddress: email.metadata.to,
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      });
-      
       throw error;
     }
   }

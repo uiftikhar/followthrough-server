@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Logger } from "@nestjs/common";
 import { UnifiedWorkflowService } from "../langgraph/unified-workflow.service";
+import { EmailTriageService } from "./workflow/email-triage.service";
 import { ZapierEmailPayload } from "./dtos/email-triage.dto";
 
 @Controller("email")
@@ -8,6 +9,7 @@ export class EmailTriageController {
 
   constructor(
     private readonly unifiedWorkflowService: UnifiedWorkflowService,
+    private readonly emailTriageService: EmailTriageService,
   ) {}
 
   /**
@@ -110,6 +112,39 @@ export class EmailTriageController {
       return {
         success: false,
         error: error.message,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Health check endpoint to verify EmailTriageService registration
+   * GET /email/health
+   */
+  @Post("health")
+  async getEmailTriageHealth(): Promise<any> {
+    this.logger.log("Checking email triage service health");
+
+    try {
+      // Check if EmailTriageService is properly registered
+      const teamName = this.emailTriageService.getTeamName();
+      const teamInfo = this.emailTriageService.getTeamInfo();
+
+      this.logger.log(`EmailTriageService is active with team name: ${teamName}`);
+
+      return {
+        success: true,
+        teamName,
+        teamInfo,
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(`Email triage health check failed: ${error.message}`, error.stack);
+      return {
+        success: false,
+        error: error.message,
+        status: "unhealthy",
         timestamp: new Date().toISOString(),
       };
     }

@@ -125,16 +125,39 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
    */
   @OnEvent('email.triage.started')
   handleTriageStarted(payload: any) {
-    this.logger.log(`Broadcasting triage started for session: ${payload.sessionId}`);
+    this.logger.log(`📡 Broadcasting triage started for email: ${payload.emailId}`);
     
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
     this.server.to(emailRoom).emit('triage.started', {
       type: 'triage.started',
+      emailId: payload.emailId,
+      emailAddress: payload.emailAddress,
+      subject: payload.subject,
+      from: payload.from,
+      timestamp: payload.timestamp,
+      source: payload.source,
+    });
+  }
+
+  /**
+   * Listen for email triage processing events
+   */
+  @OnEvent('email.triage.processing')
+  handleTriageProcessing(payload: any) {
+    this.logger.log(`📡 Broadcasting triage processing for session: ${payload.sessionId}`);
+    
+    // Broadcast to all clients in email room
+    const emailRoom = `email:${payload.emailAddress}`;
+    this.server.to(emailRoom).emit('triage.processing', {
+      type: 'triage.processing',
       sessionId: payload.sessionId,
       emailId: payload.emailId,
       emailAddress: payload.emailAddress,
+      subject: payload.subject,
+      status: payload.status,
       timestamp: payload.timestamp,
+      source: payload.source,
     });
   }
 
@@ -143,7 +166,7 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
    */
   @OnEvent('email.triage.completed')
   handleTriageCompleted(payload: any) {
-    this.logger.log(`Broadcasting triage completed for session: ${payload.sessionId}`);
+    this.logger.log(`📡 Broadcasting triage completed for email: ${payload.emailId}`);
     
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
@@ -152,22 +175,9 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
       sessionId: payload.sessionId,
       emailId: payload.emailId,
       emailAddress: payload.emailAddress,
-      result: {
-        classification: payload.result.classification,
-        summary: payload.result.summary,
-        replyDraft: payload.result.replyDraft,
-        status: payload.result.status,
-      },
+      result: payload.result,
       timestamp: payload.timestamp,
-    });
-
-    // Also broadcast to general notifications
-    this.server.emit('notification', {
-      type: 'email_triage_completed',
-      sessionId: payload.sessionId,
-      emailAddress: payload.emailAddress,
-      summary: `Email triage completed for ${payload.emailAddress}`,
-      timestamp: payload.timestamp,
+      source: payload.source,
     });
   }
 
@@ -176,7 +186,7 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
    */
   @OnEvent('email.triage.failed')
   handleTriageFailed(payload: any) {
-    this.logger.log(`Broadcasting triage failed for email: ${payload.emailId}`);
+    this.logger.log(`📡 Broadcasting triage failed for email: ${payload.emailId}`);
     
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
@@ -184,8 +194,10 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
       type: 'triage.failed',
       emailId: payload.emailId,
       emailAddress: payload.emailAddress,
+      subject: payload.subject,
       error: payload.error,
       timestamp: payload.timestamp,
+      source: payload.source,
     });
   }
 

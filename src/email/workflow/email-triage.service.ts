@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit, OnApplicationBootstrap } from "@nestjs/common";
 import { TeamHandlerRegistry } from "../../langgraph/core/team-handler-registry.service";
 import { TeamHandler } from "../../langgraph/core/interfaces/team-handler.interface";
 import { EmailTriageManager } from "./email-triage.manager";
@@ -9,16 +9,30 @@ import { EmailTriageManager } from "./email-triage.manager";
  * Registers as 'email_triage' team to handle email processing tasks
  */
 @Injectable()
-export class EmailTriageService implements TeamHandler, OnModuleInit {
+export class EmailTriageService implements TeamHandler, OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(EmailTriageService.name);
   private readonly teamName = "email_triage";
 
   constructor(
     private readonly teamHandlerRegistry: TeamHandlerRegistry,
     private readonly emailTriageManager: EmailTriageManager,
-  ) {}
+  ) {
+    // Log constructor call
+    this.logger.log('EmailTriageService constructor called');
+  }
 
   async onModuleInit() {
+    this.logger.log('EmailTriageService onModuleInit called');
+    await this.registerWithTeamHandlerRegistry();
+  }
+
+  async onApplicationBootstrap() {
+    this.logger.log('EmailTriageService onApplicationBootstrap called');
+    // Double-check registration
+    await this.verifyRegistration();
+  }
+
+  private async registerWithTeamHandlerRegistry() {
     // Register with master supervisor as email triage team handler
     this.logger.log(`Starting registration of email triage team handler: ${this.teamName}`);
     
@@ -34,7 +48,7 @@ export class EmailTriageService implements TeamHandler, OnModuleInit {
       this.teamHandlerRegistry.registerHandler(this.teamName, this);
       this.logger.log("Email triage team handler registered successfully");
       
-      // Verify registration
+      // Verify registration immediately
       const registeredHandler = this.teamHandlerRegistry.getHandler(this.teamName);
       if (registeredHandler) {
         this.logger.log('Registration verified: handler is accessible via registry');
@@ -48,6 +62,21 @@ export class EmailTriageService implements TeamHandler, OnModuleInit {
       
     } catch (error) {
       this.logger.error(`Failed to register email triage team handler: ${error.message}`, error.stack);
+    }
+  }
+
+  private async verifyRegistration() {
+    try {
+      this.logger.log('Verifying EmailTriageService registration...');
+      const handler = this.teamHandlerRegistry.getHandler(this.teamName);
+      if (handler) {
+        this.logger.log('✅ EmailTriageService is properly registered');
+      } else {
+        this.logger.error('❌ EmailTriageService is NOT registered - attempting re-registration');
+        await this.registerWithTeamHandlerRegistry();
+      }
+    } catch (error) {
+      this.logger.error('Error during registration verification:', error);
     }
   }
 

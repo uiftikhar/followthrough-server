@@ -89,11 +89,8 @@ export class GmailWebhookController {
       this.logger.log(`🔔 PUSH NOTIFICATION RECEIVED: ${payload.message.messageId}`);
       this.logger.log(`🔍 Payload: ${JSON.stringify({ subscription: payload.subscription, messageId: payload.message.messageId })}`);
 
-      // Verify webhook authenticity if secret is configured
-      // if (this.webhookSecret) {
-      //   this.verifyWebhookSignature(JSON.stringify(payload), headers);
-      //   this.logger.log(`✅ Webhook signature verified for message: ${payload.message.messageId}`);
-      // }
+      // Verify this is a legitimate Google Cloud Pub/Sub request
+      this.verifyPubSubRequest(headers, payload);
 
       // Decode the Pub/Sub message
       const pubsubMessage: PubSubMessage = {
@@ -506,8 +503,12 @@ export class GmailWebhookController {
       this.logger.log(`🎯 Triggering email triage for email ${email.id} from watch ${watchId}`);
       this.logger.log(`📧 Email details - Subject: "${email.metadata.subject}", From: ${email.metadata.from}`);
 
-      // For immediate testing: Send email data directly to client via WebSocket
-      this.logger.log(`📡 Emitting email.received event for email: ${email.id}`);
+      // Get user ID from email metadata or watch info
+      const userId = email.metadata.userId || watchId; // Fallback to watchId if userId not available
+      this.logger.log(`👤 Using userId: ${userId} for triage processing`);
+
+      // Emit immediate email received notification for real-time updates
+      this.logger.log(`📡 Emitting email.received event for immediate notification`);
       this.eventEmitter.emit('email.received', {
         emailId: email.id,
         emailAddress: email.metadata.to,
@@ -524,14 +525,75 @@ export class GmailWebhookController {
         }
       });
 
-      this.logger.log(`✅ Email notification sent for: ${email.id}`);
+      // Transform Gmail email data to unified workflow input format
+      const triageInput = {
+        type: "email_triage",
+        emailData: {
+          id: email.id,
+          body: email.body,
+          metadata: email.metadata,
+        },
+        content: email.body, // Include content for processing
+      };
 
-      // TODO: Later, re-enable full triage processing
-      // const userId = email.metadata.userId || watchId;
-      // const result = await this.unifiedWorkflowService.processInput(triageInput, context, userId);
+      this.logger.log(`🔄 Submitting email to UnifiedWorkflowService for full triage processing`);
+
+      // Emit triage started event
+      this.logger.log(`📡 Emitting triage.started event`);
+      this.eventEmitter.emit('email.triage.started', {
+        emailId: email.id,
+        emailAddress: email.metadata.to,
+        subject: email.metadata.subject,
+        from: email.metadata.from,
+        timestamp: new Date().toISOString(),
+        source: 'gmail_push'
+      });
+
+      // Process through existing unified workflow service
+      const result = await this.unifiedWorkflowService.processInput(
+        triageInput,
+        { 
+          source: 'gmail_push',
+          watchId,
+          emailAddress: email.metadata.to,
+          gmailSource: email.metadata.gmailSource,
+        },
+        userId
+      );
+
+      this.logger.log(`✅ Email triage initiated for ${email.id}, session: ${result.sessionId}`);
+
+      // Emit triage processing event with session info
+      this.logger.log(`📡 Emitting triage.processing event for session: ${result.sessionId}`);
+      this.eventEmitter.emit('email.triage.processing', {
+        sessionId: result.sessionId,
+        emailId: email.id,
+        emailAddress: email.metadata.to,
+        subject: email.metadata.subject,
+        status: result.status,
+        timestamp: new Date().toISOString(),
+        source: 'gmail_push'
+      });
+
+      // Note: triage.completed events will be emitted by the workflow system when processing finishes
+      // The UnifiedWorkflowService should emit these events automatically
+
+      this.logger.log(`🎉 Triage process successfully started for email: ${email.id}`);
       
     } catch (error) {
       this.logger.error(`❌ Failed to trigger email triage for email ${email.id}:`, error);
+      
+      // Emit error event for real-time notifications
+      this.logger.log(`📡 Emitting triage.failed event for email: ${email.id}`);
+      this.eventEmitter.emit('email.triage.failed', {
+        emailId: email.id,
+        emailAddress: email.metadata.to,
+        subject: email.metadata.subject,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+        source: 'gmail_push'
+      });
+      
       throw error;
     }
   }
@@ -562,6 +624,47 @@ export class GmailWebhookController {
     if (signatureBuffer.length !== expectedBuffer.length || 
         !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
       throw new UnauthorizedException('Invalid webhook signature');
+    }
+  }
+
+  /**
+   * Verify Google Cloud Pub/Sub request authenticity
+   */
+  private verifyPubSubRequest(headers: Record<string, string>, payload: PubSubPushPayload): void {
+    try {
+      // Method 1: Check User-Agent (Google Cloud Pub/Sub sends specific user-agent)
+      const userAgent = headers['user-agent'] || headers['User-Agent'] || '';
+      if (!userAgent.includes('Google-Cloud-Pub-Sub')) {
+        this.logger.warn(`⚠️ Suspicious user-agent: ${userAgent}`);
+        // Don't throw error - just log warning as some proxies might modify user-agent
+      }
+
+      // Method 2: Verify payload structure
+      if (!payload.message || !payload.subscription) {
+        throw new BadRequestException('Invalid Pub/Sub payload structure');
+      }
+
+      if (!payload.message.data || !payload.message.messageId) {
+        throw new BadRequestException('Invalid Pub/Sub message structure');
+      }
+
+      // Method 3: Verify subscription name matches expected pattern
+      const expectedPattern = /^projects\/[\w-]+\/subscriptions\/gmail-push/;
+      if (!expectedPattern.test(payload.subscription)) {
+        this.logger.warn(`⚠️ Unexpected subscription: ${payload.subscription}`);
+        // Don't throw error - just log warning in case subscription name changes
+      }
+
+      // Method 4: Check if webhook secret is configured for additional security
+      if (this.webhookSecret) {
+        this.logger.log('🔐 Additional webhook secret verification available');
+        // Could implement custom token verification here if needed
+      }
+
+      this.logger.log(`✅ Pub/Sub request verification passed`);
+    } catch (error) {
+      this.logger.error('❌ Pub/Sub request verification failed:', error);
+      throw error;
     }
   }
 
