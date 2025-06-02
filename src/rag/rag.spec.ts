@@ -49,7 +49,7 @@ describe("RAG Services Integration", () => {
   };
 
   const mockEmbeddingService = {
-    generateEmbedding: jest.fn().mockResolvedValue(Array(1536).fill(0.1)),
+    generateEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
     chunkText: jest.fn().mockReturnValue(["chunk1", "chunk2"]),
   };
 
@@ -87,17 +87,17 @@ describe("RAG Services Integration", () => {
 
   const mockConfigService = {
     get: jest.fn().mockImplementation((key, defaultValue) => {
-      if (key === "PINECONE_DIMENSIONS") return 1536;
+      if (key === "PINECONE_DIMENSIONS") return 1024;
       if (key === "USE_SEMANTIC_CHUNKING") return "true";
       return defaultValue;
     }),
   };
 
   const mockDimensionAdapter = {
-    getTargetDimension: jest.fn().mockReturnValue(1536),
+    getTargetDimension: jest.fn().mockReturnValue(1024),
     needsAdaptation: jest.fn().mockReturnValue(true),
     adaptDimension: jest.fn().mockImplementation((embedding) => {
-      return embedding.slice(0, 1536); // Just return first 1536 dimensions
+      return embedding.slice(0, 1024); // Just return first 1024 dimensions
     }),
   };
 
@@ -153,7 +153,7 @@ describe("RAG Services Integration", () => {
         return HttpResponse.json({
           data: [
             {
-              embedding: Array(1536).fill(0.1),
+              embedding: Array(1024).fill(0.1),
               index: 0,
               object: "embedding",
             },

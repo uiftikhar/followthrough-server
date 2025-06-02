@@ -1,12 +1,16 @@
 import { Injectable, Logger, OnModuleInit, OnApplicationBootstrap } from "@nestjs/common";
 import { TeamHandlerRegistry } from "../../langgraph/core/team-handler-registry.service";
 import { TeamHandler } from "../../langgraph/core/interfaces/team-handler.interface";
-import { EmailTriageManager } from "./email-triage.manager";
+import { EmailTriageGraphBuilder } from "./email-triage-graph.builder";
+import { EmailTriageState } from "../dtos/email-triage.dto";
+import { v4 as uuidv4 } from "uuid";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 /**
  * EmailTriageService - Team Handler for Email Domain
  * Implements TeamHandler interface to integrate with Master Supervisor
  * Registers as 'email_triage' team to handle email processing tasks
+ * UPDATED: Now uses EmailTriageGraphBuilder for Phase 5/6 RAG enhancements
  */
 @Injectable()
 export class EmailTriageService implements TeamHandler, OnModuleInit, OnApplicationBootstrap {
@@ -15,10 +19,11 @@ export class EmailTriageService implements TeamHandler, OnModuleInit, OnApplicat
 
   constructor(
     private readonly teamHandlerRegistry: TeamHandlerRegistry,
-    private readonly emailTriageManager: EmailTriageManager,
+    private readonly emailTriageGraphBuilder: EmailTriageGraphBuilder,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     // Log constructor call
-    this.logger.log('EmailTriageService constructor called');
+    this.logger.log('EmailTriageService constructor called - using EmailTriageGraphBuilder');
   }
 
   async onModuleInit() {
@@ -90,10 +95,11 @@ export class EmailTriageService implements TeamHandler, OnModuleInit, OnApplicat
   /**
    * Process email triage tasks - required by TeamHandler interface
    * This is the main entry point for email processing
+   * UPDATED: Now uses EmailTriageGraphBuilder with RAG enhancements
    */
   async process(input: any): Promise<any> {
     this.logger.log(
-      `Processing email triage task for email: ${input.emailData?.id}`,
+      `Processing email triage task for email: ${input.emailData?.id} using RAG-enhanced graph`,
     );
 
     try {
@@ -102,21 +108,89 @@ export class EmailTriageService implements TeamHandler, OnModuleInit, OnApplicat
         throw new Error("Invalid input structure: missing emailData");
       }
 
-      // Route to EmailTriageManager which coordinates the 3 workers
-      const result = await this.emailTriageManager.processEmail(
-        input.emailData,
-        { sessionId: input.sessionId },
-      );
+      // Create EmailTriageState for the enhanced graph builder
+      const sessionId = input.sessionId || uuidv4();
+      const initialState: EmailTriageState = {
+        sessionId,
+        emailData: {
+          id: input.emailData.id || `email-${Date.now()}`,
+          body: input.emailData.body || "",
+          metadata: {
+            subject: input.emailData.metadata?.subject,
+            from: input.emailData.metadata?.from,
+            to: input.emailData.metadata?.to,
+            timestamp: input.emailData.metadata?.timestamp || new Date().toISOString(),
+            headers: input.emailData.metadata?.headers || {},
+            userId: input.emailData.metadata?.userId, // Add userId for tone learning
+          },
+        },
+        currentStep: "initializing",
+        progress: 0,
+      };
 
-      this.logger.log(
-        `Email triage task completed successfully: ${result.sessionId}`,
-      );
-      return result;
+      this.logger.log(`🚀 Starting RAG-enhanced email triage for session: ${sessionId}`);
+      
+      // Emit immediate triage started event
+      this.eventEmitter.emit("email.triage.started", {
+        sessionId,
+        emailId: input.emailData.id,
+        emailAddress: input.emailData.metadata?.to || input.emailData.metadata?.emailAddress,
+        subject: input.emailData.metadata?.subject,
+        from: input.emailData.metadata?.from,
+        timestamp: new Date().toISOString(),
+        source: 'enhanced_graph_service',
+      });
+
+      // Execute the RAG-enhanced email triage graph
+      const finalState = await this.emailTriageGraphBuilder.executeGraph(initialState);
+
+      this.logger.log(`✅ RAG-enhanced email triage completed for session: ${sessionId}`);
+
+      // Emit enhanced completion event with detailed results
+      this.eventEmitter.emit("email.triage.completed", {
+        sessionId,
+        emailId: input.emailData.id,
+        emailAddress: input.emailData.metadata?.to || input.emailData.metadata?.emailAddress,
+        subject: input.emailData.metadata?.subject,
+        result: finalState.result,
+        classification: finalState.classification,
+        summary: finalState.summary,
+        replyDraft: finalState.replyDraft,
+        retrievedContext: finalState.retrievedContext,
+        processingMetadata: finalState.processingMetadata,
+        timestamp: new Date().toISOString(),
+        source: 'enhanced_graph_service',
+        ragEnhanced: true,
+      });
+
+      // Return the final result in the expected format
+      return finalState.result || {
+        sessionId,
+        emailId: input.emailData.id,
+        classification: finalState.classification,
+        summary: finalState.summary,
+        replyDraft: finalState.replyDraft,
+        status: finalState.error ? "failed" : "completed",
+        processedAt: new Date(),
+      };
+
     } catch (error) {
       this.logger.error(
-        `Error processing email triage task: ${error.message}`,
+        `Error processing RAG-enhanced email triage task: ${error.message}`,
         error.stack,
       );
+
+      // Emit error event
+      this.eventEmitter.emit("email.triage.failed", {
+        sessionId: input.sessionId,
+        emailId: input.emailData?.id,
+        emailAddress: input.emailData?.metadata?.to,
+        subject: input.emailData?.metadata?.subject,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+        source: 'enhanced_graph_service',
+      });
+
       throw error;
     }
   }

@@ -19,13 +19,34 @@ export class PineconeInitializer implements OnModuleInit {
     // Get dimensions from config to match embedding model
     const dimensions = this.configService.get<number>(
       "PINECONE_DIMENSIONS",
-      1536,
+      1024,
+    );
+
+    // Get Pinecone-specific embedding model (used for index metadata only)
+    const pineconeEmbeddingModel = this.configService.get<string>(
+      "PINECONE_EMBEDDING_MODEL",
+      // Fallback to legacy EMBEDDING_MODEL if new one not set
+      this.configService.get<string>("EMBEDDING_MODEL", "text-embedding-3-large")
+    );
+
+    // Get OpenAI embedding model (used for actual embedding generation)
+    const openaiEmbeddingModel = this.configService.get<string>(
+      "OPENAI_EMBEDDING_MODEL",
+      this.configService.get<string>("EMBEDDING_MODEL", "text-embedding-3-large")
+    );
+
+    this.logger.log(
+      `📊 Embedding Configuration:
+      - OpenAI Embedding Model (for generation): ${openaiEmbeddingModel}
+      - Pinecone Index Model (for metadata): ${pineconeEmbeddingModel}
+      - Dimensions: ${dimensions}`
     );
 
     // Common configuration for all indexes
     const baseConfig: IndexConfig = {
       dimension: dimensions, // Explicitly set dimension
       metric: "cosine",
+      embeddingModel: pineconeEmbeddingModel as any,
       serverless: true,
       cloud:
         this.configService.get<ServerlessSpecCloudEnum>("PINECONE_CLOUD") ||
@@ -35,7 +56,7 @@ export class PineconeInitializer implements OnModuleInit {
     };
 
     this.logger.log(
-      `Configuring indexes with ${dimensions} dimensions for FollowThrough AI`,
+      `🔧 Configuring indexes with ${dimensions} dimensions for FollowThrough AI`,
     );
 
     try {
@@ -56,9 +77,9 @@ export class PineconeInitializer implements OnModuleInit {
           },
         },
       ]);
-      this.logger.log("All Pinecone indexes initialized successfully");
+      this.logger.log("✅ All Pinecone indexes initialized successfully");
     } catch (error) {
-      this.logger.error("Failed to initialize Pinecone indexes", error.stack);
+      this.logger.error("❌ Failed to initialize Pinecone indexes", error.stack);
     }
   }
 }

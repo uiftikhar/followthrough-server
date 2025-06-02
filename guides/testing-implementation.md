@@ -151,7 +151,7 @@ describe('RAG Meeting Analysis Integration', () => {
               object: 'embedding'
             }
           ],
-          model: 'llama-text-embed-v2',
+          model: 'text-embedding-3-large',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 }
         });
@@ -290,7 +290,7 @@ describe('RetrievalService', () => {
               object: 'embedding'
             }
           ],
-          model: 'llama-text-embed-v2',
+          model: 'text-embedding-3-large',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 }
         });
@@ -414,7 +414,7 @@ const mockEmbeddingResponse = (inputCount = 1) => {
       index: i,
       object: 'embedding'
     })),
-    model: 'llama-text-embed-v2',
+    model: 'text-embedding-3-large',
     object: 'list',
     usage: { prompt_tokens: 10 * inputCount, total_tokens: 10 * inputCount }
   };
@@ -666,7 +666,7 @@ describe('RAG Meeting Analysis Integration', () => {
               object: 'embedding'
             }
           ],
-          model: 'llama-text-embed-v2',
+          model: 'text-embedding-3-large',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 }
         });
@@ -803,7 +803,7 @@ describe('RetrievalService', () => {
               object: 'embedding'
             }
           ],
-          model: 'llama-text-embed-v2',
+          model: 'text-embedding-3-large',
           object: 'list',
           usage: { prompt_tokens: 10, total_tokens: 10 }
         });
@@ -923,7 +923,7 @@ const mockEmbeddingResponse = (inputCount = 1) => {
       index: i,
       object: 'embedding'
     })),
-    model: 'llama-text-embed-v2',
+    model: 'text-embedding-3-large',
     object: 'list',
     usage: { prompt_tokens: 10 * inputCount, total_tokens: 10 * inputCount }
   };

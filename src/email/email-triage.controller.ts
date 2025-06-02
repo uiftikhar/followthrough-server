@@ -1,150 +1,74 @@
 import { Controller, Post, Body, Logger } from "@nestjs/common";
-import { UnifiedWorkflowService } from "../langgraph/unified-workflow.service";
-import { EmailTriageService } from "./workflow/email-triage.service";
-import { ZapierEmailPayload } from "./dtos/email-triage.dto";
+import { EmailTriageGraphBuilder } from "./workflow/email-triage-graph.builder";
+import { EmailTriageState } from "./dtos/email-triage.dto";
+import { v4 as uuidv4 } from "uuid";
 
-@Controller("email")
+@Controller("api/email")
 export class EmailTriageController {
   private readonly logger = new Logger(EmailTriageController.name);
 
   constructor(
-    private readonly unifiedWorkflowService: UnifiedWorkflowService,
-    private readonly emailTriageService: EmailTriageService,
+    private readonly emailTriageGraphBuilder: EmailTriageGraphBuilder,
   ) {}
 
   /**
-   * Test endpoint for email triage functionality
-   * POST /email/triage
+   * PRODUCTION EMAIL TRIAGE ENDPOINT
+   * Direct agentic email triage system with RAG enhancement
+   * POST /api/email/triage
+   * 
+   * Used internally by the system for processing emails from Gmail webhooks
+   * This endpoint should be called by the UnifiedWorkflowService only
    */
   @Post("triage")
-  async testEmailTriage(@Body() emailPayload: any): Promise<any> {
-    this.logger.log("Received email triage test request");
+  async processEmailTriage(@Body() emailPayload: any): Promise<any> {
+    this.logger.log("🚀 Processing email triage request");
 
     try {
-      // Transform input to our unified format for email triage
-      const input = {
-        type: "email_triage",
+      // Create EmailTriageState for the agentic system
+      const sessionId = uuidv4();
+      const initialState: EmailTriageState = {
+        sessionId,
         emailData: {
-          id: emailPayload.id || `test-${Date.now()}`,
-          body: emailPayload.body || emailPayload.content,
+          id: emailPayload.emailData?.id || `email-${Date.now()}`,
+          body: emailPayload.emailData?.body || emailPayload.body || emailPayload.content || "",
           metadata: {
-            subject: emailPayload.subject,
-            from: emailPayload.from,
-            to: emailPayload.to || "support@company.com",
-            timestamp: emailPayload.timestamp || new Date().toISOString(),
-            headers: emailPayload.headers || {},
+            subject: emailPayload.emailData?.metadata?.subject || emailPayload.subject,
+            from: emailPayload.emailData?.metadata?.from || emailPayload.from,
+            to: emailPayload.emailData?.metadata?.to || emailPayload.to || "support@company.com",
+            timestamp: emailPayload.emailData?.metadata?.timestamp || emailPayload.timestamp || new Date().toISOString(),
+            headers: emailPayload.emailData?.metadata?.headers || emailPayload.headers || {},
           },
         },
-        sessionId: `email-session-${Date.now()}`,
+        currentStep: "initializing",
+        progress: 0,
       };
 
       this.logger.log(
-        `Processing email triage for: ${input.emailData.metadata.subject}`,
+        `🔄 Processing email triage for: "${initialState.emailData.metadata.subject}" from ${initialState.emailData.metadata.from}`,
       );
 
-      // Route through existing Master Supervisor
-      const result = await this.unifiedWorkflowService.processInput(
-        input,
-        { sessionId: input.sessionId },
-        emailPayload.userId || "test-user",
-      );
+      // Execute the RAG-enhanced email triage graph
+      const finalState = await this.emailTriageGraphBuilder.executeGraph(initialState);
 
-      this.logger.log("Email triage completed successfully");
+      this.logger.log("✅ Email triage completed successfully");
+
+      // Return the structured result
       return {
         success: true,
-        sessionId: input.sessionId,
-        result,
+        sessionId,
+        classification: finalState.classification,
+        summary: finalState.summary,
+        replyDraft: finalState.replyDraft,
+        currentStep: finalState.currentStep,
+        progress: finalState.progress,
+        result: finalState.result,
+        error: finalState.error,
       };
     } catch (error) {
-      this.logger.error(`Email triage failed: ${error.message}`, error.stack);
+      this.logger.error(`❌ Email triage failed: ${error.message}`, error.stack);
       return {
         success: false,
         error: error.message,
-        timestamp: new Date().toISOString(),
-      };
-    }
-  }
-
-  /**
-   * Test webhook endpoint for Zapier integration
-   * POST /email/webhook
-   */
-  @Post("webhook")
-  async handleEmailWebhook(
-    @Body() emailPayload: ZapierEmailPayload,
-  ): Promise<any> {
-    this.logger.log("Received email webhook from external source");
-
-    try {
-      // Transform Zapier payload to our unified format
-      const input = {
-        type: "email_triage",
-        emailData: {
-          id: emailPayload.id,
-          body: emailPayload.body,
-          metadata: {
-            subject: emailPayload.subject,
-            from: emailPayload.from,
-            to: emailPayload.to,
-            timestamp: emailPayload.timestamp,
-            headers: emailPayload.headers,
-          },
-        },
-      };
-
-      // Route through existing Master Supervisor
-      const result = await this.unifiedWorkflowService.processInput(
-        input,
-        emailPayload.metadata || {},
-        emailPayload.userId || "webhook-user",
-      );
-
-      return {
-        success: true,
-        message: "Email processed successfully",
-        result,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Webhook processing failed: ${error.message}`,
-        error.stack,
-      );
-      return {
-        success: false,
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      };
-    }
-  }
-
-  /**
-   * Health check endpoint to verify EmailTriageService registration
-   * GET /email/health
-   */
-  @Post("health")
-  async getEmailTriageHealth(): Promise<any> {
-    this.logger.log("Checking email triage service health");
-
-    try {
-      // Check if EmailTriageService is properly registered
-      const teamName = this.emailTriageService.getTeamName();
-      const teamInfo = this.emailTriageService.getTeamInfo();
-
-      this.logger.log(`EmailTriageService is active with team name: ${teamName}`);
-
-      return {
-        success: true,
-        teamName,
-        teamInfo,
-        status: "healthy",
-        timestamp: new Date().toISOString(),
-      };
-    } catch (error) {
-      this.logger.error(`Email triage health check failed: ${error.message}`, error.stack);
-      return {
-        success: false,
-        error: error.message,
-        status: "unhealthy",
         timestamp: new Date().toISOString(),
       };
     }

@@ -27,7 +27,7 @@ describe("RagService", () => {
 
   beforeEach(async () => {
     const mockEmbeddingService = {
-      generateEmbedding: jest.fn().mockResolvedValue(new Array(1536).fill(0.1)),
+      generateEmbedding: jest.fn().mockResolvedValue(new Array(1024).fill(0.1)),
     };
 
     const mockRetrievalService = {
@@ -55,10 +55,10 @@ describe("RagService", () => {
     };
 
     const mockDimensionAdapter = {
-      getTargetDimension: jest.fn().mockReturnValue(1536),
+      getTargetDimension: jest.fn().mockReturnValue(1024),
       needsAdaptation: jest.fn().mockReturnValue(true),
       adaptDimension: jest.fn().mockImplementation((embedding) => {
-        return embedding.slice(0, 1536); // Just return first 1536 dimensions
+        return embedding.slice(0, 1024); // Just return first 1024 dimensions
       }),
     };
 

@@ -4,7 +4,6 @@ import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
 import { ConfigModule as AppConfigModule } from "./config/config.module";
 import { LoggingModule } from "./logging/logging.module";
-import { ZapierModule } from "./zapier/zapier.module";
 
 // New modular architecture imports
 import { InfrastructureModule } from "./infrastructure/infrastructure.module";
@@ -62,7 +61,6 @@ import { GoogleOAuthModule } from "./integrations/google/google-oauth.module";
     LoggingModule,
     AuthModule,
     GoogleOAuthModule,
-    // ZapierModule,
 
     // Future modules
     // EmailAgentsModule,

@@ -42,13 +42,20 @@ export class EmbeddingService {
     // private readonly llmService: LlmService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
+    // Use new separated configuration with backward compatibility
     this.defaultModel = this.configService.get<EmbeddingModel>(
-      "EMBEDDING_MODEL",
-      EmbeddingModel.OPENAI_3_LARGE,
+      "OPENAI_EMBEDDING_MODEL",
+      // Fallback to legacy EMBEDDING_MODEL if new one not set
+      this.configService.get<EmbeddingModel>("EMBEDDING_MODEL", EmbeddingModel.OPENAI_3_LARGE),
     );
     this.defaultDimensions = this.configService.get<number>(
-      "EMBEDDING_DIMENSIONS",
-      1024,
+      "OPENAI_EMBEDDING_DIMENSIONS",
+      // Fallback to legacy EMBEDDING_DIMENSIONS if new one not set
+      this.configService.get<number>("EMBEDDING_DIMENSIONS", 1024),
+    );
+
+    this.logger.log(
+      `EmbeddingService initialized with model: ${this.defaultModel}, dimensions: ${this.defaultDimensions}`,
     );
 
     // Initialize OpenAI client
@@ -59,11 +66,15 @@ export class EmbeddingService {
     // Initialize LangChain OpenAI embeddings for more advanced features
     this.openaiEmbeddings = new OpenAIEmbeddings({
       openAIApiKey: this.configService.get<string>("OPENAI_API_KEY"),
-      modelName: this.mapToSupportedModel(EmbeddingModel.OPENAI_3_LARGE),
+      modelName: this.mapToSupportedModel(this.defaultModel),
       dimensions: this.defaultDimensions,
       timeout: 60000, // 60 second timeout
       maxRetries: 3,
     });
+
+    this.logger.log(
+      `OpenAI embeddings configured with model: ${this.mapToSupportedModel(this.defaultModel)}, dimensions: ${this.defaultDimensions}`,
+    );
   }
 
   private getCallStack(skip = 0, depth = 1): string[] {
@@ -78,7 +89,7 @@ export class EmbeddingService {
     }
     const lines = raw
       .split("\n")
-      .slice(1) // drop the “Error” line
+      .slice(1) // drop the "Error" line
       .map((l) => l.trim());
     return lines.slice(skip, skip + depth);
   }
@@ -171,7 +182,7 @@ export class EmbeddingService {
 
       return embedding;
     } catch (error) {
-      this.logger.error(`Error generating embedding: ${error.message}`);
+      this.logger.error(`Error generating embedding for openaiEmbeddings: ${error.message}`);
       throw error;
     }
   }
