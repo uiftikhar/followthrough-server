@@ -77,22 +77,24 @@ export class GmailWebhookController {
   }
 
   /**
-   * Handle push notifications from Google Cloud Pub/Sub
+   * Handle Gmail push notifications from Google Pub/Sub
+   * POST /api/gmail/webhooks/push
    */
   @Post('push')
   @HttpCode(HttpStatus.OK)
   async handlePushNotification(
     @Body() payload: PubSubPushPayload,
     @Headers() headers: Record<string, string>,
-  ): Promise<{ success: boolean; processed: number }> {
+  ): Promise<{ success: boolean; message: string }> {
     try {
-      this.logger.log(`🔔 PUSH NOTIFICATION RECEIVED: ${payload.message.messageId}`);
-      this.logger.log(`🔍 Payload: ${JSON.stringify({ subscription: payload.subscription, messageId: payload.message.messageId })}`);
+      // Verify the request comes from Google Cloud Pub/Sub
+      await this.verifyGooglePubSubRequest(headers, payload);
 
-      // Verify this is a legitimate Google Cloud Pub/Sub request
-      this.verifyPubSubRequest(headers, payload);
+      const messageId = payload.message.messageId;
+      this.logger.log(`🔔 PUSH NOTIFICATION RECEIVED: ${messageId}`);
+      this.logger.log(`📡 Headers: User-Agent: ${headers['user-agent']}, From: ${headers['from']}`);
 
-      // Decode the Pub/Sub message
+      // Decode the Gmail notification
       const pubsubMessage: PubSubMessage = {
         data: payload.message.data,
         messageId: payload.message.messageId,
@@ -100,40 +102,40 @@ export class GmailWebhookController {
         attributes: payload.message.attributes,
       };
 
-      this.logger.log(`📧 Decoding Pub/Sub message: ${payload.message.messageId}`);
-      const gmailNotification = this.pubSubService.decodePubSubMessage(pubsubMessage);
-      
-      if (!gmailNotification) {
-        this.logger.warn(`❌ Failed to decode Gmail notification: ${payload.message.messageId}`);
-        return { success: false, processed: 0 };
+      const notification = this.pubSubService.decodePubSubMessage(pubsubMessage);
+      if (!notification) {
+        this.logger.error(`❌ Failed to decode notification ${messageId}`);
+        return { success: false, message: 'Failed to decode notification' };
       }
 
-      this.logger.log(`📬 Gmail notification decoded for: ${gmailNotification.emailAddress}, historyId: ${gmailNotification.historyId}`);
+      const userEmail = notification.emailAddress;
+      this.logger.log(`📧 Push notification for: ${userEmail}, historyId: ${notification.historyId}`);
 
-      // Process the Gmail notification
-      this.logger.log(`🚀 Starting Gmail notification processing for: ${gmailNotification.emailAddress}`);
-      const processed = await this.processGmailNotification(gmailNotification);
-
-      // Record notification in watch statistics
-      const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(gmailNotification.emailAddress);
-      if (watchInfo) {
-        await this.gmailWatchService.recordNotification(watchInfo.watchId);
-        this.logger.log(`📊 Recorded notification for watch: ${watchInfo.watchId}`);
+      // Process the notification with user context validation
+      const processedCount = await this.processGmailNotification(notification);
+      
+      if (processedCount > 0) {
+        this.logger.log(`✅ Push notification processed successfully for ${userEmail}: ${processedCount} emails`);
+      } else {
+        this.logger.log(`ℹ️ Push notification processed but no new emails found for ${userEmail}`);
       }
 
-      this.logger.log(`✅ Successfully processed Gmail notification for: ${gmailNotification.emailAddress}, processed ${processed} emails`);
-      
-      return { success: true, processed };
+      return { 
+        success: true, 
+        message: `Notification processed successfully for ${userEmail}` 
+      };
+
     } catch (error) {
-      this.logger.error('❌ Failed to handle push notification:', error);
+      this.logger.error(`❌ Push notification processing failed: ${error.message}`, error.stack);
       
-      // Return 200 to prevent Pub/Sub retries for permanent failures
-      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-        return { success: false, processed: 0 };
+      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+        throw error;
       }
       
-      // Re-throw for temporary failures (will trigger Pub/Sub retry)
-      throw error;
+      return { 
+        success: false, 
+        message: 'Failed to process push notification' 
+      };
     }
   }
 
@@ -197,27 +199,39 @@ export class GmailWebhookController {
     pubsub: boolean;
     subscriptions: any;
     watchStats: any;
+    timestamp: string;
   }> {
     try {
+      this.logger.log('🏥 Performing webhook health check');
+
       const [pubsubHealthy, subscriptionHealth, watchStats] = await Promise.all([
         this.pubSubService.testConnection(),
         this.pubSubService.getSubscriptionHealth(),
         this.gmailWatchService.getStatistics(),
       ]);
 
-      return {
+      const result = {
         status: pubsubHealthy ? 'healthy' : 'unhealthy',
         pubsub: pubsubHealthy,
         subscriptions: subscriptionHealth,
-        watchStats,
+        watchStats: {
+          ...watchStats,
+          contextNote: 'Only processing notifications for users with active sessions',
+        },
+        timestamp: new Date().toISOString(),
       };
+
+      this.logger.log(`🏥 Webhook health check completed: ${result.status}`);
+
+      return result;
     } catch (error) {
-      this.logger.error('Health check failed:', error);
+      this.logger.error('❌ Webhook health check failed:', error);
       return {
         status: 'unhealthy',
         pubsub: false,
         subscriptions: null,
         watchStats: null,
+        timestamp: new Date().toISOString(),
       };
     }
   }
@@ -234,6 +248,10 @@ export class GmailWebhookController {
       const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(notification.emailAddress);
       if (!watchInfo || !watchInfo.isActive) {
         this.logger.warn(`⚠️ No active watch found for email: ${notification.emailAddress}`);
+        
+        // This indicates an orphaned watch - try to clean it up if possible
+        await this.handleOrphanedWatch(notification.emailAddress);
+        
         return 0;
       }
 
@@ -279,6 +297,56 @@ export class GmailWebhookController {
     } catch (error) {
       this.logger.error(`❌ Failed to process Gmail notification for ${notification.emailAddress}:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Handle orphaned watch notifications
+   * This occurs when Google sends notifications for watches that no longer exist in our database
+   */
+  private async handleOrphanedWatch(emailAddress: string): Promise<void> {
+    try {
+      this.logger.log(`🧹 Handling orphaned watch notification for: ${emailAddress}`);
+      
+      // Log orphaned watch for monitoring and cleanup
+      this.logger.warn(`📊 ORPHANED WATCH DETECTED:
+        - Email: ${emailAddress}
+        - Action: Google is sending notifications for a watch not in our database
+        - Likely causes: 
+          1. Server crash/restart without proper cleanup
+          2. Manual database cleanup without Google API cleanup
+          3. Development/testing without cleanup
+        - Auto-resolution: Watch will expire within 7 days
+        - Manual cleanup: Use cleanup scripts or Google Cloud Console`);
+
+      // Try to find any watches for this email in the database (including inactive ones)
+      const inactiveWatch = await this.gmailWatchService.getWatchInfoByEmail(emailAddress);
+      
+      if (inactiveWatch) {
+        this.logger.log(`🔍 Found inactive watch in database for: ${emailAddress}, watchId: ${inactiveWatch.watchId}`);
+        this.logger.log(`💡 This watch may have been manually deactivated but not cleaned up in Google`);
+      } else {
+        this.logger.log(`🔍 No watch record found in database for: ${emailAddress} - completely orphaned`);
+      }
+
+      // Emit event for monitoring/alerting systems
+      this.eventEmitter.emit('gmail.orphaned_watch_detected', {
+        emailAddress,
+        timestamp: new Date().toISOString(),
+        hasInactiveRecord: !!inactiveWatch,
+        watchId: inactiveWatch?.watchId,
+      });
+
+      // TODO: Implement proactive cleanup if we have service account permissions
+      // For now, log the recommended cleanup steps
+      this.logger.log(`🔧 Recommended cleanup for orphaned watch:
+        1. Use the cleanup script: ./scripts/cleanup-orphaned-gmail-watches.sh
+        2. Or manually call: POST /api/gmail/debug/force-stop-all (with admin token)
+        3. Or wait for natural expiration (within 7 days)
+        4. Or use Google Cloud Console to manage Pub/Sub subscriptions`);
+
+    } catch (error) {
+      this.logger.error(`❌ Failed to handle orphaned watch for ${emailAddress}:`, error);
     }
   }
 
@@ -599,47 +667,32 @@ export class GmailWebhookController {
   }
 
   /**
-   * Verify webhook signature for security
-   */
-  private verifyWebhookSignature(payload: string, headers: Record<string, string>): void {
-    if (!this.webhookSecret) {
-      return; // Skip verification if no secret configured
-    }
-
-    const signature = headers['x-goog-signature'] || headers['X-Goog-Signature'];
-    
-    if (!signature) {
-      throw new UnauthorizedException('Missing webhook signature');
-    }
-
-    const expectedSignature = crypto
-      .createHmac('sha256', this.webhookSecret)
-      .update(payload)
-      .digest('base64');
-
-    // Use constant-time comparison to prevent timing attacks
-    const signatureBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expectedSignature);
-    
-    if (signatureBuffer.length !== expectedBuffer.length || 
-        !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
-      throw new UnauthorizedException('Invalid webhook signature');
-    }
-  }
-
-  /**
    * Verify Google Cloud Pub/Sub request authenticity
    */
-  private verifyPubSubRequest(headers: Record<string, string>, payload: PubSubPushPayload): void {
+  private verifyGooglePubSubRequest(headers: Record<string, string>, payload: PubSubPushPayload): void {
     try {
       // Method 1: Check User-Agent (Google Cloud Pub/Sub sends specific user-agent)
       const userAgent = headers['user-agent'] || headers['User-Agent'] || '';
-      if (!userAgent.includes('Google-Cloud-Pub-Sub')) {
+      const validUserAgents = [
+        'APIs-Google',
+        'Google-Cloud-Pub-Sub',
+        'Google'
+      ];
+      
+      const hasValidUserAgent = validUserAgents.some(ua => userAgent.includes(ua));
+      if (!hasValidUserAgent) {
         this.logger.warn(`⚠️ Suspicious user-agent: ${userAgent}`);
-        // Don't throw error - just log warning as some proxies might modify user-agent
+        // For development, we'll log but not reject
+        // In production, you might want to reject invalid user agents
       }
 
-      // Method 2: Verify payload structure
+      // Method 2: Check From header (Google notifications come from noreply@google.com)
+      const fromHeader = headers['from'] || headers['From'] || '';
+      if (fromHeader && !fromHeader.includes('google.com')) {
+        this.logger.warn(`⚠️ Suspicious from header: ${fromHeader}`);
+      }
+
+      // Method 3: Verify payload structure
       if (!payload.message || !payload.subscription) {
         throw new BadRequestException('Invalid Pub/Sub payload structure');
       }
@@ -648,22 +701,36 @@ export class GmailWebhookController {
         throw new BadRequestException('Invalid Pub/Sub message structure');
       }
 
-      // Method 3: Verify subscription name matches expected pattern
-      const expectedPattern = /^projects\/[\w-]+\/subscriptions\/gmail-push/;
+      // Method 4: Verify subscription name matches expected pattern
+      const expectedPattern = /^projects\/[\w-]+\/subscriptions\/(gmail-push|gmail-pull)/;
       if (!expectedPattern.test(payload.subscription)) {
         this.logger.warn(`⚠️ Unexpected subscription: ${payload.subscription}`);
-        // Don't throw error - just log warning in case subscription name changes
+        // Log warning but don't reject - subscription names might vary
       }
 
-      // Method 4: Check if webhook secret is configured for additional security
-      if (this.webhookSecret) {
-        this.logger.log('🔐 Additional webhook secret verification available');
-        // Could implement custom token verification here if needed
+      // Method 5: Optional token validation if configured
+      if (process.env.GMAIL_WEBHOOK_TOKEN) {
+        // Check if token is present in the payload attributes
+        const token = payload.message.attributes?.token;
+        
+        // Only validate token if the message actually contains one
+        // Google's default push notifications don't include custom tokens
+        if (token) {
+          if (token !== process.env.GMAIL_WEBHOOK_TOKEN) {
+            this.logger.warn('🚫 Invalid webhook token in message attributes');
+            throw new UnauthorizedException('Invalid webhook token');
+          } else {
+            this.logger.log('✅ Valid webhook token verified');
+          }
+        } else {
+          // Token is configured but not present in message - this is normal for Google
+          this.logger.log('ℹ️ Webhook token configured but not present in message (normal for Google Pub/Sub)');
+        }
       }
 
-      this.logger.log(`✅ Pub/Sub request verification passed`);
+      this.logger.log(`✅ Google Pub/Sub request verification passed`);
     } catch (error) {
-      this.logger.error('❌ Pub/Sub request verification failed:', error);
+      this.logger.error('❌ Google Pub/Sub request verification failed:', error);
       throw error;
     }
   }

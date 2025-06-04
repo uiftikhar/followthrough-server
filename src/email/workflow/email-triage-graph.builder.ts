@@ -1,4 +1,5 @@
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { EmailTriageState, EmailTriageResult, UserToneProfile } from "../dtos/email-triage.dto";
 
 // Import all email agents for direct injection
@@ -44,6 +45,9 @@ export class EmailTriageGraphBuilder {
   };
 
   constructor(
+    // Add EventEmitter for notifications
+    private readonly eventEmitter: EventEmitter2,
+    
     // Inject all email agents with @Optional decorators for graceful fallbacks
     @Optional()
     private readonly emailClassificationAgent?: EmailClassificationAgent,
@@ -814,76 +818,85 @@ export class EmailTriageGraphBuilder {
       const performanceMetrics = {
         ...state.processingMetadata?.performanceMetrics,
         totalProcessingMs,
+        completedAt: new Date().toISOString()
       };
 
-      // Create the final triage result with required properties
+      // Create final result
       const finalResult: EmailTriageResult = {
         sessionId: state.sessionId,
         emailId: state.emailData.id || `email-${Date.now()}`,
-        classification: state.classification || {
-          priority: "normal",
-          category: "other",
-          reasoning: "Classification not completed",
-          confidence: 0.0,
-        },
-        summary: state.summary || {
-          problem: "Unable to identify problem",
-          context: "Summary not completed",
-          ask: "Unable to determine request",
-          summary: "Email processing incomplete",
-        },
-        replyDraft: state.replyDraft || {
-          subject: `Re: ${state.emailData.metadata?.subject || "Your Email"}`,
-          body: "Thank you for your email. We have received your message and will get back to you soon.",
-          tone: "professional",
-          next_steps: ["Manual review"],
-        },
-        status: state.error ? "failed" : "completed",
+        classification: state.classification!,
+        summary: state.summary!,
+        replyDraft: state.replyDraft!,
+        status: "completed",
         processedAt: new Date(),
       };
 
-      // Log comprehensive processing summary
-      this.logger.log(
-        `📋 Enhanced email triage finalized - Status: ${finalResult.status}, ` +
-        `Priority: ${finalResult.classification.priority}, Total Time: ${totalProcessingMs}ms`
-      );
-
-      if (state.processingMetadata?.ragEnhanced) {
-        this.logger.log(
-          `🔍 RAG Context: ${state.retrievedContext?.length || 0} documents, ` +
-          `${state.contextRetrievalResults?.namespaces.length || 0} namespaces`
-        );
-      }
-
-      if (performanceMetrics) {
-        this.logger.log(
-          `⏱️ Performance: Context=${performanceMetrics.contextRetrievalMs}ms, ` +
-          `Classification=${performanceMetrics.classificationMs}ms, ` +
-          `Summarization=${performanceMetrics.summarizationMs}ms, ` +
-          `ReplyDraft=${performanceMetrics.replyDraftMs}ms`
-        );
-      }
-
-      return {
+      const finalState: EmailTriageState = {
         ...state,
-        result: finalResult,
         currentStep: "completed",
         progress: 100,
+        result: finalResult,
         processingMetadata: {
           ...state.processingMetadata,
-          performanceMetrics,
-        },
+          performanceMetrics
+        }
       };
+
+      // 📢 NOTIFICATION FIX: Emit completion event via WebSocket
+      this.logger.log(`📨 Emitting triage.completed notification for session: ${state.sessionId}`);
+      
+      try {
+        // Emit to the specific user who triggered the triage
+        const userEmail = state.emailData.metadata.from || state.emailData.metadata.userId;
+        if (userEmail) {
+          // Emit completion notification with detailed results
+          const notificationPayload = {
+            sessionId: state.sessionId,
+            emailId: finalResult.emailId,
+            status: 'completed',
+            result: finalResult,
+            performanceMetrics,
+            timestamp: new Date().toISOString()
+          };
+
+          this.logger.log(`🚀 Broadcasting triage.completed to user: ${userEmail}`, notificationPayload);
+          
+          // Use EventEmitter to broadcast notification
+          this.eventEmitter.emit('email.triage.completed', {
+            userEmail,
+            ...notificationPayload
+          });
+
+          this.logger.log(`✅ Successfully emitted triage.completed notification`);
+        } else {
+          this.logger.warn(`⚠️ No user email found for notification emission`);
+        }
+      } catch (notificationError) {
+        this.logger.error(`❌ Failed to emit completion notification: ${notificationError.message}`);
+        // Don't fail the entire process for notification errors
+      }
+
+      this.logger.log(`🎯 Email triage completed successfully:
+        - Session: ${state.sessionId}
+        - Priority: ${state.classification?.priority}
+        - Category: ${state.classification?.category}
+        - Processing Time: ${totalProcessingMs}ms
+        - RAG Enhanced: ${state.processingMetadata?.ragEnhanced}
+        - Agents Used: ${state.processingMetadata?.agentsUsed?.join(', ')}`);
+
+      return finalState;
+      
     } catch (error) {
-      this.logger.error(
-        `Error in enhanced finalization: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to finalize email triage: ${error.message}`, error.stack);
+      
       return {
         ...state,
+        currentStep: "error",
+        progress: 100,
         error: {
           message: error.message,
-          stage: "finalization", 
+          stage: "finalization",
           timestamp: new Date().toISOString(),
         },
       };

@@ -319,4 +319,18 @@ export class GmailWatchRepository {
       // Don't throw error as this is not critical
     }
   }
+
+  /**
+   * Find all active Gmail watches
+   */
+  async findAllActive(): Promise<GmailWatchDocument[]> {
+    try {
+      return await this.gmailWatchModel
+        .find({ isActive: true })
+        .exec();
+    } catch (error) {
+      this.logger.error('Failed to find all active Gmail watches:', error);
+      throw error;
+    }
+  }
 } 

@@ -240,6 +240,39 @@ export class PubSubService {
   }
 
   /**
+   * Lightweight connection check - just validates client without network calls
+   */
+  isConfiguredProperly(): boolean {
+    try {
+      return !!(this.pubSubClient && this.projectId && this.topicName);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Test connection with user context for debugging
+   */
+  async testConnectionWithContext(userId?: string): Promise<boolean> {
+    const logContext = userId ? ` for user: ${userId}` : '';
+    try {
+      const topic = this.pubSubClient.topic(this.topicName);
+      const [exists] = await topic.exists();
+      
+      if (!exists) {
+        this.logger.error(`Topic ${this.topicName} does not exist${logContext}`);
+        return false;
+      }
+
+      this.logger.log(`Pub/Sub connection test successful${logContext}`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Pub/Sub connection test failed${logContext}:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Publish a test message (for testing purposes)
    */
   async publishTestMessage(testData: any = { test: true }): Promise<string> {

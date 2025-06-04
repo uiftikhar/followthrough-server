@@ -262,6 +262,7 @@ export class GmailBackgroundService implements OnModuleInit {
           name: 'PubSub Connection',
           status: pubsubHealthy ? 'healthy' : 'unhealthy',
           message: pubsubHealthy ? 'Connected' : 'Connection failed',
+          timestamp: new Date().toISOString(),
         });
         if (pubsubHealthy) healthyChecks++;
       } catch (error) {
@@ -269,6 +270,7 @@ export class GmailBackgroundService implements OnModuleInit {
           name: 'PubSub Connection',
           status: 'unhealthy',
           message: error.message,
+          timestamp: new Date().toISOString(),
         });
       }
 
@@ -281,6 +283,7 @@ export class GmailBackgroundService implements OnModuleInit {
           name: 'Subscriptions',
           status: isHealthy ? 'healthy' : 'degraded',
           details: subscriptionHealth,
+          timestamp: new Date().toISOString(),
         });
         if (isHealthy) healthyChecks++;
       } catch (error) {
@@ -288,10 +291,11 @@ export class GmailBackgroundService implements OnModuleInit {
           name: 'Subscriptions',
           status: 'unhealthy',
           message: error.message,
+          timestamp: new Date().toISOString(),
         });
       }
 
-      // Check watch statistics
+      // Check watch statistics with user context
       totalChecks++;
       try {
         const watchStats = await this.gmailWatchService.getStatistics();
@@ -309,14 +313,21 @@ export class GmailBackgroundService implements OnModuleInit {
         checks.push({
           name: 'Gmail Watches',
           status,
-          details: watchStats,
+          details: {
+            ...watchStats,
+            contextNote: 'Only processing watches for users with active sessions',
+          },
+          timestamp: new Date().toISOString(),
         });
         if (status === 'healthy') healthyChecks++;
+        
+        this.logger.log(`📊 Background service health check: ${watchStats.totalActive} active watches, ${errorCount} with errors`);
       } catch (error) {
         checks.push({
           name: 'Gmail Watches',
           status: 'unhealthy',
           message: error.message,
+          timestamp: new Date().toISOString(),
         });
       }
 
@@ -332,6 +343,8 @@ export class GmailBackgroundService implements OnModuleInit {
         overallStatus = 'unhealthy';
       }
 
+      this.logger.log(`🏥 System health check completed: ${overallStatus} (${healthyChecks}/${totalChecks} checks passed)`);
+
       return {
         status: overallStatus,
         checks,
@@ -340,11 +353,12 @@ export class GmailBackgroundService implements OnModuleInit {
           totalChecks,
           healthRatio: Math.round(healthRatio * 100),
           timestamp: new Date().toISOString(),
+          contextNote: 'Background services only process data for users with active sessions',
         },
       };
 
     } catch (error) {
-      this.logger.error('System health check failed:', error);
+      this.logger.error('❌ System health check failed:', error);
       return {
         status: 'unhealthy',
         checks: [{
@@ -352,12 +366,14 @@ export class GmailBackgroundService implements OnModuleInit {
           status: 'unhealthy',
           message: 'Health check process failed',
           error: error.message,
+          timestamp: new Date().toISOString(),
         }],
         summary: {
           healthyChecks: 0,
           totalChecks: 1,
           healthRatio: 0,
           timestamp: new Date().toISOString(),
+          contextNote: 'Health check process encountered an error',
         },
       };
     }

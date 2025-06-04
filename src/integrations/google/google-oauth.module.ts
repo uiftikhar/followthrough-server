@@ -21,11 +21,15 @@ import { GmailService } from './services/gmail.service';
 import { PubSubService } from './services/pubsub.service';
 import { GmailWatchService } from './services/gmail-watch.service';
 import { GmailBackgroundService } from './services/gmail-background.service';
+import { GmailShutdownService } from './services/gmail-shutdown.service';
+import { GmailNotificationService } from './services/gmail-notification.service';
 
 // Controllers
 import { GoogleOAuthController } from './controllers/google-oauth.controller';
 import { GmailWebhookController } from './controllers/gmail-webhook.controller';
 import { GmailClientController } from './controllers/gmail-client.controller';
+import { GmailWatchController } from './controllers/gmail-watch.controller';
+import { GmailDebugController } from './controllers/gmail-debug.controller';
 
 // Guards
 import { GoogleAuthGuard } from './guards/google-auth.guard';
@@ -70,6 +74,8 @@ import { GmailNotificationGateway } from './services/gmail-notification.gateway'
     GoogleOAuthController, // OAuth flow and Gmail watch management endpoints
     GmailWebhookController, // Gmail push notification webhooks
     GmailClientController, // Gmail client management endpoints
+    GmailWatchController, // Gmail watch management endpoints
+    GmailDebugController, // Debug and troubleshooting endpoints
   ],
   providers: [
     // Core services
@@ -79,6 +85,8 @@ import { GmailNotificationGateway } from './services/gmail-notification.gateway'
     PubSubService,
     GmailWatchService,
     GmailBackgroundService, // Background jobs and health monitoring
+    GmailShutdownService, // Gmail shutdown service
+    GmailNotificationService,
     
     // Real-time notifications
     GmailNotificationGateway, // WebSocket gateway for real-time client notifications
@@ -97,6 +105,8 @@ import { GmailNotificationGateway } from './services/gmail-notification.gateway'
     GmailWatchService,
     PubSubService,
     GmailBackgroundService,
+    GmailShutdownService,
+    GmailNotificationService,
     GmailNotificationGateway, // Export gateway for use in other modules
     GoogleAuthGuard,
     UserGoogleTokensRepository,

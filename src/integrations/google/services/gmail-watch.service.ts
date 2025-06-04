@@ -355,4 +355,168 @@ export class GmailWatchService {
       userId: watch.userId,
     };
   }
+
+  /**
+   * Stop and delete a Gmail watch by email address
+   * Used for cross-contamination cleanup when we only have the email
+   */
+  async stopWatchByEmail(googleEmail: string): Promise<boolean> {
+    try {
+      this.logger.log(`Stopping Gmail watch for email: ${googleEmail}`);
+
+      // Get existing watch from database
+      const existingWatch = await this.gmailWatchRepository.findByGoogleEmail(googleEmail);
+      if (!existingWatch) {
+        this.logger.log(`No active Gmail watch found for email: ${googleEmail}`);
+        return false;
+      }
+
+      return await this.stopWatch(existingWatch.userId);
+    } catch (error) {
+      this.logger.error(`Failed to stop Gmail watch for email ${googleEmail}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clean up inactive watches for users without active sessions
+   * Used to prevent cross-contamination
+   */
+  async cleanupInactiveWatches(activeUserEmails: Set<string>): Promise<{
+    cleaned: number;
+    failed: number;
+  }> {
+    try {
+      this.logger.log('🧹 Starting cleanup of inactive Gmail watches');
+
+      // Get all active watches
+      const activeWatches = await this.gmailWatchRepository.findAllActive();
+      
+      let cleaned = 0;
+      let failed = 0;
+
+      for (const watch of activeWatches) {
+        try {
+          // If user email is not in active sessions, clean it up
+          if (!activeUserEmails.has(watch.googleEmail)) {
+            this.logger.log(`🗑️ Cleaning up inactive watch for: ${watch.googleEmail}`);
+            
+            const stopped = await this.stopWatch(watch.userId);
+            if (stopped) {
+              cleaned++;
+              this.logger.log(`✅ Cleaned up watch for: ${watch.googleEmail}`);
+            }
+          }
+        } catch (error) {
+          failed++;
+          this.logger.error(`❌ Failed to cleanup watch for ${watch.googleEmail}: ${error.message}`);
+        }
+      }
+
+      this.logger.log(`🧹 Cleanup completed: ${cleaned} cleaned, ${failed} failed`);
+      
+      return { cleaned, failed };
+    } catch (error) {
+      this.logger.error('Failed to cleanup inactive watches:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Stop all active Gmail watches (for graceful server shutdown)
+   * This prevents orphaned watches from continuing to send notifications
+   */
+  async stopAllActiveWatches(): Promise<{
+    totalWatches: number;
+    successfullyStopped: number;
+    failed: number;
+    errors: string[];
+  }> {
+    try {
+      this.logger.log('🛑 Starting graceful shutdown - stopping all active Gmail watches');
+
+      // Get all active watches
+      const activeWatches = await this.gmailWatchRepository.findAllActive();
+      const totalWatches = activeWatches.length;
+      
+      if (totalWatches === 0) {
+        this.logger.log('ℹ️ No active Gmail watches found to stop');
+        return {
+          totalWatches: 0,
+          successfullyStopped: 0,
+          failed: 0,
+          errors: [],
+        };
+      }
+
+      this.logger.log(`📊 Found ${totalWatches} active watches to stop during shutdown`);
+
+      let successfullyStopped = 0;
+      let failed = 0;
+      const errors: string[] = [];
+
+      // Stop all watches in parallel for faster shutdown
+      const stopPromises = activeWatches.map(async (watch) => {
+        try {
+          this.logger.log(`🛑 Stopping watch for: ${watch.googleEmail} (${watch.watchId})`);
+          
+          // Get authenticated Gmail client
+          const client = await this.googleOAuthService.getAuthenticatedClient(watch.userId.toString());
+          const gmail = google.gmail({ version: 'v1', auth: client });
+
+          // Stop the watch via Gmail API
+          await gmail.users.stop({ userId: 'me' });
+          
+          // Deactivate in database
+          await this.gmailWatchRepository.deactivateByUserId(watch.userId);
+          
+          this.logger.log(`✅ Successfully stopped watch for: ${watch.googleEmail}`);
+          return { success: true, email: watch.googleEmail };
+        } catch (error) {
+          const errorMsg = `Failed to stop watch for ${watch.googleEmail}: ${error.message}`;
+          this.logger.error(`❌ ${errorMsg}`);
+          errors.push(errorMsg);
+          return { success: false, email: watch.googleEmail, error: errorMsg };
+        }
+      });
+
+      // Wait for all stop operations to complete (with timeout)
+      const results = await Promise.allSettled(stopPromises);
+      
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          if (result.value.success) {
+            successfullyStopped++;
+          } else {
+            failed++;
+          }
+        } else {
+          failed++;
+          errors.push(`Promise rejected: ${result.reason}`);
+        }
+      });
+
+      const summary = {
+        totalWatches,
+        successfullyStopped,
+        failed,
+        errors,
+      };
+
+      this.logger.log(`🎯 Graceful shutdown watch cleanup completed:
+        - Total watches: ${totalWatches}
+        - Successfully stopped: ${successfullyStopped}
+        - Failed: ${failed}
+        - Errors: ${errors.length}`);
+
+      if (errors.length > 0) {
+        this.logger.warn(`⚠️ Some watches failed to stop:`, errors);
+      }
+
+      return summary;
+    } catch (error) {
+      this.logger.error('❌ Failed to stop all active watches during shutdown:', error);
+      throw error;
+    }
+  }
 } 

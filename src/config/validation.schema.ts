@@ -69,4 +69,11 @@ export const configValidationSchema = Joi.object({
 
   // Storage Configuration
   STORAGE_PATH: Joi.string().default('./data/file-storage'),
+
+  // Google OAuth and Gmail Configuration
+  GOOGLE_CLIENT_ID: Joi.string().required(),
+  GOOGLE_CLIENT_SECRET: Joi.string().required(),
+  GOOGLE_CLOUD_PROJECT_ID: Joi.string().required(),
+  GMAIL_PUBSUB_TOPIC: Joi.string().default('gmail-notifications'),
+  GOOGLE_REMOVE_ACTIVE_WATCHERS: Joi.boolean().default(false),
 });

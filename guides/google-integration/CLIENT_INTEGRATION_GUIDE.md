@@ -583,7 +583,7 @@ socket.on('triage.completed', (data: TriageCompletedEvent) => {
 
 ### **🔗 Production API Base URL**
 ```
-https://ffdf-2-201-41-78.ngrok-free.app
+https://65fc-2-201-41-78.ngrok-free.app
 ```
 
 ## 🔐 **Authentication Requirements**
@@ -628,7 +628,7 @@ const authenticatedRequest = async (url, options = {}) => {
 ### **Step 1: OAuth Setup (Authenticated)**
 
 ```javascript
-const API_BASE_URL = 'https://ffdf-2-201-41-78.ngrok-free.app';
+const API_BASE_URL = 'https://65fc-2-201-41-78.ngrok-free.app';
 
 // Get OAuth authorization URL (requires JWT auth)
 const authResponse = await authenticatedRequest(`${API_BASE_URL}/gmail/client/auth-url`);
@@ -941,7 +941,7 @@ const ProductionEmailTriage = ({ jwtToken, userId, userEmail }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [systemHealth, setSystemHealth] = useState(null);
 
-  const API_BASE_URL = 'https://ffdf-2-201-41-78.ngrok-free.app';
+  const API_BASE_URL = 'https://65fc-2-201-41-78.ngrok-free.app';
 
   useEffect(() => {
     // Connect to production WebSocket with auth
@@ -1171,17 +1171,17 @@ node test-production-gmail-flow.js YOUR_JWT_TOKEN
 ```bash
 # Test OAuth status
 curl -H "Authorization: Bearer YOUR_TOKEN" \
-  https://ffdf-2-201-41-78.ngrok-free.app/gmail/client/status
+  https://65fc-2-201-41-78.ngrok-free.app/gmail/client/status
 
 # Setup notifications
 curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
-  https://ffdf-2-201-41-78.ngrok-free.app/gmail/client/setup-notifications
+  https://65fc-2-201-41-78.ngrok-free.app/gmail/client/setup-notifications
 
 # Test real email triage
 curl -X POST -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"subject":"Test","from":"test@example.com","body":"Test email"}' \
-  https://ffdf-2-201-41-78.ngrok-free.app/gmail/client/test-triage
+  https://65fc-2-201-41-78.ngrok-free.app/gmail/client/test-triage
 ```
 
 ### **3. Production Health Monitoring**

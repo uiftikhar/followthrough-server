@@ -103,68 +103,145 @@ export class GmailClientController {
   }
 
   /**
-   * Get comprehensive connection and notification status
-   * Step 2: Client calls this after OAuth to verify setup
+   * Get Gmail client status with clear account information
+   * GET /gmail/client/status
    */
   @Get('status')
   @UseGuards(AuthGuard('jwt'))
   async getStatus(@Req() req: AuthenticatedRequest) {
     try {
       const userId = req.user.id;
+      this.logger.log(`📊 Getting Gmail status for user: ${userId}`);
+
+      // Check Google OAuth connection (lightweight check)
+      const isConnected = await this.googleOAuthService.isConnected(userId);
       
-      // Get OAuth status
-      const oauthStatus = await this.googleOAuthService.getTokenStatus(userId);
+      let authenticatedEmail: string | null = null;
+      let authenticationStatus = 'not_connected';
       
-      let userInfo: any = null;
-      let watchInfo: any = null;
-      
-      if (oauthStatus.isConnected) {
-        // Get Google user info
-        userInfo = await this.googleOAuthService.getGoogleUserInfo(userId);
-        
-        // Get Gmail watch status
-        watchInfo = await this.gmailWatchService.getWatchInfo(new Types.ObjectId(userId));
+      if (isConnected) {
+        try {
+          // Get authenticated Gmail account
+          const client = await this.googleOAuthService.getAuthenticatedClient(userId);
+          const gmail = google.gmail({ version: 'v1', auth: client });
+          const profile = await gmail.users.getProfile({ userId: 'me' });
+          authenticatedEmail = profile.data.emailAddress!;
+          authenticationStatus = 'connected';
+          this.logger.log(`✅ User ${userId} authenticated as Gmail: ${authenticatedEmail}`);
+        } catch (error) {
+          authenticationStatus = 'auth_failed';
+          this.logger.warn(`❌ Authentication failed for user ${userId}: ${error.message}`);
+        }
+      } else {
+        this.logger.log(`❌ User ${userId} not connected to Google`);
       }
 
-      // Get overall system health
-      const systemHealth = await this.getSystemHealth();
+      // Check Gmail watch status
+      const watchInfo = await this.gmailWatchService.getWatchInfo(new Types.ObjectId(userId));
+      
+      // Basic Pub/Sub config check (no network calls)
+      const pubsubConfigured = this.pubSubService.isConfiguredProperly();
+
+      // Determine overall status and any issues
+      const issues: string[] = [];
+      const recommendations: string[] = [];
+      
+      if (!isConnected) {
+        issues.push('Not connected to Google');
+        recommendations.push('Complete OAuth authorization first');
+      } else if (authenticationStatus === 'auth_failed') {
+        issues.push('Google authentication failed');
+        recommendations.push('Refresh your Google authorization');
+      }
+      
+      if (!watchInfo || !watchInfo.isActive) {
+        issues.push('No active Gmail watch');
+        recommendations.push('Set up Gmail notifications');
+      } else if (authenticatedEmail && watchInfo.googleEmail !== authenticatedEmail) {
+        issues.push('Email account mismatch detected');
+        issues.push(`Watch exists for ${watchInfo.googleEmail} but authenticated as ${authenticatedEmail}`);
+        recommendations.push('Re-authenticate with the correct Gmail account');
+        recommendations.push('Then set up notifications again');
+      }
+
+      if (!pubsubConfigured) {
+        issues.push('Pub/Sub not properly configured');
+        recommendations.push('Check Google Cloud configuration');
+      }
+
+      const status = {
+        user: {
+          userId,
+          isConnectedToGoogle: isConnected,
+          authenticationStatus,
+        },
+        gmail: {
+          authenticatedAs: authenticatedEmail,
+          monitoringAccount: watchInfo?.googleEmail || null,
+          accountsMatch: authenticatedEmail === watchInfo?.googleEmail,
+          watchActive: watchInfo?.isActive || false,
+          watchDetails: watchInfo ? {
+            watchId: watchInfo.watchId,
+            expiresAt: watchInfo.expiresAt,
+            notificationsReceived: watchInfo.notificationsReceived,
+            emailsProcessed: watchInfo.emailsProcessed,
+            errorCount: watchInfo.errorCount,
+          } : null,
+        },
+        infrastructure: {
+          pubsubConfigured,
+          note: 'Use /gmail/client/health for detailed infrastructure testing',
+        },
+        health: {
+          overall: issues.length === 0 ? 'healthy' : 'issues_detected',
+          issues,
+          recommendations,
+        },
+      };
+
+      // Add specific guidance based on the situation
+      if (status.gmail.authenticatedAs && status.gmail.monitoringAccount) {
+        if (status.gmail.accountsMatch) {
+          status.health.recommendations.unshift('✅ Your Gmail notifications are correctly configured');
+        } else {
+          status.health.recommendations.unshift('⚠️ Account mismatch: You will not receive notifications for the expected account');
+        }
+      }
+
+      this.logger.log(`📊 Status check completed for user ${userId}: ${status.health.overall}`);
 
       return {
         success: true,
-        oauth: {
-          isConnected: oauthStatus.isConnected,
-          userInfo,
-        },
-        notifications: {
-          isEnabled: !!watchInfo?.isActive,
-          watchInfo,
-        },
-        system: systemHealth,
-        nextSteps: this.getNextSteps(oauthStatus.isConnected, !!watchInfo?.isActive),
+        status,
+        nextSteps: status.health.overall === 'healthy' 
+          ? ['Send an email to your monitored account to test notifications']
+          : status.health.recommendations,
       };
     } catch (error) {
-      this.logger.error('Failed to get status:', error);
+      this.logger.error(`❌ Get status failed for user ${req.user?.id}: ${error.message}`, error.stack);
       throw new HttpException(
-        'Failed to get status',
+        {
+          success: false,
+          message: `Failed to get status: ${error.message}`,
+          error: error.message,
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
   /**
-   * Set up Gmail push notifications
-   * Step 3: Client calls this to enable notifications after OAuth
+   * Setup Gmail push notifications for authenticated user
+   * POST /gmail/client/setup-notifications
    */
   @Post('setup-notifications')
   @UseGuards(AuthGuard('jwt'))
-  async setupNotifications(
-    @Req() req: AuthenticatedRequest,
-    @Body() setupDto: SetupGmailNotificationsDto = {},
-  ) {
+  async setupNotifications(@Req() req: AuthenticatedRequest) {
     try {
       const userId = req.user.id;
-      
-      // Check if user is connected
+      this.logger.log(`📡 Setting up Gmail notifications for user: ${userId}`);
+
+      // Check if user is connected to Google
       const isConnected = await this.googleOAuthService.isConnected(userId);
       if (!isConnected) {
         throw new HttpException(
@@ -173,45 +250,100 @@ export class GmailClientController {
         );
       }
 
-      // Check if user already has an active watch
+      // Get authenticated Gmail client to verify current account
+      const client = await this.googleOAuthService.getAuthenticatedClient(userId);
+      const gmail = google.gmail({ version: 'v1', auth: client });
+      
+      // Get the authenticated Gmail account details
+      const profile = await gmail.users.getProfile({ userId: 'me' });
+      const authenticatedEmail = profile.data.emailAddress!;
+      
+      this.logger.log(`🔐 User authenticated as Gmail account: ${authenticatedEmail}`);
+
+      // Check if user already has active watch
       const existingWatch = await this.gmailWatchService.getWatchInfo(new Types.ObjectId(userId));
       if (existingWatch && existingWatch.isActive) {
-        return {
-          success: true,
-          message: 'Gmail notifications already enabled',
-          watchInfo: existingWatch,
-          nextSteps: ['Send a test email to trigger processing', 'Use POST /gmail/client/test-triage for immediate testing'],
-        };
+        // Verify the existing watch is for the same authenticated account
+        if (existingWatch.googleEmail !== authenticatedEmail) {
+          this.logger.warn(`⚠️ Watch exists for different email: ${existingWatch.googleEmail} vs ${authenticatedEmail}`);
+          
+          // Clean up old watch first
+          await this.gmailWatchService.stopWatch(new Types.ObjectId(userId));
+          this.logger.log(`🧹 Cleaned up old watch for: ${existingWatch.googleEmail}`);
+        } else {
+          return {
+            success: true,
+            message: 'Gmail notifications already active',
+            status: 'already_active',
+            watchInfo: {
+              watchId: existingWatch.watchId,
+              email: existingWatch.googleEmail,
+              expiresAt: existingWatch.expiresAt,
+              notificationsReceived: existingWatch.notificationsReceived,
+            },
+          };
+        }
       }
 
-      // Create new Gmail watch
+      // Create new watch for the authenticated account
       const watchInfo = await this.gmailWatchService.createWatch({
         userId: new Types.ObjectId(userId),
-        labelIds: setupDto.labelIds || ['INBOX'],
-        labelFilterBehavior: setupDto.labelFilterBehavior || 'INCLUDE',
+        labelIds: ['INBOX'],
+        labelFilterBehavior: 'INCLUDE',
       });
 
       this.logger.log(`Gmail notifications setup for user: ${userId}`);
 
       return {
         success: true,
-        message: 'Gmail notifications enabled successfully',
-        watchInfo,
-        nextSteps: [
-          'Send an email to your Gmail inbox to test push notifications',
-          'Use POST /gmail/client/test-triage to test email processing immediately',
-          'Check GET /gmail/client/health for system monitoring',
-        ],
+        message: 'Gmail notifications setup successfully',
+        status: 'setup_complete',
+        watchInfo: {
+          watchId: watchInfo.watchId,
+          email: watchInfo.googleEmail,
+          expiresAt: watchInfo.expiresAt,
+          historyId: watchInfo.historyId,
+        },
+        important: {
+          note: 'Notifications are active for the authenticated Gmail account only',
+          authenticatedAccount: authenticatedEmail,
+          monitoringAccount: watchInfo.googleEmail,
+          guidance: authenticatedEmail === watchInfo.googleEmail 
+            ? 'Your watch is correctly configured for your authenticated account'
+            : 'WARNING: Account mismatch detected - this should not happen',
+        },
       };
     } catch (error) {
-      this.logger.error('Failed to setup Gmail notifications:', error);
+      this.logger.error(`❌ Setup notifications failed: ${error.message}`, error.stack);
       
-      if (error instanceof HttpException) {
-        throw error;
+      // Provide specific guidance for common errors
+      let userMessage = `Setup failed: ${error.message}`;
+      let guidance: string[] = [];
+      
+      if (error.message.includes('User not connected')) {
+        guidance.push('Complete Google OAuth authorization first');
+        guidance.push('Make sure you authorize the correct Gmail account');
+      } else if (error.message.includes('Authentication failed')) {
+        guidance.push('Your Google authorization may have expired');
+        guidance.push('Try disconnecting and reconnecting your Google account');
+      } else if (error.message.includes('insufficient permissions')) {
+        guidance.push('Make sure you grant Gmail permissions during OAuth');
+        guidance.push('The app needs Gmail read and modify permissions');
       }
       
       throw new HttpException(
-        'Failed to setup Gmail notifications',
+        {
+          success: false,
+          message: userMessage,
+          error: error.message,
+          guidance,
+          troubleshooting: {
+            step1: 'Verify you are logged into the correct Gmail account in your browser',
+            step2: 'Complete OAuth authorization for that specific Gmail account',
+            step3: 'Ensure you grant all requested Gmail permissions',
+            step4: 'Then retry setting up notifications',
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -459,6 +591,61 @@ export class GmailClientController {
   }
 
   /**
+   * Comprehensive infrastructure health check with network tests
+   * GET /gmail/client/infrastructure-health
+   */
+  @Get('infrastructure-health')
+  @UseGuards(AuthGuard('jwt'))
+  async getInfrastructureHealth(@Req() req: AuthenticatedRequest) {
+    try {
+      const userId = req.user.id;
+      this.logger.log(`🔍 Performing infrastructure health check for user: ${userId}`);
+
+      // Perform actual network tests
+      const [pubsubHealthy, subscriptionHealth, watchStats] = await Promise.all([
+        this.pubSubService.testConnectionWithContext(userId),
+        this.pubSubService.getSubscriptionHealth(),
+        this.gmailWatchService.getStatistics(),
+      ]);
+
+      const health = {
+        user: {
+          userId,
+          requestedAt: new Date().toISOString(),
+        },
+        infrastructure: {
+          pubsub: {
+            connected: pubsubHealthy,
+            subscriptions: subscriptionHealth,
+          },
+          watches: watchStats,
+        },
+        status: pubsubHealthy ? 'healthy' : 'unhealthy',
+        timestamp: new Date().toISOString(),
+      };
+
+      this.logger.log(`🔍 Infrastructure health check completed for user ${userId}: ${health.status}`);
+
+      return {
+        success: true,
+        ...health,
+      };
+    } catch (error) {
+      this.logger.error(`❌ Infrastructure health check failed for user ${req.user?.id}: ${error.message}`, error);
+      return {
+        success: false,
+        status: 'unhealthy',
+        error: error.message,
+        user: {
+          userId: req.user?.id,
+          requestedAt: new Date().toISOString(),
+        },
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
    * Get detailed watch statistics (admin endpoint)
    */
   @Get('statistics')
@@ -527,13 +714,23 @@ export class GmailClientController {
    * Test Pub/Sub connection
    */
   @Post('test-pubsub')
-  async testPubSubConnection() {
+  @UseGuards(AuthGuard('jwt'))
+  async testPubSubConnection(@Req() req: AuthenticatedRequest) {
     try {
-      const isHealthy = await this.pubSubService.testConnection();
+      const userId = req.user.id;
+      this.logger.log(`🧪 Testing Pub/Sub connection for user: ${userId}`);
+
+      const isHealthy = await this.pubSubService.testConnectionWithContext(userId);
       const subscriptionHealth = await this.pubSubService.getSubscriptionHealth();
+
+      this.logger.log(`🧪 Pub/Sub test completed for user ${userId}: ${isHealthy ? 'healthy' : 'unhealthy'}`);
 
       return {
         success: true,
+        user: {
+          userId,
+          testedAt: new Date().toISOString(),
+        },
         pubsub: {
           connected: isHealthy,
           subscriptions: subscriptionHealth,
@@ -541,9 +738,13 @@ export class GmailClientController {
         message: isHealthy ? 'Pub/Sub connection is healthy' : 'Pub/Sub connection issues detected',
       };
     } catch (error) {
-      this.logger.error('Pub/Sub test failed:', error);
+      this.logger.error(`❌ Pub/Sub test failed for user ${req.user?.id}: ${error.message}`, error);
       return {
         success: false,
+        user: {
+          userId: req.user?.id,
+          testedAt: new Date().toISOString(),
+        },
         pubsub: {
           connected: false,
           error: error.message,
@@ -567,7 +768,7 @@ export class GmailClientController {
       const subscriptionHealth = await this.pubSubService.getSubscriptionHealth();
 
       // Check webhook endpoint accessibility
-      const webhookUrl = `${process.env.WEBHOOK_BASE_URL || 'https://ffdf-2-201-41-78.ngrok-free.app'}/api/gmail/webhooks/push`;
+      const webhookUrl = `${process.env.WEBHOOK_BASE_URL || 'https://65fc-2-201-41-78.ngrok-free.app'}/api/gmail/webhooks/push`;
 
       const diagnosis = {
         pubsub: {
@@ -673,12 +874,12 @@ export class GmailClientController {
         webhookUrl,
         mockPayload,
         instructions: [
-          `Use curl or Postman to POST this payload to: ${process.env.WEBHOOK_BASE_URL || 'https://ffdf-2-201-41-78.ngrok-free.app'}/api/gmail/webhooks/push`,
+          `Use curl or Postman to POST this payload to: ${process.env.WEBHOOK_BASE_URL || 'https://65fc-2-201-41-78.ngrok-free.app'}/api/gmail/webhooks/push`,
           'Check server logs for webhook processing messages',
           'Verify WebSocket clients receive notifications'
         ],
         curlCommand: `curl -X POST \\
-  ${process.env.WEBHOOK_BASE_URL || 'https://ffdf-2-201-41-78.ngrok-free.app'}/api/gmail/webhooks/push \\
+  ${process.env.WEBHOOK_BASE_URL || 'https://65fc-2-201-41-78.ngrok-free.app'}/api/gmail/webhooks/push \\
   -H "Content-Type: application/json" \\
   -H "ngrok-skip-browser-warning: any-value" \\
   -d '${JSON.stringify(mockPayload)}'`

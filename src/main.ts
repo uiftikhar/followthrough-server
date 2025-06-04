@@ -30,7 +30,7 @@ async function bootstrap() {
         "https://followthrough-client.vercel.app",
         "https://followthrough-client-uiftikhars-projects.vercel.app",
         "https://followthrough-client-uiftikhar-uiftikhars-projects.vercel.app",
-        "https://ffdf-2-201-41-78.ngrok-free.app",
+        "https://65fc-2-201-41-78.ngrok-free.app",
       ], // Allow both Next.js and other clients
       methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
       credentials: true, // Allow cookies and authentication headers

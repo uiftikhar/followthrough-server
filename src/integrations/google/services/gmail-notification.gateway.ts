@@ -24,7 +24,7 @@ import { OnEvent } from '@nestjs/event-emitter';
       'https://followthrough-client.vercel.app',
       'https://followthrough-client-uiftikhars-projects.vercel.app',
       'https://followthrough-client-uiftikhar-uiftikhars-projects.vercel.app',
-      'https://ffdf-2-201-41-78.ngrok-free.app',
+      'https://65fc-2-201-41-78.ngrok-free.app',
     ], // Add your client origins
     credentials: true,
   },
@@ -35,6 +35,7 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
 
   private readonly logger = new Logger(GmailNotificationGateway.name);
   private readonly connectedClients = new Map<string, Socket>();
+  private readonly userSessions = new Map<string, Set<string>>(); // userEmail -> Set of client IDs
 
   /**
    * Handle client connection
@@ -57,8 +58,76 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
    */
   handleDisconnect(client: Socket) {
     const clientId = client.id;
+    
+    // Remove from user sessions
+    for (const [userEmail, clientIds] of this.userSessions.entries()) {
+      if (clientIds.has(clientId)) {
+        clientIds.delete(clientId);
+        this.logger.log(`Removed client ${clientId} from user session: ${userEmail}`);
+        
+        // If no more clients for this user, remove the user session
+        if (clientIds.size === 0) {
+          this.userSessions.delete(userEmail);
+          this.logger.log(`No more active clients for user: ${userEmail} - session cleaned up`);
+        }
+        break;
+      }
+    }
+    
     this.connectedClients.delete(clientId);
     this.logger.log(`Client disconnected: ${clientId}`);
+  }
+
+  /**
+   * Get the number of active connections for a specific user
+   * Used to validate if user has active sessions before processing notifications
+   */
+  async getActiveConnections(userEmail: string): Promise<number> {
+    const userClients = this.userSessions.get(userEmail);
+    const activeCount = userClients ? userClients.size : 0;
+    
+    this.logger.log(`Active connections for ${userEmail}: ${activeCount}`);
+    return activeCount;
+  }
+
+  /**
+   * Get all active user sessions for monitoring
+   */
+  getActiveUserSessions(): Map<string, number> {
+    const sessions = new Map<string, number>();
+    for (const [userEmail, clientIds] of this.userSessions.entries()) {
+      sessions.set(userEmail, clientIds.size);
+    }
+    return sessions;
+  }
+
+  /**
+   * Clean up inactive sessions (for maintenance)
+   */
+  cleanupInactiveSessions(): void {
+    let cleanedUp = 0;
+    for (const [userEmail, clientIds] of this.userSessions.entries()) {
+      // Remove disconnected client IDs
+      const activeClientIds = new Set<string>();
+      for (const clientId of clientIds) {
+        if (this.connectedClients.has(clientId)) {
+          activeClientIds.add(clientId);
+        }
+      }
+      
+      if (activeClientIds.size !== clientIds.size) {
+        if (activeClientIds.size === 0) {
+          this.userSessions.delete(userEmail);
+          cleanedUp++;
+        } else {
+          this.userSessions.set(userEmail, activeClientIds);
+        }
+      }
+    }
+    
+    if (cleanedUp > 0) {
+      this.logger.log(`Cleaned up ${cleanedUp} inactive user sessions`);
+    }
   }
 
   /**
@@ -76,10 +145,18 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
     const roomName = `user:${userId}`;
     client.join(roomName);
 
-    // If specific email address provided, join that room too
+    // If specific email address provided, join that room too and track session
     if (emailAddress) {
       const emailRoom = `email:${emailAddress}`;
       client.join(emailRoom);
+      
+      // Track user session for cross-contamination prevention
+      if (!this.userSessions.has(emailAddress)) {
+        this.userSessions.set(emailAddress, new Set());
+      }
+      this.userSessions.get(emailAddress)!.add(client.id);
+      
+      this.logger.log(`Added client ${client.id} to user session: ${emailAddress}`);
     }
 
     client.emit('subscribed', {
@@ -106,10 +183,23 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
     const roomName = `user:${userId}`;
     client.leave(roomName);
 
-    // Leave email room if specified
+    // Leave email room if specified and remove from user session
     if (emailAddress) {
       const emailRoom = `email:${emailAddress}`;
       client.leave(emailRoom);
+      
+      // Remove from user session tracking
+      const userClients = this.userSessions.get(emailAddress);
+      if (userClients) {
+        userClients.delete(client.id);
+        this.logger.log(`Removed client ${client.id} from user session: ${emailAddress}`);
+        
+        // Clean up empty sessions
+        if (userClients.size === 0) {
+          this.userSessions.delete(emailAddress);
+          this.logger.log(`Cleaned up empty session for user: ${emailAddress}`);
+        }
+      }
     }
 
     client.emit('unsubscribed', {
