@@ -1,15 +1,18 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { google } from 'googleapis';
-import { Types } from 'mongoose';
-import { GoogleOAuthService } from './google-oauth.service';
-import { GmailWatchRepository, CreateGmailWatchParams } from '../../../database/repositories/gmail-watch.repository';
-import { GmailWatchDocument } from '../../../database/schemas/gmail-watch.schema';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { google } from "googleapis";
+import { Types } from "mongoose";
+import { GoogleOAuthService } from "./google-oauth.service";
+import {
+  GmailWatchRepository,
+  CreateGmailWatchParams,
+} from "../../../database/repositories/gmail-watch.repository";
+import { GmailWatchDocument } from "../../../database/schemas/gmail-watch.schema";
 
 export interface CreateWatchParams {
   userId: Types.ObjectId;
   labelIds?: string[];
-  labelFilterBehavior?: 'INCLUDE' | 'EXCLUDE';
+  labelFilterBehavior?: "INCLUDE" | "EXCLUDE";
 }
 
 export interface WatchInfo {
@@ -35,7 +38,9 @@ export class GmailWatchService {
     private readonly gmailWatchRepository: GmailWatchRepository,
     private readonly configService: ConfigService,
   ) {
-    this.topicName = this.configService.get<string>('GMAIL_PUBSUB_TOPIC') || 'gmail-notifications';
+    this.topicName =
+      this.configService.get<string>("GMAIL_PUBSUB_TOPIC") ||
+      "gmail-notifications";
   }
 
   /**
@@ -43,24 +48,28 @@ export class GmailWatchService {
    */
   async createWatch(params: CreateWatchParams): Promise<WatchInfo> {
     try {
-      this.logger.log(`Creating Gmail watch for user: ${params.userId}, ${this.topicName}`);
+      this.logger.log(
+        `Creating Gmail watch for user: ${params.userId}, ${this.topicName}`,
+      );
 
       // Get authenticated Gmail client
-      const client = await this.googleOAuthService.getAuthenticatedClient(params.userId.toString());
-      const gmail = google.gmail({ version: 'v1', auth: client });
+      const client = await this.googleOAuthService.getAuthenticatedClient(
+        params.userId.toString(),
+      );
+      const gmail = google.gmail({ version: "v1", auth: client });
 
       // Get user's Gmail profile to get email and current history ID
-      const profile = await gmail.users.getProfile({ userId: 'me' });
+      const profile = await gmail.users.getProfile({ userId: "me" });
       const googleEmail = profile.data.emailAddress!;
       const currentHistoryId = profile.data.historyId!;
 
       // Create Gmail watch request
       const watchRequest = {
-        userId: 'me',
+        userId: "me",
         requestBody: {
-          topicName: `projects/${this.configService.get<string>('GOOGLE_CLOUD_PROJECT_ID')}/topics/${this.topicName}`,
-          labelIds: params.labelIds || ['INBOX'],
-          labelFilterBehavior: params.labelFilterBehavior || 'INCLUDE',
+          topicName: `projects/${this.configService.get<string>("GOOGLE_CLOUD_PROJECT_ID")}/topics/${this.topicName}`,
+          labelIds: params.labelIds || ["INBOX"],
+          labelFilterBehavior: params.labelFilterBehavior || "INCLUDE",
         },
       };
 
@@ -75,19 +84,24 @@ export class GmailWatchService {
         watchId,
         historyId: currentHistoryId,
         topicName: this.topicName,
-        labelIds: params.labelIds || ['INBOX'],
-        labelFilterBehavior: params.labelFilterBehavior || 'INCLUDE',
+        labelIds: params.labelIds || ["INBOX"],
+        labelFilterBehavior: params.labelFilterBehavior || "INCLUDE",
         expiresAt,
         googleEmail,
       };
 
       const savedWatch = await this.gmailWatchRepository.create(watchData);
 
-      this.logger.log(`Gmail watch created successfully: ${watchId} for ${googleEmail}`);
+      this.logger.log(
+        `Gmail watch created successfully: ${watchId} for ${googleEmail}`,
+      );
 
       return this.mapToWatchInfo(savedWatch);
     } catch (error) {
-      this.logger.error(`Failed to create Gmail watch for user ${params.userId}:`, error);
+      this.logger.error(
+        `Failed to create Gmail watch for user ${params.userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -100,18 +114,21 @@ export class GmailWatchService {
       this.logger.log(`Renewing Gmail watch: ${watchId}`);
 
       // Get existing watch from database
-      const existingWatch = await this.gmailWatchRepository.findByWatchId(watchId);
+      const existingWatch =
+        await this.gmailWatchRepository.findByWatchId(watchId);
       if (!existingWatch) {
         throw new Error(`Gmail watch not found: ${watchId}`);
       }
 
       // Get authenticated Gmail client
-      const client = await this.googleOAuthService.getAuthenticatedClient(existingWatch.userId.toString());
-      const gmail = google.gmail({ version: 'v1', auth: client });
+      const client = await this.googleOAuthService.getAuthenticatedClient(
+        existingWatch.userId.toString(),
+      );
+      const gmail = google.gmail({ version: "v1", auth: client });
 
       // Stop the existing watch first
       try {
-        await gmail.users.stop({ userId: 'me' });
+        await gmail.users.stop({ userId: "me" });
       } catch (error) {
         this.logger.warn(`Failed to stop existing watch ${watchId}:`, error);
         // Continue with renewal even if stop fails
@@ -119,9 +136,9 @@ export class GmailWatchService {
 
       // Create new watch with same parameters
       const watchRequest = {
-        userId: 'me',
+        userId: "me",
         requestBody: {
-          topicName: `projects/${this.configService.get<string>('GOOGLE_CLOUD_PROJECT_ID')}/topics/${this.topicName}`,
+          topicName: `projects/${this.configService.get<string>("GOOGLE_CLOUD_PROJECT_ID")}/topics/${this.topicName}`,
           labelIds: existingWatch.labelIds,
           labelFilterBehavior: existingWatch.labelFilterBehavior,
         },
@@ -132,28 +149,33 @@ export class GmailWatchService {
       const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
       // Update watch in database
-      const updatedWatch = await this.gmailWatchRepository.updateByWatchId(watchId, {
-        watchId: newWatchId,
-        historyId: watchResponse.data.historyId!,
-        expiresAt: newExpiresAt,
-        lastRenewalAt: new Date(),
-        errorCount: 0, // Reset error count on successful renewal
-        lastError: undefined,
-      });
+      const updatedWatch = await this.gmailWatchRepository.updateByWatchId(
+        watchId,
+        {
+          watchId: newWatchId,
+          historyId: watchResponse.data.historyId!,
+          expiresAt: newExpiresAt,
+          lastRenewalAt: new Date(),
+          errorCount: 0, // Reset error count on successful renewal
+          lastError: undefined,
+        },
+      );
 
       if (!updatedWatch) {
         throw new Error(`Failed to update Gmail watch in database: ${watchId}`);
       }
 
-      this.logger.log(`Gmail watch renewed successfully: ${watchId} -> ${newWatchId}`);
+      this.logger.log(
+        `Gmail watch renewed successfully: ${watchId} -> ${newWatchId}`,
+      );
 
       return this.mapToWatchInfo(updatedWatch);
     } catch (error) {
       this.logger.error(`Failed to renew Gmail watch ${watchId}:`, error);
-      
+
       // Update error count in database
       await this.recordWatchError(watchId, error.message);
-      
+
       throw error;
     }
   }
@@ -163,35 +185,49 @@ export class GmailWatchService {
    */
   async stopWatch(userId: Types.ObjectId): Promise<boolean> {
     try {
-      this.logger.log(`Stopping Gmail watch for user: ${userId}, ${this.topicName}`);
+      this.logger.log(
+        `Stopping Gmail watch for user: ${userId}, ${this.topicName}`,
+      );
 
       // Get existing watch from database
-      const existingWatch = await this.gmailWatchRepository.findByUserId(userId);
+      const existingWatch =
+        await this.gmailWatchRepository.findByUserId(userId);
       if (!existingWatch) {
         this.logger.log(`No active Gmail watch found for user: ${userId}`);
         return false;
       }
 
       // Get authenticated Gmail client
-      const client = await this.googleOAuthService.getAuthenticatedClient(userId.toString());
-      const gmail = google.gmail({ version: 'v1', auth: client });
+      const client = await this.googleOAuthService.getAuthenticatedClient(
+        userId.toString(),
+      );
+      const gmail = google.gmail({ version: "v1", auth: client });
 
       // Stop the watch via Gmail API
       try {
-        await gmail.users.stop({ userId: 'me' });
+        await gmail.users.stop({ userId: "me" });
         this.logger.log(`Gmail watch stopped via API for user: ${userId}`);
       } catch (error) {
-        this.logger.warn(`Failed to stop Gmail watch via API for user ${userId}:`, error);
+        this.logger.warn(
+          `Failed to stop Gmail watch via API for user ${userId}:`,
+          error,
+        );
         // Continue with database cleanup even if API call fails
       }
 
       // Deactivate watch in database
-      const deactivated = await this.gmailWatchRepository.deactivateByUserId(userId);
+      const deactivated =
+        await this.gmailWatchRepository.deactivateByUserId(userId);
 
-      this.logger.log(`Gmail watch stopped and deactivated for user: ${userId}`);
+      this.logger.log(
+        `Gmail watch stopped and deactivated for user: ${userId}`,
+      );
       return deactivated;
     } catch (error) {
-      this.logger.error(`Failed to stop Gmail watch for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to stop Gmail watch for user ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -214,10 +250,14 @@ export class GmailWatchService {
    */
   async getWatchInfoByEmail(googleEmail: string): Promise<WatchInfo | null> {
     try {
-      const watch = await this.gmailWatchRepository.findByGoogleEmail(googleEmail);
+      const watch =
+        await this.gmailWatchRepository.findByGoogleEmail(googleEmail);
       return watch ? this.mapToWatchInfo(watch) : null;
     } catch (error) {
-      this.logger.error(`Failed to get watch info for email ${googleEmail}:`, error);
+      this.logger.error(
+        `Failed to get watch info for email ${googleEmail}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -228,9 +268,9 @@ export class GmailWatchService {
   async findWatchesNeedingRenewal(): Promise<WatchInfo[]> {
     try {
       const expiring = await this.gmailWatchRepository.findExpiringSoon(24); // 24 hours
-      return expiring.map(watch => this.mapToWatchInfo(watch));
+      return expiring.map((watch) => this.mapToWatchInfo(watch));
     } catch (error) {
-      this.logger.error('Failed to find watches needing renewal:', error);
+      this.logger.error("Failed to find watches needing renewal:", error);
       throw error;
     }
   }
@@ -244,22 +284,29 @@ export class GmailWatchService {
 
     try {
       const expiringWatches = await this.findWatchesNeedingRenewal();
-      
-      this.logger.log(`Found ${expiringWatches.length} watches that need renewal`);
+
+      this.logger.log(
+        `Found ${expiringWatches.length} watches that need renewal`,
+      );
 
       for (const watchInfo of expiringWatches) {
         try {
           await this.renewWatch(watchInfo.watchId);
           renewed++;
         } catch (error) {
-          this.logger.error(`Failed to renew watch ${watchInfo.watchId}:`, error);
+          this.logger.error(
+            `Failed to renew watch ${watchInfo.watchId}:`,
+            error,
+          );
           failed++;
         }
       }
 
-      this.logger.log(`Watch renewal completed: ${renewed} renewed, ${failed} failed`);
+      this.logger.log(
+        `Watch renewal completed: ${renewed} renewed, ${failed} failed`,
+      );
     } catch (error) {
-      this.logger.error('Failed to renew expiring watches:', error);
+      this.logger.error("Failed to renew expiring watches:", error);
     }
 
     return { renewed, failed };
@@ -289,7 +336,10 @@ export class GmailWatchService {
     try {
       await this.gmailWatchRepository.incrementNotificationCount(watchId);
     } catch (error) {
-      this.logger.error(`Failed to record notification for watch ${watchId}:`, error);
+      this.logger.error(
+        `Failed to record notification for watch ${watchId}:`,
+        error,
+      );
     }
   }
 
@@ -298,9 +348,15 @@ export class GmailWatchService {
    */
   async recordEmailsProcessed(watchId: string, count: number): Promise<void> {
     try {
-      await this.gmailWatchRepository.incrementEmailProcessedCount(watchId, count);
+      await this.gmailWatchRepository.incrementEmailProcessedCount(
+        watchId,
+        count,
+      );
     } catch (error) {
-      this.logger.error(`Failed to record emails processed for watch ${watchId}:`, error);
+      this.logger.error(
+        `Failed to record emails processed for watch ${watchId}:`,
+        error,
+      );
     }
   }
 
@@ -317,7 +373,7 @@ export class GmailWatchService {
     try {
       return await this.gmailWatchRepository.getStatistics();
     } catch (error) {
-      this.logger.error('Failed to get watch statistics:', error);
+      this.logger.error("Failed to get watch statistics:", error);
       throw error;
     }
   }
@@ -333,7 +389,10 @@ export class GmailWatchService {
       });
       this.logger.log(`Updated history ID for watch ${watchId}: ${historyId}`);
     } catch (error) {
-      this.logger.error(`Failed to update history ID for watch ${watchId}:`, error);
+      this.logger.error(
+        `Failed to update history ID for watch ${watchId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -365,15 +424,21 @@ export class GmailWatchService {
       this.logger.log(`Stopping Gmail watch for email: ${googleEmail}`);
 
       // Get existing watch from database
-      const existingWatch = await this.gmailWatchRepository.findByGoogleEmail(googleEmail);
+      const existingWatch =
+        await this.gmailWatchRepository.findByGoogleEmail(googleEmail);
       if (!existingWatch) {
-        this.logger.log(`No active Gmail watch found for email: ${googleEmail}`);
+        this.logger.log(
+          `No active Gmail watch found for email: ${googleEmail}`,
+        );
         return false;
       }
 
       return await this.stopWatch(existingWatch.userId);
     } catch (error) {
-      this.logger.error(`Failed to stop Gmail watch for email ${googleEmail}:`, error);
+      this.logger.error(
+        `Failed to stop Gmail watch for email ${googleEmail}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -387,11 +452,11 @@ export class GmailWatchService {
     failed: number;
   }> {
     try {
-      this.logger.log('🧹 Starting cleanup of inactive Gmail watches');
+      this.logger.log("🧹 Starting cleanup of inactive Gmail watches");
 
       // Get all active watches
       const activeWatches = await this.gmailWatchRepository.findAllActive();
-      
+
       let cleaned = 0;
       let failed = 0;
 
@@ -399,8 +464,10 @@ export class GmailWatchService {
         try {
           // If user email is not in active sessions, clean it up
           if (!activeUserEmails.has(watch.googleEmail)) {
-            this.logger.log(`🗑️ Cleaning up inactive watch for: ${watch.googleEmail}`);
-            
+            this.logger.log(
+              `🗑️ Cleaning up inactive watch for: ${watch.googleEmail}`,
+            );
+
             const stopped = await this.stopWatch(watch.userId);
             if (stopped) {
               cleaned++;
@@ -409,15 +476,19 @@ export class GmailWatchService {
           }
         } catch (error) {
           failed++;
-          this.logger.error(`❌ Failed to cleanup watch for ${watch.googleEmail}: ${error.message}`);
+          this.logger.error(
+            `❌ Failed to cleanup watch for ${watch.googleEmail}: ${error.message}`,
+          );
         }
       }
 
-      this.logger.log(`🧹 Cleanup completed: ${cleaned} cleaned, ${failed} failed`);
-      
+      this.logger.log(
+        `🧹 Cleanup completed: ${cleaned} cleaned, ${failed} failed`,
+      );
+
       return { cleaned, failed };
     } catch (error) {
-      this.logger.error('Failed to cleanup inactive watches:', error);
+      this.logger.error("Failed to cleanup inactive watches:", error);
       throw error;
     }
   }
@@ -433,14 +504,16 @@ export class GmailWatchService {
     errors: string[];
   }> {
     try {
-      this.logger.log('🛑 Starting graceful shutdown - stopping all active Gmail watches');
+      this.logger.log(
+        "🛑 Starting graceful shutdown - stopping all active Gmail watches",
+      );
 
       // Get all active watches
       const activeWatches = await this.gmailWatchRepository.findAllActive();
       const totalWatches = activeWatches.length;
-      
+
       if (totalWatches === 0) {
-        this.logger.log('ℹ️ No active Gmail watches found to stop');
+        this.logger.log("ℹ️ No active Gmail watches found to stop");
         return {
           totalWatches: 0,
           successfullyStopped: 0,
@@ -449,7 +522,9 @@ export class GmailWatchService {
         };
       }
 
-      this.logger.log(`📊 Found ${totalWatches} active watches to stop during shutdown`);
+      this.logger.log(
+        `📊 Found ${totalWatches} active watches to stop during shutdown`,
+      );
 
       let successfullyStopped = 0;
       let failed = 0;
@@ -458,19 +533,25 @@ export class GmailWatchService {
       // Stop all watches in parallel for faster shutdown
       const stopPromises = activeWatches.map(async (watch) => {
         try {
-          this.logger.log(`🛑 Stopping watch for: ${watch.googleEmail} (${watch.watchId})`);
-          
+          this.logger.log(
+            `🛑 Stopping watch for: ${watch.googleEmail} (${watch.watchId})`,
+          );
+
           // Get authenticated Gmail client
-          const client = await this.googleOAuthService.getAuthenticatedClient(watch.userId.toString());
-          const gmail = google.gmail({ version: 'v1', auth: client });
+          const client = await this.googleOAuthService.getAuthenticatedClient(
+            watch.userId.toString(),
+          );
+          const gmail = google.gmail({ version: "v1", auth: client });
 
           // Stop the watch via Gmail API
-          await gmail.users.stop({ userId: 'me' });
-          
+          await gmail.users.stop({ userId: "me" });
+
           // Deactivate in database
           await this.gmailWatchRepository.deactivateByUserId(watch.userId);
-          
-          this.logger.log(`✅ Successfully stopped watch for: ${watch.googleEmail}`);
+
+          this.logger.log(
+            `✅ Successfully stopped watch for: ${watch.googleEmail}`,
+          );
           return { success: true, email: watch.googleEmail };
         } catch (error) {
           const errorMsg = `Failed to stop watch for ${watch.googleEmail}: ${error.message}`;
@@ -482,9 +563,9 @@ export class GmailWatchService {
 
       // Wait for all stop operations to complete (with timeout)
       const results = await Promise.allSettled(stopPromises);
-      
+
       results.forEach((result) => {
-        if (result.status === 'fulfilled') {
+        if (result.status === "fulfilled") {
           if (result.value.success) {
             successfullyStopped++;
           } else {
@@ -515,8 +596,11 @@ export class GmailWatchService {
 
       return summary;
     } catch (error) {
-      this.logger.error('❌ Failed to stop all active watches during shutdown:', error);
+      this.logger.error(
+        "❌ Failed to stop all active watches during shutdown:",
+        error,
+      );
       throw error;
     }
   }
-} 
+}

@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { GmailWatch, GmailWatchDocument } from '../schemas/gmail-watch.schema';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { GmailWatch, GmailWatchDocument } from "../schemas/gmail-watch.schema";
 
 export interface CreateGmailWatchParams {
   userId: Types.ObjectId;
@@ -9,7 +9,7 @@ export interface CreateGmailWatchParams {
   historyId: string;
   topicName: string;
   labelIds?: string[];
-  labelFilterBehavior?: 'INCLUDE' | 'EXCLUDE';
+  labelFilterBehavior?: "INCLUDE" | "EXCLUDE";
   expiresAt: Date;
   googleEmail: string;
 }
@@ -47,11 +47,13 @@ export class GmailWatchRepository {
       });
 
       const savedWatch = await watch.save();
-      this.logger.log(`Created Gmail watch: ${savedWatch.watchId} for user: ${savedWatch.userId}`);
-      
+      this.logger.log(
+        `Created Gmail watch: ${savedWatch.watchId} for user: ${savedWatch.userId}`,
+      );
+
       return savedWatch;
     } catch (error) {
-      this.logger.error('Failed to create Gmail watch:', error);
+      this.logger.error("Failed to create Gmail watch:", error);
       throw error;
     }
   }
@@ -63,7 +65,10 @@ export class GmailWatchRepository {
     try {
       return await this.gmailWatchModel.findOne({ watchId }).exec();
     } catch (error) {
-      this.logger.error(`Failed to find Gmail watch by watchId ${watchId}:`, error);
+      this.logger.error(
+        `Failed to find Gmail watch by watchId ${watchId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -71,14 +76,19 @@ export class GmailWatchRepository {
   /**
    * Find Gmail watch by user ID
    */
-  async findByUserId(userId: Types.ObjectId): Promise<GmailWatchDocument | null> {
+  async findByUserId(
+    userId: Types.ObjectId,
+  ): Promise<GmailWatchDocument | null> {
     try {
       return await this.gmailWatchModel
         .findOne({ userId, isActive: true })
         .sort({ createdAt: -1 })
         .exec();
     } catch (error) {
-      this.logger.error(`Failed to find Gmail watch by userId ${userId}:`, error);
+      this.logger.error(
+        `Failed to find Gmail watch by userId ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -86,14 +96,19 @@ export class GmailWatchRepository {
   /**
    * Find Gmail watch by Google email
    */
-  async findByGoogleEmail(googleEmail: string): Promise<GmailWatchDocument | null> {
+  async findByGoogleEmail(
+    googleEmail: string,
+  ): Promise<GmailWatchDocument | null> {
     try {
       return await this.gmailWatchModel
         .findOne({ googleEmail, isActive: true })
         .sort({ createdAt: -1 })
         .exec();
     } catch (error) {
-      this.logger.error(`Failed to find Gmail watch by email ${googleEmail}:`, error);
+      this.logger.error(
+        `Failed to find Gmail watch by email ${googleEmail}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -147,7 +162,10 @@ export class GmailWatchRepository {
 
       return updatedWatch;
     } catch (error) {
-      this.logger.error(`Failed to update Gmail watch for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to update Gmail watch for user ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -158,12 +176,12 @@ export class GmailWatchRepository {
   async deleteByWatchId(watchId: string): Promise<boolean> {
     try {
       const result = await this.gmailWatchModel.deleteOne({ watchId }).exec();
-      
+
       if (result.deletedCount > 0) {
         this.logger.log(`Deleted Gmail watch: ${watchId}`);
         return true;
       }
-      
+
       return false;
     } catch (error) {
       this.logger.error(`Failed to delete Gmail watch ${watchId}:`, error);
@@ -177,16 +195,18 @@ export class GmailWatchRepository {
   async deactivateByUserId(userId: Types.ObjectId): Promise<boolean> {
     try {
       const result = await this.gmailWatchModel
-        .updateMany(
-          { userId },
-          { isActive: false, updatedAt: new Date() },
-        )
+        .updateMany({ userId }, { isActive: false, updatedAt: new Date() })
         .exec();
 
-      this.logger.log(`Deactivated ${result.modifiedCount} Gmail watches for user: ${userId}`);
+      this.logger.log(
+        `Deactivated ${result.modifiedCount} Gmail watches for user: ${userId}`,
+      );
       return result.modifiedCount > 0;
     } catch (error) {
-      this.logger.error(`Failed to deactivate Gmail watches for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to deactivate Gmail watches for user ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -194,10 +214,14 @@ export class GmailWatchRepository {
   /**
    * Find watches that are expiring soon (for renewal)
    */
-  async findExpiringSoon(hoursFromNow: number = 24): Promise<GmailWatchDocument[]> {
+  async findExpiringSoon(
+    hoursFromNow: number = 24,
+  ): Promise<GmailWatchDocument[]> {
     try {
-      const expiryThreshold = new Date(Date.now() + hoursFromNow * 60 * 60 * 1000);
-      
+      const expiryThreshold = new Date(
+        Date.now() + hoursFromNow * 60 * 60 * 1000,
+      );
+
       return await this.gmailWatchModel
         .find({
           isActive: true,
@@ -205,7 +229,7 @@ export class GmailWatchRepository {
         })
         .exec();
     } catch (error) {
-      this.logger.error('Failed to find expiring Gmail watches:', error);
+      this.logger.error("Failed to find expiring Gmail watches:", error);
       throw error;
     }
   }
@@ -213,7 +237,9 @@ export class GmailWatchRepository {
   /**
    * Find watches with errors (for cleanup/retry)
    */
-  async findWithErrors(maxErrorCount: number = 5): Promise<GmailWatchDocument[]> {
+  async findWithErrors(
+    maxErrorCount: number = 5,
+  ): Promise<GmailWatchDocument[]> {
     try {
       return await this.gmailWatchModel
         .find({
@@ -222,7 +248,7 @@ export class GmailWatchRepository {
         })
         .exec();
     } catch (error) {
-      this.logger.error('Failed to find Gmail watches with errors:', error);
+      this.logger.error("Failed to find Gmail watches with errors:", error);
       throw error;
     }
   }
@@ -238,34 +264,33 @@ export class GmailWatchRepository {
     totalEmailsProcessed: number;
   }> {
     try {
-      const [
-        totalActive,
-        expiringSoon,
-        withErrors,
-        aggregateStats,
-      ] = await Promise.all([
-        this.gmailWatchModel.countDocuments({ isActive: true }),
-        this.gmailWatchModel.countDocuments({
-          isActive: true,
-          expiresAt: { $lte: new Date(Date.now() + 24 * 60 * 60 * 1000) },
-        }),
-        this.gmailWatchModel.countDocuments({
-          isActive: true,
-          errorCount: { $gte: 3 },
-        }),
-        this.gmailWatchModel.aggregate([
-          { $match: { isActive: true } },
-          {
-            $group: {
-              _id: null,
-              totalNotifications: { $sum: '$notificationsReceived' },
-              totalEmailsProcessed: { $sum: '$emailsProcessed' },
+      const [totalActive, expiringSoon, withErrors, aggregateStats] =
+        await Promise.all([
+          this.gmailWatchModel.countDocuments({ isActive: true }),
+          this.gmailWatchModel.countDocuments({
+            isActive: true,
+            expiresAt: { $lte: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+          }),
+          this.gmailWatchModel.countDocuments({
+            isActive: true,
+            errorCount: { $gte: 3 },
+          }),
+          this.gmailWatchModel.aggregate([
+            { $match: { isActive: true } },
+            {
+              $group: {
+                _id: null,
+                totalNotifications: { $sum: "$notificationsReceived" },
+                totalEmailsProcessed: { $sum: "$emailsProcessed" },
+              },
             },
-          },
-        ]),
-      ]);
+          ]),
+        ]);
 
-      const stats = aggregateStats[0] || { totalNotifications: 0, totalEmailsProcessed: 0 };
+      const stats = aggregateStats[0] || {
+        totalNotifications: 0,
+        totalEmailsProcessed: 0,
+      };
 
       return {
         totalActive,
@@ -275,7 +300,7 @@ export class GmailWatchRepository {
         totalEmailsProcessed: stats.totalEmailsProcessed,
       };
     } catch (error) {
-      this.logger.error('Failed to get Gmail watch statistics:', error);
+      this.logger.error("Failed to get Gmail watch statistics:", error);
       throw error;
     }
   }
@@ -288,14 +313,17 @@ export class GmailWatchRepository {
       await this.gmailWatchModel
         .updateOne(
           { watchId },
-          { 
+          {
             $inc: { notificationsReceived: 1 },
-            $set: { updatedAt: new Date() }
+            $set: { updatedAt: new Date() },
           },
         )
         .exec();
     } catch (error) {
-      this.logger.error(`Failed to increment notification count for watch ${watchId}:`, error);
+      this.logger.error(
+        `Failed to increment notification count for watch ${watchId}:`,
+        error,
+      );
       // Don't throw error as this is not critical
     }
   }
@@ -303,19 +331,25 @@ export class GmailWatchRepository {
   /**
    * Increment email processed count for a watch
    */
-  async incrementEmailProcessedCount(watchId: string, count: number = 1): Promise<void> {
+  async incrementEmailProcessedCount(
+    watchId: string,
+    count: number = 1,
+  ): Promise<void> {
     try {
       await this.gmailWatchModel
         .updateOne(
           { watchId },
-          { 
+          {
             $inc: { emailsProcessed: count },
-            $set: { updatedAt: new Date() }
+            $set: { updatedAt: new Date() },
           },
         )
         .exec();
     } catch (error) {
-      this.logger.error(`Failed to increment email processed count for watch ${watchId}:`, error);
+      this.logger.error(
+        `Failed to increment email processed count for watch ${watchId}:`,
+        error,
+      );
       // Don't throw error as this is not critical
     }
   }
@@ -325,12 +359,10 @@ export class GmailWatchRepository {
    */
   async findAllActive(): Promise<GmailWatchDocument[]> {
     try {
-      return await this.gmailWatchModel
-        .find({ isActive: true })
-        .exec();
+      return await this.gmailWatchModel.find({ isActive: true }).exec();
     } catch (error) {
-      this.logger.error('Failed to find all active Gmail watches:', error);
+      this.logger.error("Failed to find all active Gmail watches:", error);
       throw error;
     }
   }
-} 
+}

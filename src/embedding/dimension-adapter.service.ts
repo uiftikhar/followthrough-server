@@ -15,17 +15,17 @@ export class DimensionAdapterService {
       "PINECONE_DIMENSIONS",
       1024,
     );
-    
+
     const openaiDimensions = this.configService.get<number>(
       "OPENAI_EMBEDDING_DIMENSIONS",
       this.configService.get<number>("EMBEDDING_DIMENSIONS", 1024),
     );
-    
+
     this.logger.log(
       `🔧 Dimension adapter initialized:
       - Target Pinecone dimensions: ${this.targetDimension}
       - OpenAI embedding dimensions: ${openaiDimensions}
-      - Auto-adaptation: ${this.targetDimension !== openaiDimensions ? 'ENABLED' : 'NOT NEEDED'}`,
+      - Auto-adaptation: ${this.targetDimension !== openaiDimensions ? "ENABLED" : "NOT NEEDED"}`,
     );
   }
 

@@ -88,115 +88,210 @@ Respond in JSON format:
   /**
    * Enhanced classification logic with better keyword detection
    */
-  private classifyEmailContent(content: string, metadata: any): EmailClassification {
-    const combinedText = `${metadata.subject || ''} ${content}`.toLowerCase();
-    
+  private classifyEmailContent(
+    content: string,
+    metadata: any,
+  ): EmailClassification {
+    const combinedText = `${metadata.subject || ""} ${content}`.toLowerCase();
+
     // Enhanced keyword patterns for better detection
     const urgentKeywords = [
-      'urgent', 'asap', 'emergency', 'critical', 'immediately', 'priority', 'deadline',
-      'bug', 'bug fix', 'bug fixes', 'error', 'issue', 'problem', 'failure', 'crash',
-      'down', 'outage', 'broken', 'not working', 'fix needed', 'hotfix'
+      "urgent",
+      "asap",
+      "emergency",
+      "critical",
+      "immediately",
+      "priority",
+      "deadline",
+      "bug",
+      "bug fix",
+      "bug fixes",
+      "error",
+      "issue",
+      "problem",
+      "failure",
+      "crash",
+      "down",
+      "outage",
+      "broken",
+      "not working",
+      "fix needed",
+      "hotfix",
     ];
-    
+
     const importantKeywords = [
-      'important', 'meeting', 'deadline', 'review', 'approval', 'decision',
-      'action required', 'please respond', 'fyi', 'follow up', 'update'
+      "important",
+      "meeting",
+      "deadline",
+      "review",
+      "approval",
+      "decision",
+      "action required",
+      "please respond",
+      "fyi",
+      "follow up",
+      "update",
     ];
-    
+
     const spamKeywords = [
-      'promotion', 'sale', 'discount', 'offer', 'free', 'unsubscribe',
-      'click here', 'limited time', 'congratulations', 'winner'
+      "promotion",
+      "sale",
+      "discount",
+      "offer",
+      "free",
+      "unsubscribe",
+      "click here",
+      "limited time",
+      "congratulations",
+      "winner",
     ];
 
     // Category classification with enhanced bug detection
-    let category = 'other';
-    let priority = 'normal';
-    
+    let category = "other";
+    let priority = "normal";
+
     // Priority classification (check urgent first)
-    if (urgentKeywords.some(keyword => combinedText.includes(keyword))) {
-      priority = 'urgent';
-      
+    if (urgentKeywords.some((keyword) => combinedText.includes(keyword))) {
+      priority = "urgent";
+
       // More specific categorization for urgent items
-      if (combinedText.includes('bug') || combinedText.includes('fix') || 
-          combinedText.includes('error') || combinedText.includes('issue')) {
-        category = 'bug_report';
-      } else if (combinedText.includes('question') || combinedText.includes('how')) {
-        category = 'question';
+      if (
+        combinedText.includes("bug") ||
+        combinedText.includes("fix") ||
+        combinedText.includes("error") ||
+        combinedText.includes("issue")
+      ) {
+        category = "bug_report";
+      } else if (
+        combinedText.includes("question") ||
+        combinedText.includes("how")
+      ) {
+        category = "question";
       } else {
-        category = 'other';
+        category = "other";
       }
-    } else if (importantKeywords.some(keyword => combinedText.includes(keyword))) {
-      priority = 'high';
-      
-      if (combinedText.includes('feature') || combinedText.includes('enhancement')) {
-        category = 'feature_request';
-      } else if (combinedText.includes('question') || combinedText.includes('how')) {
-        category = 'question';
+    } else if (
+      importantKeywords.some((keyword) => combinedText.includes(keyword))
+    ) {
+      priority = "high";
+
+      if (
+        combinedText.includes("feature") ||
+        combinedText.includes("enhancement")
+      ) {
+        category = "feature_request";
+      } else if (
+        combinedText.includes("question") ||
+        combinedText.includes("how")
+      ) {
+        category = "question";
       } else {
-        category = 'other';
+        category = "other";
       }
-    } else if (spamKeywords.some(keyword => combinedText.includes(keyword))) {
-      priority = 'low';
-      category = 'other';
+    } else if (spamKeywords.some((keyword) => combinedText.includes(keyword))) {
+      priority = "low";
+      category = "other";
     }
 
     // Enhanced category detection
-    if (combinedText.includes('complain') || combinedText.includes('problem') || combinedText.includes('issue')) {
-      category = 'complaint';
-    } else if (combinedText.includes('thank') || combinedText.includes('great') || combinedText.includes('excellent')) {
-      category = 'praise';
-    } else if (combinedText.includes('feature') || combinedText.includes('request') || combinedText.includes('enhancement')) {
-      category = 'feature_request';
-    } else if (combinedText.includes('question') || combinedText.includes('how') || combinedText.includes('what') || combinedText.includes('why')) {
-      category = 'question';
+    if (
+      combinedText.includes("complain") ||
+      combinedText.includes("problem") ||
+      combinedText.includes("issue")
+    ) {
+      category = "complaint";
+    } else if (
+      combinedText.includes("thank") ||
+      combinedText.includes("great") ||
+      combinedText.includes("excellent")
+    ) {
+      category = "praise";
+    } else if (
+      combinedText.includes("feature") ||
+      combinedText.includes("request") ||
+      combinedText.includes("enhancement")
+    ) {
+      category = "feature_request";
+    } else if (
+      combinedText.includes("question") ||
+      combinedText.includes("how") ||
+      combinedText.includes("what") ||
+      combinedText.includes("why")
+    ) {
+      category = "question";
     }
 
     this.logger.log(`📊 Enhanced Classification Result:
-      - Priority: ${priority} (detected keywords: ${urgentKeywords.filter(k => combinedText.includes(k)).join(', ')})
+      - Priority: ${priority} (detected keywords: ${urgentKeywords.filter((k) => combinedText.includes(k)).join(", ")})
       - Category: ${category}
       - Subject: "${metadata.subject}"
       - Content preview: "${combinedText.substring(0, 100)}..."`);
 
     return {
-      priority: priority as 'urgent' | 'high' | 'normal' | 'low',
-      category: category as 'bug_report' | 'feature_request' | 'question' | 'complaint' | 'praise' | 'other',
+      priority: priority as "urgent" | "high" | "normal" | "low",
+      category: category as
+        | "bug_report"
+        | "feature_request"
+        | "question"
+        | "complaint"
+        | "praise"
+        | "other",
       confidence: this.calculateConfidence(combinedText, priority, category),
-      reasoning: this.generateReasoning(combinedText, priority, category)
+      reasoning: this.generateReasoning(combinedText, priority, category),
     };
   }
 
   /**
    * Calculate confidence score based on keyword matches and content analysis
    */
-  private calculateConfidence(text: string, priority: string, category: string): number {
+  private calculateConfidence(
+    text: string,
+    priority: string,
+    category: string,
+  ): number {
     let confidence = 0.5; // Base confidence
-    
+
     // Increase confidence based on keyword matches
     const keywordMatches = [
-      'urgent', 'bug', 'fix', 'error', 'important', 'meeting'
-    ].filter(keyword => text.includes(keyword)).length;
-    
-    confidence += (keywordMatches * 0.1);
-    
+      "urgent",
+      "bug",
+      "fix",
+      "error",
+      "important",
+      "meeting",
+    ].filter((keyword) => text.includes(keyword)).length;
+
+    confidence += keywordMatches * 0.1;
+
     // Adjust based on text length and structure
     if (text.length > 100) confidence += 0.1;
-    if (text.includes('@') && text.includes('.')) confidence += 0.1;
-    
+    if (text.includes("@") && text.includes(".")) confidence += 0.1;
+
     return Math.min(confidence, 0.95); // Cap at 95%
   }
 
   /**
    * Generate human-readable reasoning for the classification
    */
-  private generateReasoning(text: string, priority: string, category: string): string {
+  private generateReasoning(
+    text: string,
+    priority: string,
+    category: string,
+  ): string {
     const keywords = [
-      'urgent', 'bug', 'fix', 'error', 'important', 'meeting', 'deadline'
-    ].filter(keyword => text.includes(keyword));
-    
+      "urgent",
+      "bug",
+      "fix",
+      "error",
+      "important",
+      "meeting",
+      "deadline",
+    ].filter((keyword) => text.includes(keyword));
+
     if (keywords.length > 0) {
-      return `Classified as ${priority}/${category} due to keywords: ${keywords.join(', ')}`;
+      return `Classified as ${priority}/${category} due to keywords: ${keywords.join(", ")}`;
     }
-    
+
     return `Classified as ${priority}/${category} based on content analysis`;
   }
 }

@@ -26,20 +26,26 @@ export class PineconeInitializer implements OnModuleInit {
     const pineconeEmbeddingModel = this.configService.get<string>(
       "PINECONE_EMBEDDING_MODEL",
       // Fallback to legacy EMBEDDING_MODEL if new one not set
-      this.configService.get<string>("EMBEDDING_MODEL", "text-embedding-3-large")
+      this.configService.get<string>(
+        "EMBEDDING_MODEL",
+        "text-embedding-3-large",
+      ),
     );
 
     // Get OpenAI embedding model (used for actual embedding generation)
     const openaiEmbeddingModel = this.configService.get<string>(
       "OPENAI_EMBEDDING_MODEL",
-      this.configService.get<string>("EMBEDDING_MODEL", "text-embedding-3-large")
+      this.configService.get<string>(
+        "EMBEDDING_MODEL",
+        "text-embedding-3-large",
+      ),
     );
 
     this.logger.log(
       `📊 Embedding Configuration:
       - OpenAI Embedding Model (for generation): ${openaiEmbeddingModel}
       - Pinecone Index Model (for metadata): ${pineconeEmbeddingModel}
-      - Dimensions: ${dimensions}`
+      - Dimensions: ${dimensions}`,
     );
 
     // Common configuration for all indexes
@@ -79,7 +85,10 @@ export class PineconeInitializer implements OnModuleInit {
       ]);
       this.logger.log("✅ All Pinecone indexes initialized successfully");
     } catch (error) {
-      this.logger.error("❌ Failed to initialize Pinecone indexes", error.stack);
+      this.logger.error(
+        "❌ Failed to initialize Pinecone indexes",
+        error.stack,
+      );
     }
   }
 }

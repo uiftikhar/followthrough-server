@@ -25,7 +25,7 @@ import { UnifiedWorkflowService } from "./unified-workflow.service";
   exports: [
     // Export shared core for other modules that might need it
     SharedCoreModule,
-    
+
     // Export core services for workflow coordination
     LanggraphCoreModule,
 

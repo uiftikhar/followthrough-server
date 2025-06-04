@@ -1,8 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { UserGoogleTokens, UserGoogleTokensDocument } from '../schemas/user-google-tokens.schema';
-import { TokenEncryptionService } from '../../integrations/google/services/token-encryption.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import {
+  UserGoogleTokens,
+  UserGoogleTokensDocument,
+} from "../schemas/user-google-tokens.schema";
+import { TokenEncryptionService } from "../../integrations/google/services/token-encryption.service";
 
 export interface CreateGoogleTokensParams {
   userId: string;
@@ -44,13 +47,17 @@ export class UserGoogleTokensRepository {
   /**
    * Store new Google tokens for a user
    */
-  async createTokens(params: CreateGoogleTokensParams): Promise<UserGoogleTokensDocument> {
+  async createTokens(
+    params: CreateGoogleTokensParams,
+  ): Promise<UserGoogleTokensDocument> {
     this.logger.log(`Creating Google tokens for user: ${params.userId}`);
 
     try {
       // Encrypt tokens before storage
-      const accessTokenEncrypted = this.tokenEncryptionService.encrypt(params.accessToken);
-      const refreshTokenEncrypted = params.refreshToken 
+      const accessTokenEncrypted = this.tokenEncryptionService.encrypt(
+        params.accessToken,
+      );
+      const refreshTokenEncrypted = params.refreshToken
         ? this.tokenEncryptionService.encrypt(params.refreshToken)
         : undefined;
 
@@ -66,22 +73,27 @@ export class UserGoogleTokensRepository {
           googleEmail: params.googleEmail,
           googleName: params.googleName,
           googlePicture: params.googlePicture,
-          tokenType: params.tokenType || 'Bearer',
+          tokenType: params.tokenType || "Bearer",
           isActive: true,
           lastUsedAt: new Date(),
           updatedAt: new Date(),
         },
-        { 
-          upsert: true, 
+        {
+          upsert: true,
           new: true,
           setDefaultsOnInsert: true,
-        }
+        },
       );
 
-      this.logger.log(`Google tokens created/updated for user: ${params.userId}`);
+      this.logger.log(
+        `Google tokens created/updated for user: ${params.userId}`,
+      );
       return tokenData;
     } catch (error) {
-      this.logger.error(`Failed to create Google tokens for user ${params.userId}:`, error);
+      this.logger.error(
+        `Failed to create Google tokens for user ${params.userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -89,7 +101,9 @@ export class UserGoogleTokensRepository {
   /**
    * Get decrypted tokens for a user
    */
-  async getTokensWithDecryption(userId: string): Promise<GoogleTokensWithDecrypted | null> {
+  async getTokensWithDecryption(
+    userId: string,
+  ): Promise<GoogleTokensWithDecrypted | null> {
     try {
       const tokenDoc = await this.userGoogleTokensModel.findOne({
         userId: new Types.ObjectId(userId),
@@ -101,7 +115,9 @@ export class UserGoogleTokensRepository {
       }
 
       // Decrypt tokens
-      const accessToken = this.tokenEncryptionService.decrypt(tokenDoc.accessTokenEncrypted);
+      const accessToken = this.tokenEncryptionService.decrypt(
+        tokenDoc.accessTokenEncrypted,
+      );
       const refreshToken = tokenDoc.refreshTokenEncrypted
         ? this.tokenEncryptionService.decrypt(tokenDoc.refreshTokenEncrypted)
         : undefined;
@@ -120,22 +136,31 @@ export class UserGoogleTokensRepository {
   /**
    * Get token metadata without decryption (for status checks)
    */
-  async getTokenMetadata(userId: string): Promise<UserGoogleTokensDocument | null> {
-    return this.userGoogleTokensModel.findOne({
-      userId: new Types.ObjectId(userId),
-      isActive: true,
-    }).select('-accessTokenEncrypted -refreshTokenEncrypted');
+  async getTokenMetadata(
+    userId: string,
+  ): Promise<UserGoogleTokensDocument | null> {
+    return this.userGoogleTokensModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        isActive: true,
+      })
+      .select("-accessTokenEncrypted -refreshTokenEncrypted");
   }
 
   /**
    * Update tokens after refresh
    */
-  async updateTokens(userId: string, params: UpdateGoogleTokensParams): Promise<UserGoogleTokensDocument | null> {
+  async updateTokens(
+    userId: string,
+    params: UpdateGoogleTokensParams,
+  ): Promise<UserGoogleTokensDocument | null> {
     this.logger.log(`Updating Google tokens for user: ${userId}`);
 
     try {
       // Encrypt new tokens
-      const accessTokenEncrypted = this.tokenEncryptionService.encrypt(params.accessToken);
+      const accessTokenEncrypted = this.tokenEncryptionService.encrypt(
+        params.accessToken,
+      );
       const refreshTokenEncrypted = params.refreshToken
         ? this.tokenEncryptionService.encrypt(params.refreshToken)
         : undefined;
@@ -143,7 +168,7 @@ export class UserGoogleTokensRepository {
       const updateData: any = {
         accessTokenEncrypted,
         expiresAt: params.expiresAt,
-        tokenType: params.tokenType || 'Bearer',
+        tokenType: params.tokenType || "Bearer",
         lastUsedAt: new Date(),
         updatedAt: new Date(),
       };
@@ -159,12 +184,12 @@ export class UserGoogleTokensRepository {
       }
 
       const tokenData = await this.userGoogleTokensModel.findOneAndUpdate(
-        { 
+        {
           userId: new Types.ObjectId(userId),
           isActive: true,
         },
         updateData,
-        { new: true }
+        { new: true },
       );
 
       if (tokenData) {
@@ -173,7 +198,10 @@ export class UserGoogleTokensRepository {
 
       return tokenData;
     } catch (error) {
-      this.logger.error(`Failed to update Google tokens for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to update Google tokens for user ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -184,17 +212,20 @@ export class UserGoogleTokensRepository {
   async recordTokenUsage(userId: string): Promise<void> {
     try {
       await this.userGoogleTokensModel.updateOne(
-        { 
+        {
           userId: new Types.ObjectId(userId),
           isActive: true,
         },
         {
           lastUsedAt: new Date(),
-        }
+        },
       );
     } catch (error) {
       // Don't throw error for analytics failures
-      this.logger.warn(`Failed to record token usage for user ${userId}:`, error);
+      this.logger.warn(
+        `Failed to record token usage for user ${userId}:`,
+        error,
+      );
     }
   }
 
@@ -216,7 +247,10 @@ export class UserGoogleTokensRepository {
       // If it expires soon, we'll need to refresh it
       return !tokenDoc.isExpired;
     } catch (error) {
-      this.logger.error(`Failed to check token validity for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to check token validity for user ${userId}:`,
+        error,
+      );
       return false;
     }
   }
@@ -233,7 +267,10 @@ export class UserGoogleTokensRepository {
 
       return tokenDoc ? tokenDoc.expiresSoon : false;
     } catch (error) {
-      this.logger.error(`Failed to check refresh need for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to check refresh need for user ${userId}:`,
+        error,
+      );
       return false;
     }
   }
@@ -250,7 +287,7 @@ export class UserGoogleTokensRepository {
         {
           isActive: false,
           updatedAt: new Date(),
-        }
+        },
       );
 
       const success = result.modifiedCount > 0;
@@ -260,7 +297,10 @@ export class UserGoogleTokensRepository {
 
       return success;
     } catch (error) {
-      this.logger.error(`Failed to revoke Google tokens for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to revoke Google tokens for user ${userId}:`,
+        error,
+      );
       return false;
     }
   }
@@ -270,12 +310,14 @@ export class UserGoogleTokensRepository {
    */
   async getUsersWithExpiringTokens(): Promise<UserGoogleTokensDocument[]> {
     const tenMinutesFromNow = new Date(Date.now() + 10 * 60 * 1000);
-    
-    return this.userGoogleTokensModel.find({
-      isActive: true,
-      expiresAt: { $lte: tenMinutesFromNow },
-      refreshTokenEncrypted: { $exists: true, $ne: null },
-    }).select('-accessTokenEncrypted -refreshTokenEncrypted');
+
+    return this.userGoogleTokensModel
+      .find({
+        isActive: true,
+        expiresAt: { $lte: tenMinutesFromNow },
+        refreshTokenEncrypted: { $exists: true, $ne: null },
+      })
+      .select("-accessTokenEncrypted -refreshTokenEncrypted");
   }
 
   /**
@@ -283,14 +325,16 @@ export class UserGoogleTokensRepository {
    */
   async cleanupOldTokens(): Promise<number> {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    
+
     const result = await this.userGoogleTokensModel.deleteMany({
       isActive: false,
       updatedAt: { $lt: thirtyDaysAgo },
     });
 
     if (result.deletedCount > 0) {
-      this.logger.log(`Cleaned up ${result.deletedCount} old inactive Google tokens`);
+      this.logger.log(
+        `Cleaned up ${result.deletedCount} old inactive Google tokens`,
+      );
     }
 
     return result.deletedCount;
@@ -299,11 +343,17 @@ export class UserGoogleTokensRepository {
   /**
    * Get Google user info by userId
    */
-  async getGoogleUserInfo(userId: string): Promise<{ googleEmail: string; googleName?: string; googlePicture?: string } | null> {
-    const tokenDoc = await this.userGoogleTokensModel.findOne({
-      userId: new Types.ObjectId(userId),
-      isActive: true,
-    }).select('googleEmail googleName googlePicture');
+  async getGoogleUserInfo(userId: string): Promise<{
+    googleEmail: string;
+    googleName?: string;
+    googlePicture?: string;
+  } | null> {
+    const tokenDoc = await this.userGoogleTokensModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        isActive: true,
+      })
+      .select("googleEmail googleName googlePicture");
 
     if (!tokenDoc) {
       return null;
@@ -345,4 +395,4 @@ export class UserGoogleTokensRepository {
       tokensExpiredButActive: expired,
     };
   }
-} 
+}

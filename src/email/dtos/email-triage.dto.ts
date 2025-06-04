@@ -60,7 +60,7 @@ export interface EmailTriageState {
     timestamp: string;
   };
   result?: EmailTriageResult;
-  
+
   retrievedContext?: Array<{
     id: string;
     content: string;
@@ -68,9 +68,9 @@ export interface EmailTriageState {
     score?: number;
     namespace?: string;
   }>;
-  
+
   userToneProfile?: UserToneProfile;
-  
+
   parallelResults?: {
     classificationStarted?: boolean;
     summarizationStarted?: boolean;
@@ -79,7 +79,7 @@ export interface EmailTriageState {
     parallelCompletedAt?: string;
     parallelDuration?: number;
   };
-  
+
   contextRetrievalResults?: {
     totalQueries: number;
     totalDocuments: number;
@@ -87,7 +87,7 @@ export interface EmailTriageState {
     retrievalDuration?: number;
     retrievedAt?: string;
   };
-  
+
   processingMetadata?: {
     startedAt?: string;
     ragEnhanced?: boolean;

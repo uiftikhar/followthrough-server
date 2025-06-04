@@ -10,16 +10,20 @@ import {
   Logger,
   HttpException,
   HttpStatus,
-} from '@nestjs/common';
-import { Types } from 'mongoose';
-import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
-import { GmailWatchService, CreateWatchParams, WatchInfo } from '../services/gmail-watch.service';
-import { GmailNotificationService } from '../services/gmail-notification.service';
-import { GmailShutdownService } from '../services/gmail-shutdown.service';
+} from "@nestjs/common";
+import { Types } from "mongoose";
+import { JwtAuthGuard } from "../../../auth/guards/jwt-auth.guard";
+import {
+  GmailWatchService,
+  CreateWatchParams,
+  WatchInfo,
+} from "../services/gmail-watch.service";
+import { GmailNotificationService } from "../services/gmail-notification.service";
+import { GmailShutdownService } from "../services/gmail-shutdown.service";
 
 interface CreateWatchDto {
   labelIds?: string[];
-  labelFilterBehavior?: 'INCLUDE' | 'EXCLUDE';
+  labelFilterBehavior?: "INCLUDE" | "EXCLUDE";
 }
 
 interface WatchStatusResponse {
@@ -29,7 +33,7 @@ interface WatchStatusResponse {
   activeSessions?: Map<string, number>;
 }
 
-@Controller('api/gmail/watch')
+@Controller("api/gmail/watch")
 @UseGuards(JwtAuthGuard)
 export class GmailWatchController {
   private readonly logger = new Logger(GmailWatchController.name);
@@ -60,28 +64,34 @@ export class GmailWatchController {
         return {
           success: false,
           watch: existingWatch,
-          message: 'User already has an active Gmail watch. Use DELETE to remove it first.',
+          message:
+            "User already has an active Gmail watch. Use DELETE to remove it first.",
         };
       }
 
       // Create new watch
       const watchParams: CreateWatchParams = {
         userId,
-        labelIds: createWatchDto.labelIds || ['INBOX'],
-        labelFilterBehavior: createWatchDto.labelFilterBehavior || 'INCLUDE',
+        labelIds: createWatchDto.labelIds || ["INBOX"],
+        labelFilterBehavior: createWatchDto.labelFilterBehavior || "INCLUDE",
       };
 
       const watch = await this.gmailWatchService.createWatch(watchParams);
 
-      this.logger.log(`✅ Gmail watch created successfully for user: ${userId}, email: ${watch.googleEmail}`);
+      this.logger.log(
+        `✅ Gmail watch created successfully for user: ${userId}, email: ${watch.googleEmail}`,
+      );
 
       return {
         success: true,
         watch,
-        message: 'Gmail watch created successfully',
+        message: "Gmail watch created successfully",
       };
     } catch (error) {
-      this.logger.error(`Failed to create Gmail watch: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create Gmail watch: ${error.message}`,
+        error.stack,
+      );
       throw new HttpException(
         {
           success: false,
@@ -103,25 +113,29 @@ export class GmailWatchController {
       this.logger.log(`📊 Getting watch status for user: ${userId}`);
 
       const watch = await this.gmailWatchService.getWatchInfo(userId);
-      
+
       if (!watch) {
         return {
           success: true,
-          message: 'No active Gmail watch found for user',
+          message: "No active Gmail watch found for user",
         };
       }
 
       // Get active sessions for this user
-      const activeSessions = await this.gmailNotificationService.getActiveUserSessions();
+      const activeSessions =
+        await this.gmailNotificationService.getActiveUserSessions();
 
       return {
         success: true,
         watch,
-        message: 'Watch status retrieved successfully',
+        message: "Watch status retrieved successfully",
         activeSessions,
       };
     } catch (error) {
-      this.logger.error(`Failed to get watch status: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get watch status: ${error.message}`,
+        error.stack,
+      );
       throw new HttpException(
         {
           success: false,
@@ -145,19 +159,24 @@ export class GmailWatchController {
       const stopped = await this.gmailWatchService.stopWatch(userId);
 
       if (stopped) {
-        this.logger.log(`✅ Gmail watch stopped successfully for user: ${userId}`);
+        this.logger.log(
+          `✅ Gmail watch stopped successfully for user: ${userId}`,
+        );
         return {
           success: true,
-          message: 'Gmail watch stopped successfully',
+          message: "Gmail watch stopped successfully",
         };
       } else {
         return {
           success: false,
-          message: 'No active Gmail watch found to stop',
+          message: "No active Gmail watch found to stop",
         };
       }
     } catch (error) {
-      this.logger.error(`Failed to stop Gmail watch: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to stop Gmail watch: ${error.message}`,
+        error.stack,
+      );
       throw new HttpException(
         {
           success: false,
@@ -172,7 +191,7 @@ export class GmailWatchController {
    * Renew an existing Gmail watch for the authenticated user
    * POST /api/gmail/watch/renew
    */
-  @Post('renew')
+  @Post("renew")
   async renewWatch(@Request() req: any): Promise<WatchStatusResponse> {
     try {
       const userId = new Types.ObjectId(req.user.id);
@@ -183,21 +202,28 @@ export class GmailWatchController {
       if (!currentWatch) {
         return {
           success: false,
-          message: 'No active Gmail watch found to renew',
+          message: "No active Gmail watch found to renew",
         };
       }
 
-      const renewedWatch = await this.gmailWatchService.renewWatch(currentWatch.watchId);
+      const renewedWatch = await this.gmailWatchService.renewWatch(
+        currentWatch.watchId,
+      );
 
-      this.logger.log(`✅ Gmail watch renewed successfully for user: ${userId}`);
+      this.logger.log(
+        `✅ Gmail watch renewed successfully for user: ${userId}`,
+      );
 
       return {
         success: true,
         watch: renewedWatch,
-        message: 'Gmail watch renewed successfully',
+        message: "Gmail watch renewed successfully",
       };
     } catch (error) {
-      this.logger.error(`Failed to renew Gmail watch: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to renew Gmail watch: ${error.message}`,
+        error.stack,
+      );
       throw new HttpException(
         {
           success: false,
@@ -212,7 +238,7 @@ export class GmailWatchController {
    * ADMIN: Get all active user sessions (for monitoring and debugging)
    * GET /api/gmail/watch/sessions
    */
-  @Get('sessions')
+  @Get("sessions")
   async getActiveSessions(@Request() req: any): Promise<{
     success: boolean;
     sessions: Map<string, number>;
@@ -221,11 +247,17 @@ export class GmailWatchController {
   }> {
     try {
       // Note: In production, add admin role check here
-      this.logger.log(`📊 Getting all active sessions (requested by: ${req.user.id})`);
+      this.logger.log(
+        `📊 Getting all active sessions (requested by: ${req.user.id})`,
+      );
 
-      const sessions = await this.gmailNotificationService.getActiveUserSessions();
+      const sessions =
+        await this.gmailNotificationService.getActiveUserSessions();
       const totalUsers = sessions.size;
-      const totalConnections = Array.from(sessions.values()).reduce((sum, count) => sum + count, 0);
+      const totalConnections = Array.from(sessions.values()).reduce(
+        (sum, count) => sum + count,
+        0,
+      );
 
       return {
         success: true,
@@ -234,7 +266,10 @@ export class GmailWatchController {
         totalConnections,
       };
     } catch (error) {
-      this.logger.error(`Failed to get active sessions: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get active sessions: ${error.message}`,
+        error.stack,
+      );
       throw new HttpException(
         {
           success: false,
@@ -249,7 +284,7 @@ export class GmailWatchController {
    * ADMIN: Force cleanup of inactive sessions
    * POST /api/gmail/watch/cleanup
    */
-  @Post('cleanup')
+  @Post("cleanup")
   async forceCleanup(@Request() req: any): Promise<{
     success: boolean;
     message: string;
@@ -262,10 +297,13 @@ export class GmailWatchController {
 
       return {
         success: true,
-        message: 'Inactive sessions cleanup completed',
+        message: "Inactive sessions cleanup completed",
       };
     } catch (error) {
-      this.logger.error(`Failed to force cleanup: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to force cleanup: ${error.message}`,
+        error.stack,
+      );
       throw new HttpException(
         {
           success: false,
@@ -280,7 +318,7 @@ export class GmailWatchController {
    * ADMIN: Manually trigger Gmail watch shutdown cleanup
    * POST /api/gmail/watch/shutdown-cleanup
    */
-  @Post('shutdown-cleanup')
+  @Post("shutdown-cleanup")
   async manualShutdownCleanup(@Request() req: any): Promise<{
     success: boolean;
     message: string;
@@ -293,12 +331,15 @@ export class GmailWatchController {
   }> {
     try {
       // Note: In production, add admin role check here
-      this.logger.log(`🛑 Manual shutdown cleanup requested by: ${req.user.id}`);
+      this.logger.log(
+        `🛑 Manual shutdown cleanup requested by: ${req.user.id}`,
+      );
 
       if (!this.gmailShutdownService.isCleanupEnabled()) {
         return {
           success: false,
-          message: 'Gmail watch cleanup is disabled. Set GOOGLE_REMOVE_ACTIVE_WATCHERS=true to enable.',
+          message:
+            "Gmail watch cleanup is disabled. Set GOOGLE_REMOVE_ACTIVE_WATCHERS=true to enable.",
         };
       }
 
@@ -310,7 +351,10 @@ export class GmailWatchController {
         result,
       };
     } catch (error) {
-      this.logger.error(`Failed to perform manual shutdown cleanup: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to perform manual shutdown cleanup: ${error.message}`,
+        error.stack,
+      );
       throw new HttpException(
         {
           success: false,
@@ -325,7 +369,7 @@ export class GmailWatchController {
    * ADMIN: Get shutdown cleanup status and configuration
    * GET /api/gmail/watch/shutdown-status
    */
-  @Get('shutdown-status')
+  @Get("shutdown-status")
   async getShutdownStatus(@Request() req: any): Promise<{
     success: boolean;
     cleanupEnabled: boolean;
@@ -340,12 +384,15 @@ export class GmailWatchController {
       return {
         success: true,
         cleanupEnabled,
-        message: cleanupEnabled 
-          ? 'Gmail watch cleanup on shutdown is ENABLED' 
-          : 'Gmail watch cleanup on shutdown is DISABLED (set GOOGLE_REMOVE_ACTIVE_WATCHERS=true to enable)',
+        message: cleanupEnabled
+          ? "Gmail watch cleanup on shutdown is ENABLED"
+          : "Gmail watch cleanup on shutdown is DISABLED (set GOOGLE_REMOVE_ACTIVE_WATCHERS=true to enable)",
       };
     } catch (error) {
-      this.logger.error(`Failed to get shutdown status: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get shutdown status: ${error.message}`,
+        error.stack,
+      );
       throw new HttpException(
         {
           success: false,
@@ -355,4 +402,4 @@ export class GmailWatchController {
       );
     }
   }
-} 
+}

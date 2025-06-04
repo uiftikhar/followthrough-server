@@ -12,16 +12,16 @@ import { EmailTriageState } from "../dtos/email-triage.dto";
 export class EmailPatternStorageService {
   private readonly logger = new Logger(EmailPatternStorageService.name);
 
-  constructor(
-    @Inject(RAG_SERVICE) private readonly ragService: RagService,
-  ) {}
+  constructor(@Inject(RAG_SERVICE) private readonly ragService: RagService) {}
 
   /**
    * Store an email triage pattern for future learning
    */
   async storeEmailPattern(state: EmailTriageState): Promise<void> {
     if (!state.classification || !state.summary || !state.replyDraft) {
-      this.logger.warn("Cannot store incomplete pattern - missing analysis results");
+      this.logger.warn(
+        "Cannot store incomplete pattern - missing analysis results",
+      );
       return;
     }
 
@@ -30,22 +30,30 @@ export class EmailPatternStorageService {
 
       // Create pattern document
       const patternDocument = this.createPatternDocument(state);
-      
-      // Store in email-triage index with patterns namespace using RagService
-      await this.ragService.processDocumentsForRag([
-        {
-          id: patternDocument.id,
-          content: patternDocument.content,
-          metadata: patternDocument.metadata,
-        }
-      ], {
-        indexName: VectorIndexes.EMAIL_TRIAGE,
-        namespace: "email-patterns",
-      });
 
-      this.logger.log(`Email pattern ${patternDocument.id} stored successfully`);
+      // Store in email-triage index with patterns namespace using RagService
+      await this.ragService.processDocumentsForRag(
+        [
+          {
+            id: patternDocument.id,
+            content: patternDocument.content,
+            metadata: patternDocument.metadata,
+          },
+        ],
+        {
+          indexName: VectorIndexes.EMAIL_TRIAGE,
+          namespace: "email-patterns",
+        },
+      );
+
+      this.logger.log(
+        `Email pattern ${patternDocument.id} stored successfully`,
+      );
     } catch (error) {
-      this.logger.error(`Failed to store email pattern: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to store email pattern: ${error.message}`,
+        error.stack,
+      );
       // Don't throw - pattern storage shouldn't break the main flow
     }
   }
@@ -55,7 +63,7 @@ export class EmailPatternStorageService {
    */
   async storeBatchPatterns(states: EmailTriageState[]): Promise<void> {
     const validStates = states.filter(
-      state => state.classification && state.summary && state.replyDraft
+      (state) => state.classification && state.summary && state.replyDraft,
     );
 
     if (validStates.length === 0) {
@@ -66,11 +74,13 @@ export class EmailPatternStorageService {
     try {
       this.logger.log(`Storing ${validStates.length} email patterns in batch`);
 
-      const patternDocuments = validStates.map(state => this.createPatternDocument(state));
-      
+      const patternDocuments = validStates.map((state) =>
+        this.createPatternDocument(state),
+      );
+
       // Store all patterns using RagService
       await this.ragService.processDocumentsForRag(
-        patternDocuments.map(doc => ({
+        patternDocuments.map((doc) => ({
           id: doc.id,
           content: doc.content,
           metadata: doc.metadata,
@@ -78,12 +88,17 @@ export class EmailPatternStorageService {
         {
           indexName: VectorIndexes.EMAIL_TRIAGE,
           namespace: "email-patterns",
-        }
+        },
       );
 
-      this.logger.log(`Batch stored ${validStates.length} email patterns successfully`);
+      this.logger.log(
+        `Batch stored ${validStates.length} email patterns successfully`,
+      );
     } catch (error) {
-      this.logger.error(`Failed to store batch patterns: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to store batch patterns: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
@@ -92,11 +107,11 @@ export class EmailPatternStorageService {
    */
   private createPatternDocument(state: EmailTriageState) {
     const patternId = `pattern-${state.sessionId}-${Date.now()}`;
-    
+
     const content = `Email Pattern Analysis:
 
-Subject: ${state.emailData.metadata.subject || 'Unknown'}
-From: ${state.emailData.metadata.from || 'Unknown'}
+Subject: ${state.emailData.metadata.subject || "Unknown"}
+From: ${state.emailData.metadata.from || "Unknown"}
 
 Classification:
 - Priority: ${state.classification!.priority}
@@ -112,9 +127,9 @@ Summary Analysis:
 
 Reply Approach:
 - Tone: ${state.replyDraft!.tone}
-- Next Steps: ${state.replyDraft!.next_steps.join(', ')}
+- Next Steps: ${state.replyDraft!.next_steps.join(", ")}
 
-Email Content Keywords: ${this.extractKeywords(state.emailData.body).join(', ')}
+Email Content Keywords: ${this.extractKeywords(state.emailData.body).join(", ")}
 Processing Context: ${state.retrievedContext?.length || 0} historical patterns referenced
 
 Email Content Sample: ${state.emailData.body.substring(0, 300)}...`;
@@ -146,22 +161,49 @@ Email Content Sample: ${state.emailData.body.substring(0, 300)}...`;
    * Extract keywords from email content for pattern indexing
    */
   private extractKeywords(content: string): string[] {
-    const stopWords = ['the', 'is', 'at', 'which', 'on', 'and', 'a', 'to', 'are', 'as', 'was', 'with', 'for', 'this', 'that', 'have', 'has', 'been', 'will', 'would', 'can', 'could'];
-    
-    const words = content.toLowerCase()
-      .replace(/[^\w\s]/g, ' ')
+    const stopWords = [
+      "the",
+      "is",
+      "at",
+      "which",
+      "on",
+      "and",
+      "a",
+      "to",
+      "are",
+      "as",
+      "was",
+      "with",
+      "for",
+      "this",
+      "that",
+      "have",
+      "has",
+      "been",
+      "will",
+      "would",
+      "can",
+      "could",
+    ];
+
+    const words = content
+      .toLowerCase()
+      .replace(/[^\w\s]/g, " ")
       .split(/\s+/)
-      .filter(word => word.length > 3 && !stopWords.includes(word));
-    
+      .filter((word) => word.length > 3 && !stopWords.includes(word));
+
     // Count word frequencies
-    const wordCount = words.reduce((acc, word) => {
-      acc[word] = (acc[word] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
+    const wordCount = words.reduce(
+      (acc, word) => {
+        acc[word] = (acc[word] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
     // Return top 15 most frequent words
     return Object.entries(wordCount)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 15)
       .map(([word]) => word);
   }
@@ -177,11 +219,11 @@ Email Content Sample: ${state.emailData.body.substring(0, 300)}...`;
       minScore?: number;
       category?: string;
       priority?: string;
-    } = {}
+    } = {},
   ): Promise<any[]> {
     try {
       const query = `Email analysis: Subject: ${emailMetadata.subject} Content: ${emailContent.substring(0, 200)}`;
-      
+
       const retrievalOptions = {
         indexName: VectorIndexes.EMAIL_TRIAGE,
         namespace: "email-patterns",
@@ -190,8 +232,11 @@ Email Content Sample: ${state.emailData.body.substring(0, 300)}...`;
         filter: this.buildPatternFilter(options),
       };
 
-      const similarPatterns = await this.ragService.getContext(query, retrievalOptions);
-      
+      const similarPatterns = await this.ragService.getContext(
+        query,
+        retrievalOptions,
+      );
+
       this.logger.log(`Found ${similarPatterns.length} similar email patterns`);
       return similarPatterns;
     } catch (error) {
@@ -203,17 +248,20 @@ Email Content Sample: ${state.emailData.body.substring(0, 300)}...`;
   /**
    * Build filter for pattern retrieval
    */
-  private buildPatternFilter(options: { category?: string; priority?: string }) {
+  private buildPatternFilter(options: {
+    category?: string;
+    priority?: string;
+  }) {
     const filter: any = { type: "email_pattern" };
-    
+
     if (options.category) {
       filter.category = options.category;
     }
-    
+
     if (options.priority) {
       filter.priority = options.priority;
     }
-    
+
     return filter;
   }
-} 
+}

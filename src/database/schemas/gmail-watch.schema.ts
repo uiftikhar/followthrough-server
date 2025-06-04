@@ -1,11 +1,11 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type GmailWatchDocument = GmailWatch & Document;
 
 @Schema({ timestamps: true })
 export class GmailWatch {
-  @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
+  @Prop({ required: true, type: Types.ObjectId, ref: "User" })
   userId: Types.ObjectId;
 
   @Prop({ required: true, unique: true })
@@ -14,14 +14,14 @@ export class GmailWatch {
   @Prop({ required: true })
   historyId: string;
 
-  @Prop({ required: true, default: 'gmail-notifications' })
+  @Prop({ required: true, default: "gmail-notifications" })
   topicName: string;
 
-  @Prop({ type: [String], default: ['INBOX'] })
+  @Prop({ type: [String], default: ["INBOX"] })
   labelIds: string[];
 
-  @Prop({ enum: ['INCLUDE', 'EXCLUDE'], default: 'INCLUDE' })
-  labelFilterBehavior: 'INCLUDE' | 'EXCLUDE';
+  @Prop({ enum: ["INCLUDE", "EXCLUDE"], default: "INCLUDE" })
+  labelFilterBehavior: "INCLUDE" | "EXCLUDE";
 
   @Prop({ required: true })
   expiresAt: Date;
@@ -62,4 +62,4 @@ GmailWatchSchema.index({ userId: 1 });
 GmailWatchSchema.index({ watchId: 1 }, { unique: true });
 GmailWatchSchema.index({ expiresAt: 1 });
 GmailWatchSchema.index({ isActive: 1, expiresAt: 1 });
-GmailWatchSchema.index({ googleEmail: 1 }); 
+GmailWatchSchema.index({ googleEmail: 1 });
