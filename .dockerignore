@@ -2,3 +2,68 @@ node_modules
 .git
 dist
 *.log
+
+# Environment files (contain sensitive data)
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Google Cloud service account credentials (CRITICAL - never include in Docker image)
+config/gmail-push-service-account.json
+config/*.json
+config/service-accounts/
+
+# Development and testing files
+coverage/
+test/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# Documentation that's not needed in production
+README.md
+guides/
+docs/
+*.md
+
+# Development tools and configs
+.eslintrc*
+.prettierrc*
+.gitignore
+.dockerignore
+docker-compose*.yml
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+
+# Data directories (may contain sensitive information)
+data/
+uploads/
+storage/
+
+# Scripts that aren't needed in production
+scripts/setup-*.sh
+scripts/test-*.sh
+scripts/cleanup-*.sh

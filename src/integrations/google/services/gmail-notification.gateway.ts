@@ -6,30 +6,32 @@ import {
   SubscribeMessage,
   MessageBody,
   ConnectedSocket,
-} from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
+} from "@nestjs/websockets";
+import { Server, Socket } from "socket.io";
+import { Logger } from "@nestjs/common";
+import { OnEvent } from "@nestjs/event-emitter";
 
 /**
  * Gmail Notification Gateway
  * Provides real-time WebSocket notifications for Gmail push notifications and email triage results
  */
 @WebSocketGateway({
-  namespace: '/gmail-notifications',
+  namespace: "/gmail-notifications",
   cors: {
     origin: [
-      'http://localhost:8080',
-      'http://localhost:3000',
-      'https://followthrough-client.vercel.app',
-      'https://followthrough-client-uiftikhars-projects.vercel.app',
-      'https://followthrough-client-uiftikhar-uiftikhars-projects.vercel.app',
-      'https://65fc-2-201-41-78.ngrok-free.app',
+      "http://localhost:8080",
+      "http://localhost:3000",
+      "https://followthrough-client.vercel.app",
+      "https://followthrough-client-uiftikhars-projects.vercel.app",
+      "https://followthrough-client-uiftikhar-uiftikhars-projects.vercel.app",
+      "https://65fc-2-201-41-78.ngrok-free.app",
     ], // Add your client origins
     credentials: true,
   },
 })
-export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class GmailNotificationGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -46,8 +48,8 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
     this.logger.log(`Client connected: ${clientId}`);
 
     // Send connection confirmation
-    client.emit('connected', {
-      message: 'Connected to Gmail notifications',
+    client.emit("connected", {
+      message: "Connected to Gmail notifications",
       clientId,
       timestamp: new Date().toISOString(),
     });
@@ -58,22 +60,26 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
    */
   handleDisconnect(client: Socket) {
     const clientId = client.id;
-    
+
     // Remove from user sessions
     for (const [userEmail, clientIds] of this.userSessions.entries()) {
       if (clientIds.has(clientId)) {
         clientIds.delete(clientId);
-        this.logger.log(`Removed client ${clientId} from user session: ${userEmail}`);
-        
+        this.logger.log(
+          `Removed client ${clientId} from user session: ${userEmail}`,
+        );
+
         // If no more clients for this user, remove the user session
         if (clientIds.size === 0) {
           this.userSessions.delete(userEmail);
-          this.logger.log(`No more active clients for user: ${userEmail} - session cleaned up`);
+          this.logger.log(
+            `No more active clients for user: ${userEmail} - session cleaned up`,
+          );
         }
         break;
       }
     }
-    
+
     this.connectedClients.delete(clientId);
     this.logger.log(`Client disconnected: ${clientId}`);
   }
@@ -85,7 +91,7 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
   async getActiveConnections(userEmail: string): Promise<number> {
     const userClients = this.userSessions.get(userEmail);
     const activeCount = userClients ? userClients.size : 0;
-    
+
     this.logger.log(`Active connections for ${userEmail}: ${activeCount}`);
     return activeCount;
   }
@@ -114,7 +120,7 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
           activeClientIds.add(clientId);
         }
       }
-      
+
       if (activeClientIds.size !== clientIds.size) {
         if (activeClientIds.size === 0) {
           this.userSessions.delete(userEmail);
@@ -124,7 +130,7 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
         }
       }
     }
-    
+
     if (cleanedUp > 0) {
       this.logger.log(`Cleaned up ${cleanedUp} inactive user sessions`);
     }
@@ -133,13 +139,15 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
   /**
    * Subscribe to email notifications for a specific user
    */
-  @SubscribeMessage('subscribe')
+  @SubscribeMessage("subscribe")
   handleSubscribe(
     @MessageBody() data: { userId: string; emailAddress?: string },
     @ConnectedSocket() client: Socket,
   ) {
     const { userId, emailAddress } = data;
-    this.logger.log(`Client ${client.id} subscribing to notifications for user: ${userId}`);
+    this.logger.log(
+      `Client ${client.id} subscribing to notifications for user: ${userId}`,
+    );
 
     // Join room for this user
     const roomName = `user:${userId}`;
@@ -149,21 +157,25 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
     if (emailAddress) {
       const emailRoom = `email:${emailAddress}`;
       client.join(emailRoom);
-      
+
       // Track user session for cross-contamination prevention
       if (!this.userSessions.has(emailAddress)) {
         this.userSessions.set(emailAddress, new Set());
       }
       this.userSessions.get(emailAddress)!.add(client.id);
-      
-      this.logger.log(`Added client ${client.id} to user session: ${emailAddress}`);
+
+      this.logger.log(
+        `Added client ${client.id} to user session: ${emailAddress}`,
+      );
     }
 
-    client.emit('subscribed', {
-      message: 'Successfully subscribed to notifications',
+    client.emit("subscribed", {
+      message: "Successfully subscribed to notifications",
       userId,
       emailAddress,
-      rooms: [roomName, emailAddress ? `email:${emailAddress}` : null].filter(Boolean),
+      rooms: [roomName, emailAddress ? `email:${emailAddress}` : null].filter(
+        Boolean,
+      ),
       timestamp: new Date().toISOString(),
     });
   }
@@ -171,13 +183,15 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
   /**
    * Unsubscribe from notifications
    */
-  @SubscribeMessage('unsubscribe')
+  @SubscribeMessage("unsubscribe")
   handleUnsubscribe(
     @MessageBody() data: { userId: string; emailAddress?: string },
     @ConnectedSocket() client: Socket,
   ) {
     const { userId, emailAddress } = data;
-    this.logger.log(`Client ${client.id} unsubscribing from notifications for user: ${userId}`);
+    this.logger.log(
+      `Client ${client.id} unsubscribing from notifications for user: ${userId}`,
+    );
 
     // Leave user room
     const roomName = `user:${userId}`;
@@ -187,13 +201,15 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
     if (emailAddress) {
       const emailRoom = `email:${emailAddress}`;
       client.leave(emailRoom);
-      
+
       // Remove from user session tracking
       const userClients = this.userSessions.get(emailAddress);
       if (userClients) {
         userClients.delete(client.id);
-        this.logger.log(`Removed client ${client.id} from user session: ${emailAddress}`);
-        
+        this.logger.log(
+          `Removed client ${client.id} from user session: ${emailAddress}`,
+        );
+
         // Clean up empty sessions
         if (userClients.size === 0) {
           this.userSessions.delete(emailAddress);
@@ -202,8 +218,8 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
       }
     }
 
-    client.emit('unsubscribed', {
-      message: 'Successfully unsubscribed from notifications',
+    client.emit("unsubscribed", {
+      message: "Successfully unsubscribed from notifications",
       userId,
       emailAddress,
       timestamp: new Date().toISOString(),
@@ -213,14 +229,16 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
   /**
    * Listen for email triage started events
    */
-  @OnEvent('email.triage.started')
+  @OnEvent("email.triage.started")
   handleTriageStarted(payload: any) {
-    this.logger.log(`📡 Broadcasting triage started for email: ${payload.emailId}`);
-    
+    this.logger.log(
+      `📡 Broadcasting triage started for email: ${payload.emailId}`,
+    );
+
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
-    this.server.emit('triage.started', {
-      type: 'triage.started',
+    this.server.emit("triage.started", {
+      type: "triage.started",
       emailId: payload.emailId,
       emailAddress: payload.emailAddress,
       subject: payload.subject,
@@ -233,14 +251,16 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
   /**
    * Listen for email triage processing events
    */
-  @OnEvent('email.triage.processing')
+  @OnEvent("email.triage.processing")
   handleTriageProcessing(payload: any) {
-    this.logger.log(`📡 Broadcasting triage processing for session: ${payload.sessionId}`);
-    
+    this.logger.log(
+      `📡 Broadcasting triage processing for session: ${payload.sessionId}`,
+    );
+
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
-    this.server.emit('triage.processing', {
-      type: 'triage.processing',
+    this.server.emit("triage.processing", {
+      type: "triage.processing",
       sessionId: payload.sessionId,
       emailId: payload.emailId,
       emailAddress: payload.emailAddress,
@@ -254,14 +274,16 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
   /**
    * Listen for email triage completed events
    */
-  @OnEvent('email.triage.completed')
+  @OnEvent("email.triage.completed")
   handleTriageCompleted(payload: any) {
-    this.logger.log(`📡 Broadcasting triage completed for email: ${payload.emailId}`);
-    
+    this.logger.log(
+      `📡 Broadcasting triage completed for email: ${payload.emailId}`,
+    );
+
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
-    this.server.emit('triage.completed', {
-      type: 'triage.completed',
+    this.server.emit("triage.completed", {
+      type: "triage.completed",
       sessionId: payload.sessionId,
       emailId: payload.emailId,
       emailAddress: payload.emailAddress,
@@ -274,14 +296,16 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
   /**
    * Listen for email triage failed events
    */
-  @OnEvent('email.triage.failed')
+  @OnEvent("email.triage.failed")
   handleTriageFailed(payload: any) {
-    this.logger.log(`📡 Broadcasting triage failed for email: ${payload.emailId}`);
-    
+    this.logger.log(
+      `📡 Broadcasting triage failed for email: ${payload.emailId}`,
+    );
+
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
-    this.server.emit('triage.failed', {
-      type: 'triage.failed',
+    this.server.emit("triage.failed", {
+      type: "triage.failed",
       emailId: payload.emailId,
       emailAddress: payload.emailAddress,
       subject: payload.subject,
@@ -294,14 +318,16 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
   /**
    * Listen for email received events (simplified notification)
    */
-  @OnEvent('email.received')
+  @OnEvent("email.received")
   handleEmailReceived(payload: any) {
-    this.logger.log(`📡 Broadcasting email received for: ${payload.emailId} - "${payload.subject}"`);
-    
+    this.logger.log(
+      `📡 Broadcasting email received for: ${payload.emailId} - "${payload.subject}"`,
+    );
+
     // Broadcast to all clients in email room
     const emailRoom = `email:${payload.emailAddress}`;
-    this.server.emit('email.received', {
-      type: 'email.received',
+    this.server.emit("email.received", {
+      type: "email.received",
       emailId: payload.emailId,
       emailAddress: payload.emailAddress,
       subject: payload.subject,
@@ -313,26 +339,28 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
     });
 
     // Also broadcast to general notifications for all connected clients
-    this.server.emit('notification', {
-      type: 'email_received',
+    this.server.emit("notification", {
+      type: "email_received",
       emailId: payload.emailId,
       emailAddress: payload.emailAddress,
       summary: `New email received: "${payload.subject}" from ${payload.from}`,
       timestamp: payload.timestamp,
     });
 
-    this.logger.log(`✅ Email notification broadcasted to clients for: ${payload.emailId}`);
+    this.logger.log(
+      `✅ Email notification broadcasted to clients for: ${payload.emailId}`,
+    );
   }
 
   /**
    * Send test notification (for debugging)
    */
-  @SubscribeMessage('test')
+  @SubscribeMessage("test")
   handleTest(@ConnectedSocket() client: Socket) {
     this.logger.log(`Sending test notification to client: ${client.id}`);
-    
-    client.emit('test.notification', {
-      message: 'Test notification from Gmail push notification system',
+
+    client.emit("test.notification", {
+      message: "Test notification from Gmail push notification system",
       timestamp: new Date().toISOString(),
     });
   }
@@ -340,11 +368,11 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
   /**
    * Get connection status
    */
-  @SubscribeMessage('status')
+  @SubscribeMessage("status")
   handleStatus(@ConnectedSocket() client: Socket) {
     const connectedCount = this.connectedClients.size;
-    
-    client.emit('status.response', {
+
+    client.emit("status.response", {
       clientId: client.id,
       connectedClients: connectedCount,
       rooms: Array.from(client.rooms),
@@ -355,10 +383,10 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
   /**
    * Broadcast system-wide notification
    */
-  broadcastSystemNotification(message: string, type: string = 'info') {
+  broadcastSystemNotification(message: string, type: string = "info") {
     this.logger.log(`Broadcasting system notification: ${message}`);
-    
-    this.server.emit('system.notification', {
+
+    this.server.emit("system.notification", {
       type,
       message,
       timestamp: new Date().toISOString(),
@@ -370,10 +398,10 @@ export class GmailNotificationGateway implements OnGatewayConnection, OnGatewayD
    */
   sendUserNotification(userId: string, notification: any) {
     const userRoom = `user:${userId}`;
-    this.server.emit('user.notification', {
+    this.server.emit("user.notification", {
       ...notification,
       userId,
       timestamp: new Date().toISOString(),
     });
   }
-} 
+}

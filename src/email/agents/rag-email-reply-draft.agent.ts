@@ -35,15 +35,22 @@ export class RagEmailReplyDraftAgent {
       systemPrompt: `You are an AI specialized in generating personalized email replies that match user communication styles.
       Use tone analysis and historical patterns to create authentic, personalized responses.`,
       replyTemplates: {
-        urgent: "Thank you for reaching out. We understand this is urgent and will prioritize your request.",
+        urgent:
+          "Thank you for reaching out. We understand this is urgent and will prioritize your request.",
         high: "Thank you for contacting us. We have received your request and will respond promptly.",
-        normal: "Thank you for contacting us. We have received your message and will get back to you soon.",
+        normal:
+          "Thank you for contacting us. We have received your message and will get back to you soon.",
         low: "Thank you for your message. We will review your request and respond within 48 hours.",
-        bug_report: "Thank you for reporting this issue. We will investigate and provide an update.",
-        feature_request: "Thank you for your feature suggestion. We will review it with our product team.",
-        question: "Thank you for your question. We will provide you with a detailed answer.",
-        complaint: "Thank you for bringing this to our attention. We take your feedback seriously.",
-        praise: "Thank you for your kind words! We really appreciate your feedback.",
+        bug_report:
+          "Thank you for reporting this issue. We will investigate and provide an update.",
+        feature_request:
+          "Thank you for your feature suggestion. We will review it with our product team.",
+        question:
+          "Thank you for your question. We will provide you with a detailed answer.",
+        complaint:
+          "Thank you for bringing this to our attention. We take your feedback seriously.",
+        praise:
+          "Thank you for your kind words! We really appreciate your feedback.",
       },
       enableToneLearning: true,
       toneAdaptationStrength: 0.7, // 70% adaptation to user's tone
@@ -64,7 +71,12 @@ export class RagEmailReplyDraftAgent {
 
     if (!this.ragConfig.enableToneLearning) {
       // Fallback to basic reply draft agent
-      return this.generateBasicReplyDraft(emailContent, metadata, classification, summary);
+      return this.generateBasicReplyDraft(
+        emailContent,
+        metadata,
+        classification,
+        summary,
+      );
     }
 
     try {
@@ -89,15 +101,28 @@ export class RagEmailReplyDraftAgent {
       );
 
       // Step 4: Store successful pattern for future learning (async)
-      this.storeReplyPattern(emailContent, metadata, classification, personalizedReply)
-        .catch(error => this.logger.warn(`Failed to store reply pattern: ${error.message}`));
+      this.storeReplyPattern(
+        emailContent,
+        metadata,
+        classification,
+        personalizedReply,
+      ).catch((error) =>
+        this.logger.warn(`Failed to store reply pattern: ${error.message}`),
+      );
 
       this.logger.log(`RAG-enhanced reply generated successfully`);
       return personalizedReply;
     } catch (error) {
-      this.logger.error(`Failed to generate RAG-enhanced reply: ${error.message}`);
+      this.logger.error(
+        `Failed to generate RAG-enhanced reply: ${error.message}`,
+      );
       // Fallback to basic reply generation
-      return this.generateBasicReplyDraft(emailContent, metadata, classification, summary);
+      return this.generateBasicReplyDraft(
+        emailContent,
+        metadata,
+        classification,
+        summary,
+      );
     }
   }
 
@@ -111,12 +136,17 @@ export class RagEmailReplyDraftAgent {
     summary: EmailSummary,
   ): Promise<EmailReplyDraft> {
     if (this.emailReplyDraftAgent) {
-      return this.emailReplyDraftAgent.generateReplyDraft(emailContent, metadata, classification, summary);
+      return this.emailReplyDraftAgent.generateReplyDraft(
+        emailContent,
+        metadata,
+        classification,
+        summary,
+      );
     }
 
     // Direct basic implementation if no agent available
     const template = this.selectBaseTemplate(classification);
-    
+
     return {
       subject: `Re: ${metadata.subject}`,
       body: `Dear ${metadata.from},\n\n${template}\n\nBest regards,\nSupport Team`,
@@ -128,7 +158,9 @@ export class RagEmailReplyDraftAgent {
   /**
    * Get user tone profile from RAG system
    */
-  private async getUserToneProfile(userEmail: string): Promise<UserToneProfile | undefined> {
+  private async getUserToneProfile(
+    userEmail: string,
+  ): Promise<UserToneProfile | undefined> {
     if (!this.toneAnalysisAgent) {
       this.logger.warn("Tone analysis agent not available, using default tone");
       return undefined;
@@ -152,7 +184,7 @@ export class RagEmailReplyDraftAgent {
   ): Promise<any[]> {
     try {
       const query = `Reply draft patterns for ${classification.priority} ${classification.category} email: ${metadata.subject}`;
-      
+
       const patterns = await this.ragService.getContext(query, {
         indexName: VectorIndexes.EMAIL_TRIAGE,
         namespace: "reply-patterns",
@@ -168,7 +200,9 @@ export class RagEmailReplyDraftAgent {
       this.logger.log(`Retrieved ${patterns.length} similar reply patterns`);
       return patterns;
     } catch (error) {
-      this.logger.error(`Failed to retrieve similar patterns: ${error.message}`);
+      this.logger.error(
+        `Failed to retrieve similar patterns: ${error.message}`,
+      );
       return [];
     }
   }
@@ -241,20 +275,23 @@ Respond in JSON format:
       let parsedContent = content;
 
       // Extract JSON from response
-      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) ||
-                       content.match(/```\n([\s\S]*?)\n```/) ||
-                       content.match(/(\{[\s\S]*\})/);
+      const jsonMatch =
+        content.match(/```json\n([\s\S]*?)\n```/) ||
+        content.match(/```\n([\s\S]*?)\n```/) ||
+        content.match(/(\{[\s\S]*\})/);
 
       if (jsonMatch) {
         parsedContent = jsonMatch[1];
       }
 
       const replyDraft = JSON.parse(parsedContent);
-      
+
       // Enhance with tone-specific adjustments
       return this.applyToneAdjustments(replyDraft, userToneProfile);
     } catch (error) {
-      this.logger.error(`Failed to generate tone-adapted reply: ${error.message}`);
+      this.logger.error(
+        `Failed to generate tone-adapted reply: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -274,13 +311,15 @@ Respond in JSON format:
   /**
    * Build tone instructions based on user profile
    */
-  private buildToneInstructions(userToneProfile: UserToneProfile | undefined): string {
+  private buildToneInstructions(
+    userToneProfile: UserToneProfile | undefined,
+  ): string {
     if (!userToneProfile || userToneProfile.confidence < 0.5) {
       return `TONE GUIDELINES: Use ${this.ragConfig.fallbackToBehavior} tone as default.`;
     }
 
     const style = userToneProfile.communicationStyle;
-    
+
     return `USER TONE PROFILE (Confidence: ${userToneProfile.confidence.toFixed(2)}):
 - Formality: ${style.formality}
 - Warmth: ${style.warmth}
@@ -288,7 +327,7 @@ Respond in JSON format:
 - Technical Level: ${style.technicalLevel}
 - Emotional Tone: ${style.emotionalTone}
 - Response Length: ${style.responseLength}
-- Common Phrases: ${userToneProfile.commonPhrases.slice(0, 5).join(', ')}
+- Common Phrases: ${userToneProfile.commonPhrases.slice(0, 5).join(", ")}
 
 ADAPTATION STRENGTH: ${this.ragConfig.toneAdaptationStrength * 100}% - Adapt reply to match user's style while maintaining professionalism.`;
   }
@@ -301,9 +340,12 @@ ADAPTATION STRENGTH: ${this.ragConfig.toneAdaptationStrength * 100}% - Adapt rep
       return "PATTERN CONTEXT: No similar patterns available.";
     }
 
-    const patternSummary = patterns.map((pattern, index) => 
-      `Pattern ${index + 1}: ${pattern.content?.substring(0, 100)}...`
-    ).join('\n');
+    const patternSummary = patterns
+      .map(
+        (pattern, index) =>
+          `Pattern ${index + 1}: ${pattern.content?.substring(0, 100)}...`,
+      )
+      .join("\n");
 
     return `SIMILAR SUCCESSFUL PATTERNS:
 ${patternSummary}
@@ -323,10 +365,10 @@ Use these patterns as inspiration for structure and tone, but personalize the co
     }
 
     const style = userToneProfile.communicationStyle;
-    
+
     // Adjust tone field based on user's communication style
     let adjustedTone = replyDraft.tone;
-    
+
     if (style.formality === "casual" && style.warmth === "warm") {
       adjustedTone = "friendly";
     } else if (style.formality === "formal" && style.warmth === "neutral") {
@@ -352,7 +394,7 @@ Use these patterns as inspiration for structure and tone, but personalize the co
   ): Promise<void> {
     try {
       const patternId = `reply-pattern-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-      
+
       const patternDocument = {
         id: patternId,
         content: `Reply Pattern for ${classification.priority} ${classification.category}:
@@ -365,7 +407,7 @@ Generated Reply:
 Subject: ${replyDraft.subject}
 Body: ${replyDraft.body}
 Tone: ${replyDraft.tone}
-Next Steps: ${replyDraft.next_steps.join(', ')}`,
+Next Steps: ${replyDraft.next_steps.join(", ")}`,
         metadata: {
           type: "reply_pattern",
           priority: classification.priority,
@@ -387,4 +429,4 @@ Next Steps: ${replyDraft.next_steps.join(', ')}`,
       this.logger.error(`Failed to store reply pattern: ${error.message}`);
     }
   }
-} 
+}

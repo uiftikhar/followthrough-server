@@ -15,7 +15,7 @@ export class EmailTriageController {
    * PRODUCTION EMAIL TRIAGE ENDPOINT
    * Direct agentic email triage system with RAG enhancement
    * POST /api/email/triage
-   * 
+   *
    * Used internally by the system for processing emails from Gmail webhooks
    * This endpoint should be called by the UnifiedWorkflowService only
    */
@@ -30,13 +30,27 @@ export class EmailTriageController {
         sessionId,
         emailData: {
           id: emailPayload.emailData?.id || `email-${Date.now()}`,
-          body: emailPayload.emailData?.body || emailPayload.body || emailPayload.content || "",
+          body:
+            emailPayload.emailData?.body ||
+            emailPayload.body ||
+            emailPayload.content ||
+            "",
           metadata: {
-            subject: emailPayload.emailData?.metadata?.subject || emailPayload.subject,
+            subject:
+              emailPayload.emailData?.metadata?.subject || emailPayload.subject,
             from: emailPayload.emailData?.metadata?.from || emailPayload.from,
-            to: emailPayload.emailData?.metadata?.to || emailPayload.to || "support@company.com",
-            timestamp: emailPayload.emailData?.metadata?.timestamp || emailPayload.timestamp || new Date().toISOString(),
-            headers: emailPayload.emailData?.metadata?.headers || emailPayload.headers || {},
+            to:
+              emailPayload.emailData?.metadata?.to ||
+              emailPayload.to ||
+              "support@company.com",
+            timestamp:
+              emailPayload.emailData?.metadata?.timestamp ||
+              emailPayload.timestamp ||
+              new Date().toISOString(),
+            headers:
+              emailPayload.emailData?.metadata?.headers ||
+              emailPayload.headers ||
+              {},
           },
         },
         currentStep: "initializing",
@@ -48,7 +62,8 @@ export class EmailTriageController {
       );
 
       // Execute the RAG-enhanced email triage graph
-      const finalState = await this.emailTriageGraphBuilder.executeGraph(initialState);
+      const finalState =
+        await this.emailTriageGraphBuilder.executeGraph(initialState);
 
       this.logger.log("✅ Email triage completed successfully");
 
@@ -65,7 +80,10 @@ export class EmailTriageController {
         error: finalState.error,
       };
     } catch (error) {
-      this.logger.error(`❌ Email triage failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `❌ Email triage failed: ${error.message}`,
+        error.stack,
+      );
       return {
         success: false,
         error: error.message,

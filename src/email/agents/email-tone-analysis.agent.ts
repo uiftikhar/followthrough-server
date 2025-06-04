@@ -34,13 +34,18 @@ export class EmailToneAnalysisAgent {
   /**
    * Analyze a single email's tone characteristics
    */
-  async extractToneFeatures(emailContent: string, metadata: any): Promise<ToneFeatures> {
-    this.logger.log(`Extracting tone features from email: ${metadata.subject || 'No subject'}`);
+  async extractToneFeatures(
+    emailContent: string,
+    metadata: any,
+  ): Promise<ToneFeatures> {
+    this.logger.log(
+      `Extracting tone features from email: ${metadata.subject || "No subject"}`,
+    );
 
     const prompt = `Analyze the communication tone and style of this email:
 
-Subject: ${metadata.subject || 'No subject'}
-From: ${metadata.from || 'Unknown'}
+Subject: ${metadata.subject || "No subject"}
+From: ${metadata.from || "Unknown"}
 Content: ${emailContent}
 
 Extract these tone characteristics:
@@ -83,9 +88,10 @@ Respond in JSON format:
       let parsedContent = content;
 
       // Extract JSON from response
-      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) ||
-                       content.match(/```\n([\s\S]*?)\n```/) ||
-                       content.match(/(\{[\s\S]*\})/);
+      const jsonMatch =
+        content.match(/```json\n([\s\S]*?)\n```/) ||
+        content.match(/```\n([\s\S]*?)\n```/) ||
+        content.match(/(\{[\s\S]*\})/);
 
       if (jsonMatch) {
         parsedContent = jsonMatch[1];
@@ -123,23 +129,30 @@ Respond in JSON format:
     this.logger.log(`Building tone profile for user: ${userEmail}`);
 
     if (emailHistory.length < this.config.minSamplesForProfile) {
-      this.logger.warn(`Insufficient email samples (${emailHistory.length}) for reliable tone profile`);
+      this.logger.warn(
+        `Insufficient email samples (${emailHistory.length}) for reliable tone profile`,
+      );
       return this.createDefaultToneProfile(userId, userEmail);
     }
 
     try {
       // Analyze tone features from multiple emails
       const toneAnalyses = await Promise.all(
-        emailHistory.slice(0, this.config.maxSamplesAnalyzed).map(email =>
-          this.extractToneFeatures(email.content, email.metadata)
-        )
+        emailHistory
+          .slice(0, this.config.maxSamplesAnalyzed)
+          .map((email) =>
+            this.extractToneFeatures(email.content, email.metadata),
+          ),
       );
 
       // Aggregate tone characteristics
       const aggregatedTone = this.aggregateToneFeatures(toneAnalyses);
 
       // Create priority-specific patterns
-      const responsePatterns = await this.createResponsePatterns(emailHistory, toneAnalyses);
+      const responsePatterns = await this.createResponsePatterns(
+        emailHistory,
+        toneAnalyses,
+      );
 
       // Extract common phrases and preferred tones
       const commonPhrases = this.extractCommonPhrases(toneAnalyses);
@@ -154,10 +167,15 @@ Respond in JSON format:
         responsePatterns,
         lastUpdated: new Date(),
         sampleCount: emailHistory.length,
-        confidence: this.calculateProfileConfidence(emailHistory.length, toneAnalyses),
+        confidence: this.calculateProfileConfidence(
+          emailHistory.length,
+          toneAnalyses,
+        ),
       };
 
-      this.logger.log(`Tone profile created for ${userEmail} with ${profile.confidence.toFixed(2)} confidence`);
+      this.logger.log(
+        `Tone profile created for ${userEmail} with ${profile.confidence.toFixed(2)} confidence`,
+      );
       return profile;
     } catch (error) {
       this.logger.error(`Failed to analyze user tone: ${error.message}`);
@@ -194,7 +212,9 @@ Respond in JSON format:
         namespace: "user-tone-profiles",
       });
 
-      this.logger.log(`Tone profile stored successfully for ${profile.userEmail}`);
+      this.logger.log(
+        `Tone profile stored successfully for ${profile.userEmail}`,
+      );
     } catch (error) {
       this.logger.error(`Failed to store tone profile: ${error.message}`);
     }
@@ -203,7 +223,9 @@ Respond in JSON format:
   /**
    * Retrieve user tone profile for personalized reply generation
    */
-  async getUserToneProfile(userEmail: string): Promise<UserToneProfile | undefined> {
+  async getUserToneProfile(
+    userEmail: string,
+  ): Promise<UserToneProfile | undefined> {
     try {
       this.logger.log(`Retrieving tone profile for user: ${userEmail}`);
 
@@ -236,29 +258,35 @@ Respond in JSON format:
   private aggregateToneFeatures(analyses: ToneFeatures[]): ToneFeatures {
     // Simple majority voting for categorical features
     const getMostCommon = (field: keyof ToneFeatures) => {
-      const counts = analyses.reduce((acc, analysis) => {
-        const value = analysis[field];
-        if (typeof value === 'string') {
-          acc[value] = (acc[value] || 0) + 1;
-        }
-        return acc;
-      }, {} as Record<string, number>);
+      const counts = analyses.reduce(
+        (acc, analysis) => {
+          const value = analysis[field];
+          if (typeof value === "string") {
+            acc[value] = (acc[value] || 0) + 1;
+          }
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
 
-      return Object.entries(counts).sort(([,a], [,b]) => b - a)[0]?.[0] || 'neutral';
+      return (
+        Object.entries(counts).sort(([, a], [, b]) => b - a)[0]?.[0] ||
+        "neutral"
+      );
     };
 
     // Aggregate keywords and phrases
-    const allKeywords = analyses.flatMap(a => a.keywords || []);
-    const allPhrases = analyses.flatMap(a => a.phrases || []);
+    const allKeywords = analyses.flatMap((a) => a.keywords || []);
+    const allPhrases = analyses.flatMap((a) => a.phrases || []);
 
     return {
-      formality: getMostCommon('formality') as any,
-      warmth: getMostCommon('warmth') as any,
-      urgency: getMostCommon('urgency') as any,
-      directness: getMostCommon('directness') as any,
-      technicalLevel: getMostCommon('technicalLevel') as any,
-      emotionalTone: getMostCommon('emotionalTone') as any,
-      responseLength: getMostCommon('responseLength') as any,
+      formality: getMostCommon("formality") as any,
+      warmth: getMostCommon("warmth") as any,
+      urgency: getMostCommon("urgency") as any,
+      directness: getMostCommon("directness") as any,
+      technicalLevel: getMostCommon("technicalLevel") as any,
+      emotionalTone: getMostCommon("emotionalTone") as any,
+      responseLength: getMostCommon("responseLength") as any,
       keywords: [...new Set(allKeywords)].slice(0, 15),
       phrases: [...new Set(allPhrases)].slice(0, 10),
     };
@@ -276,9 +304,9 @@ Respond in JSON format:
     const defaultPattern = this.aggregateToneFeatures(toneAnalyses);
 
     return {
-      urgent: { ...defaultPattern, urgency: 'urgent' as const },
+      urgent: { ...defaultPattern, urgency: "urgent" as const },
       normal: defaultPattern,
-      low: { ...defaultPattern, urgency: 'relaxed' as const },
+      low: { ...defaultPattern, urgency: "relaxed" as const },
     };
   }
 
@@ -286,14 +314,17 @@ Respond in JSON format:
    * Helper: Extract most common phrases
    */
   private extractCommonPhrases(analyses: ToneFeatures[]): string[] {
-    const allPhrases = analyses.flatMap(a => a.phrases || []);
-    const phraseCounts = allPhrases.reduce((acc, phrase) => {
-      acc[phrase] = (acc[phrase] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const allPhrases = analyses.flatMap((a) => a.phrases || []);
+    const phraseCounts = allPhrases.reduce(
+      (acc, phrase) => {
+        acc[phrase] = (acc[phrase] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     return Object.entries(phraseCounts)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 8)
       .map(([phrase]) => phrase);
   }
@@ -302,7 +333,9 @@ Respond in JSON format:
    * Helper: Identify preferred communication tones
    */
   private identifyPreferredTones(analyses: ToneFeatures[]): string[] {
-    const tones = analyses.map(a => `${a.formality}-${a.warmth}-${a.emotionalTone}`);
+    const tones = analyses.map(
+      (a) => `${a.formality}-${a.warmth}-${a.emotionalTone}`,
+    );
     const uniqueTones = [...new Set(tones)];
     return uniqueTones.slice(0, 5);
   }
@@ -310,19 +343,25 @@ Respond in JSON format:
   /**
    * Helper: Calculate profile confidence based on sample size and consistency
    */
-  private calculateProfileConfidence(sampleCount: number, analyses: ToneFeatures[]): number {
+  private calculateProfileConfidence(
+    sampleCount: number,
+    analyses: ToneFeatures[],
+  ): number {
     const sampleConfidence = Math.min(sampleCount / 10, 1); // Max confidence at 10+ samples
-    
+
     // Calculate consistency (simplified)
     const consistencyScore = analyses.length > 1 ? 0.8 : 0.5;
-    
+
     return sampleConfidence * consistencyScore;
   }
 
   /**
    * Helper: Create default tone profile for new users
    */
-  private createDefaultToneProfile(userId: string, userEmail: string): UserToneProfile {
+  private createDefaultToneProfile(
+    userId: string,
+    userEmail: string,
+  ): UserToneProfile {
     const defaultTone: ToneFeatures = {
       formality: "formal",
       warmth: "neutral",
@@ -342,9 +381,9 @@ Respond in JSON format:
       preferredTones: ["formal-neutral-neutral"],
       commonPhrases: [],
       responsePatterns: {
-        urgent: { ...defaultTone, urgency: 'urgent' },
+        urgent: { ...defaultTone, urgency: "urgent" },
         normal: defaultTone,
-        low: { ...defaultTone, urgency: 'relaxed' },
+        low: { ...defaultTone, urgency: "relaxed" },
       },
       lastUpdated: new Date(),
       sampleCount: 0,
@@ -367,10 +406,10 @@ Communication Style:
 - Emotional Tone: ${profile.communicationStyle.emotionalTone}
 - Response Length: ${profile.communicationStyle.responseLength}
 
-Preferred Tones: ${profile.preferredTones.join(', ')}
-Common Phrases: ${profile.commonPhrases.join(', ')}
+Preferred Tones: ${profile.preferredTones.join(", ")}
+Common Phrases: ${profile.commonPhrases.join(", ")}
 
-Keywords: ${profile.communicationStyle.keywords.join(', ')}
+Keywords: ${profile.communicationStyle.keywords.join(", ")}
 
 Sample Count: ${profile.sampleCount}
 Confidence: ${profile.confidence}
@@ -380,18 +419,22 @@ Last Updated: ${profile.lastUpdated.toISOString()}`;
   /**
    * Reconstruct user tone profile from RAG data
    */
-  async reconstructToneProfileFromRAG(profileData: any): Promise<UserToneProfile | undefined> {
+  async reconstructToneProfileFromRAG(
+    profileData: any,
+  ): Promise<UserToneProfile | undefined> {
     try {
       // Extract metadata from the RAG document
       const metadata = profileData.metadata || {};
-      
+
       if (!metadata.userId || !metadata.userEmail) {
         this.logger.warn("Insufficient metadata to reconstruct tone profile");
         return undefined;
       }
 
       // Create default ToneFeatures structure
-      const createToneFeatures = (overrides: Partial<ToneFeatures> = {}): ToneFeatures => ({
+      const createToneFeatures = (
+        overrides: Partial<ToneFeatures> = {},
+      ): ToneFeatures => ({
         formality: "formal",
         warmth: "neutral",
         urgency: "normal",
@@ -419,23 +462,23 @@ Last Updated: ${profile.lastUpdated.toISOString()}`;
         preferredTones: this.extractPreferredTones(profileData.content),
         commonPhrases: this.extractPhrases(profileData.content),
         responsePatterns: {
-          urgent: createToneFeatures({ 
-            formality: "formal", 
-            warmth: "neutral", 
-            urgency: "urgent", 
-            directness: "direct" 
+          urgent: createToneFeatures({
+            formality: "formal",
+            warmth: "neutral",
+            urgency: "urgent",
+            directness: "direct",
           }),
-          normal: createToneFeatures({ 
-            formality: "formal", 
-            warmth: "warm", 
-            urgency: "normal", 
-            directness: "balanced" 
+          normal: createToneFeatures({
+            formality: "formal",
+            warmth: "warm",
+            urgency: "normal",
+            directness: "balanced",
           }),
-          low: createToneFeatures({ 
-            formality: "casual", 
-            warmth: "warm", 
-            urgency: "relaxed", 
-            directness: "indirect" 
+          low: createToneFeatures({
+            formality: "casual",
+            warmth: "warm",
+            urgency: "relaxed",
+            directness: "indirect",
           }),
         },
         lastUpdated: new Date(metadata.lastUpdated || Date.now()),
@@ -456,7 +499,7 @@ Last Updated: ${profile.lastUpdated.toISOString()}`;
   private extractPreferredTones(content: string): string[] {
     // Simple extraction - in production, this would be more sophisticated
     const tones = ["professional", "friendly", "formal", "casual"];
-    return tones.filter(tone => content.toLowerCase().includes(tone));
+    return tones.filter((tone) => content.toLowerCase().includes(tone));
   }
 
   /**
@@ -464,9 +507,22 @@ Last Updated: ${profile.lastUpdated.toISOString()}`;
    */
   private extractKeywords(content: string): string[] {
     const words = content.toLowerCase().split(/\s+/);
-    const stopWords = ['the', 'is', 'at', 'which', 'on', 'and', 'a', 'to', 'are', 'as', 'was', 'with'];
+    const stopWords = [
+      "the",
+      "is",
+      "at",
+      "which",
+      "on",
+      "and",
+      "a",
+      "to",
+      "are",
+      "as",
+      "was",
+      "with",
+    ];
     return words
-      .filter(word => word.length > 3 && !stopWords.includes(word))
+      .filter((word) => word.length > 3 && !stopWords.includes(word))
       .slice(0, 10); // Top 10 keywords
   }
 
@@ -477,8 +533,8 @@ Last Updated: ${profile.lastUpdated.toISOString()}`;
     // Simple phrase extraction - in production, this would use NLP
     const sentences = content.split(/[.!?]+/);
     return sentences
-      .map(s => s.trim())
-      .filter(s => s.length > 10 && s.length < 50)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 10 && s.length < 50)
       .slice(0, 5); // Top 5 phrases
   }
-} 
+}

@@ -102,7 +102,6 @@ import { OpenAIService } from "src/embedding/openai.service";
     DatabaseModule,
     StorageModule,
 
-
     // Cache configuration
     CacheModule.register({
       ttl: 1800, // 30 minutes

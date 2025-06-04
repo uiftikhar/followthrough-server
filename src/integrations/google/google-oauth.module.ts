@@ -1,45 +1,51 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
-import { ScheduleModule } from '@nestjs/schedule';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { MongooseModule } from "@nestjs/mongoose";
+import { ScheduleModule } from "@nestjs/schedule";
 
 // Import workflow services
-import { LanggraphModule } from '../../langgraph/langgraph.module';
+import { LanggraphModule } from "../../langgraph/langgraph.module";
 
 // Schemas
-import { UserGoogleTokens, UserGoogleTokensSchema } from '../../database/schemas/user-google-tokens.schema';
-import { GmailWatch, GmailWatchSchema } from '../../database/schemas/gmail-watch.schema';
+import {
+  UserGoogleTokens,
+  UserGoogleTokensSchema,
+} from "../../database/schemas/user-google-tokens.schema";
+import {
+  GmailWatch,
+  GmailWatchSchema,
+} from "../../database/schemas/gmail-watch.schema";
 
 // Repositories
-import { UserGoogleTokensRepository } from '../../database/repositories/user-google-tokens.repository';
-import { GmailWatchRepository } from '../../database/repositories/gmail-watch.repository';
+import { UserGoogleTokensRepository } from "../../database/repositories/user-google-tokens.repository";
+import { GmailWatchRepository } from "../../database/repositories/gmail-watch.repository";
 
 // Services
-import { TokenEncryptionService } from './services/token-encryption.service';
-import { GoogleOAuthService } from './services/google-oauth.service';
-import { GmailService } from './services/gmail.service';
-import { PubSubService } from './services/pubsub.service';
-import { GmailWatchService } from './services/gmail-watch.service';
-import { GmailBackgroundService } from './services/gmail-background.service';
-import { GmailShutdownService } from './services/gmail-shutdown.service';
-import { GmailNotificationService } from './services/gmail-notification.service';
+import { TokenEncryptionService } from "./services/token-encryption.service";
+import { GoogleOAuthService } from "./services/google-oauth.service";
+import { GmailService } from "./services/gmail.service";
+import { PubSubService } from "./services/pubsub.service";
+import { GmailWatchService } from "./services/gmail-watch.service";
+import { GmailBackgroundService } from "./services/gmail-background.service";
+import { GmailShutdownService } from "./services/gmail-shutdown.service";
+import { GmailNotificationService } from "./services/gmail-notification.service";
 
 // Controllers
-import { GoogleOAuthController } from './controllers/google-oauth.controller';
-import { GmailWebhookController } from './controllers/gmail-webhook.controller';
-import { GmailClientController } from './controllers/gmail-client.controller';
-import { GmailWatchController } from './controllers/gmail-watch.controller';
-import { GmailDebugController } from './controllers/gmail-debug.controller';
+import { GoogleOAuthController } from "./controllers/google-oauth.controller";
+import { GmailWebhookController } from "./controllers/gmail-webhook.controller";
+import { GmailClientController } from "./controllers/gmail-client.controller";
+import { GmailWatchController } from "./controllers/gmail-watch.controller";
+import { GmailDebugController } from "./controllers/gmail-debug.controller";
 
 // Guards
-import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { GoogleAuthGuard } from "./guards/google-auth.guard";
 
 // WebSocket Gateway for real-time notifications
-import { GmailNotificationGateway } from './services/gmail-notification.gateway';
+import { GmailNotificationGateway } from "./services/gmail-notification.gateway";
 
 /**
  * GoogleOAuthModule - Server-side Google OAuth integration with Gmail Push Notifications
- * 
+ *
  * This module provides:
  * - Secure token storage with encryption
  * - OAuth flow management (authorization, callback, refresh)
@@ -49,7 +55,7 @@ import { GmailNotificationGateway } from './services/gmail-notification.gateway'
  * - Real-time email processing webhooks
  * - Background jobs for watch renewal and health monitoring
  * - Integration guards for protected routes
- * 
+ *
  * Usage:
  * 1. Import this module in other feature modules
  * 2. Use GoogleOAuthService to get authenticated clients
@@ -87,14 +93,14 @@ import { GmailNotificationGateway } from './services/gmail-notification.gateway'
     GmailBackgroundService, // Background jobs and health monitoring
     GmailShutdownService, // Gmail shutdown service
     GmailNotificationService,
-    
+
     // Real-time notifications
     GmailNotificationGateway, // WebSocket gateway for real-time client notifications
-    
+
     // Repositories
     UserGoogleTokensRepository,
     GmailWatchRepository,
-    
+
     // Guards
     GoogleAuthGuard,
   ],
@@ -114,4 +120,4 @@ import { GmailNotificationGateway } from './services/gmail-notification.gateway'
     TokenEncryptionService,
   ],
 })
-export class GoogleOAuthModule {} 
+export class GoogleOAuthModule {}

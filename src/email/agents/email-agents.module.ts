@@ -139,15 +139,22 @@ import {
         systemPrompt:
           "You are an AI specialized in generating personalized email replies that match user communication styles using RAG and tone analysis.",
         replyTemplates: {
-          urgent: "Thank you for reaching out. We understand this is urgent and will prioritize your request.",
+          urgent:
+            "Thank you for reaching out. We understand this is urgent and will prioritize your request.",
           high: "Thank you for contacting us. We have received your request and will respond promptly.",
-          normal: "Thank you for contacting us. We have received your message and will get back to you soon.",
+          normal:
+            "Thank you for contacting us. We have received your message and will get back to you soon.",
           low: "Thank you for your message. We will review your request and respond within 48 hours.",
-          bug_report: "Thank you for reporting this issue. We will investigate and provide an update.",
-          feature_request: "Thank you for your feature suggestion. We will review it with our product team.",
-          question: "Thank you for your question. We will provide you with a detailed answer.",
-          complaint: "Thank you for bringing this to our attention. We take your feedback seriously.",
-          praise: "Thank you for your kind words! We really appreciate your feedback.",
+          bug_report:
+            "Thank you for reporting this issue. We will investigate and provide an update.",
+          feature_request:
+            "Thank you for your feature suggestion. We will review it with our product team.",
+          question:
+            "Thank you for your question. We will provide you with a detailed answer.",
+          complaint:
+            "Thank you for bringing this to our attention. We take your feedback seriously.",
+          praise:
+            "Thank you for your kind words! We really appreciate your feedback.",
         },
         enableToneLearning: true,
         toneAdaptationStrength: 0.7,

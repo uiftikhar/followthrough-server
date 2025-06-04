@@ -1,6 +1,6 @@
-import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { GmailWatchService } from './gmail-watch.service';
+import { Injectable, Logger, OnApplicationShutdown } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { GmailWatchService } from "./gmail-watch.service";
 
 /**
  * Gmail Shutdown Service
@@ -17,12 +17,17 @@ export class GmailShutdownService implements OnApplicationShutdown {
     private readonly gmailWatchService: GmailWatchService,
   ) {
     // Check if watch cleanup is enabled
-    this.shouldCleanupWatches = this.configService.get<boolean>('GOOGLE_REMOVE_ACTIVE_WATCHERS', false);
-    
+    this.shouldCleanupWatches = this.configService.get<boolean>(
+      "GOOGLE_REMOVE_ACTIVE_WATCHERS",
+      false,
+    );
+
     if (this.shouldCleanupWatches) {
-      this.logger.log('✅ Gmail watch cleanup on shutdown is ENABLED');
+      this.logger.log("✅ Gmail watch cleanup on shutdown is ENABLED");
     } else {
-      this.logger.log('ℹ️ Gmail watch cleanup on shutdown is DISABLED (set GOOGLE_REMOVE_ACTIVE_WATCHERS=true to enable)');
+      this.logger.log(
+        "ℹ️ Gmail watch cleanup on shutdown is DISABLED (set GOOGLE_REMOVE_ACTIVE_WATCHERS=true to enable)",
+      );
     }
   }
 
@@ -32,30 +37,34 @@ export class GmailShutdownService implements OnApplicationShutdown {
    */
   async onApplicationShutdown(signal?: string): Promise<void> {
     if (!this.shouldCleanupWatches) {
-      this.logger.log(`🛑 Application shutting down (${signal || 'unknown signal'}) - Gmail watch cleanup disabled`);
+      this.logger.log(
+        `🛑 Application shutting down (${signal || "unknown signal"}) - Gmail watch cleanup disabled`,
+      );
       return;
     }
 
-    this.logger.log(`🛑 Application shutting down (${signal || 'unknown signal'}) - starting Gmail watch cleanup`);
+    this.logger.log(
+      `🛑 Application shutting down (${signal || "unknown signal"}) - starting Gmail watch cleanup`,
+    );
 
     try {
       // Set a timeout for the cleanup process to prevent hanging shutdown
       const cleanupTimeout = 30000; // 30 seconds
-      
+
       const cleanupPromise = this.performGracefulCleanup();
       const timeoutPromise = new Promise<void>((_, reject) => {
-        setTimeout(() => reject(new Error('Cleanup timeout')), cleanupTimeout);
+        setTimeout(() => reject(new Error("Cleanup timeout")), cleanupTimeout);
       });
 
       // Race between cleanup and timeout
       await Promise.race([cleanupPromise, timeoutPromise]);
-      
-      this.logger.log('✅ Gmail watch cleanup completed successfully');
+
+      this.logger.log("✅ Gmail watch cleanup completed successfully");
     } catch (error) {
-      if (error.message === 'Cleanup timeout') {
-        this.logger.error('⏰ Gmail watch cleanup timed out after 30 seconds');
+      if (error.message === "Cleanup timeout") {
+        this.logger.error("⏰ Gmail watch cleanup timed out after 30 seconds");
       } else {
-        this.logger.error('❌ Gmail watch cleanup failed:', error);
+        this.logger.error("❌ Gmail watch cleanup failed:", error);
       }
     }
   }
@@ -65,7 +74,7 @@ export class GmailShutdownService implements OnApplicationShutdown {
    */
   private async performGracefulCleanup(): Promise<void> {
     try {
-      this.logger.log('🧹 Starting graceful cleanup of Gmail watches...');
+      this.logger.log("🧹 Starting graceful cleanup of Gmail watches...");
 
       const result = await this.gmailWatchService.stopAllActiveWatches();
 
@@ -77,17 +86,24 @@ export class GmailShutdownService implements OnApplicationShutdown {
         - Success rate: ${result.totalWatches > 0 ? Math.round((result.successfullyStopped / result.totalWatches) * 100) : 100}%`);
 
       if (result.failed > 0) {
-        this.logger.warn(`⚠️ ${result.failed} watches failed to stop during shutdown`);
+        this.logger.warn(
+          `⚠️ ${result.failed} watches failed to stop during shutdown`,
+        );
         result.errors.forEach((error, index) => {
           this.logger.warn(`  ${index + 1}. ${error}`);
         });
       }
 
       if (result.successfullyStopped > 0) {
-        this.logger.log(`✅ Successfully cleaned up ${result.successfullyStopped} Gmail watches`);
+        this.logger.log(
+          `✅ Successfully cleaned up ${result.successfullyStopped} Gmail watches`,
+        );
       }
     } catch (error) {
-      this.logger.error('❌ Failed to perform graceful Gmail watch cleanup:', error);
+      this.logger.error(
+        "❌ Failed to perform graceful Gmail watch cleanup:",
+        error,
+      );
       throw error;
     }
   }
@@ -102,17 +118,19 @@ export class GmailShutdownService implements OnApplicationShutdown {
     errors: string[];
   }> {
     if (!this.shouldCleanupWatches) {
-      throw new Error('Gmail watch cleanup is disabled. Set GOOGLE_REMOVE_ACTIVE_WATCHERS=true to enable.');
+      throw new Error(
+        "Gmail watch cleanup is disabled. Set GOOGLE_REMOVE_ACTIVE_WATCHERS=true to enable.",
+      );
     }
 
-    this.logger.log('🔧 Manual Gmail watch cleanup triggered');
-    
+    this.logger.log("🔧 Manual Gmail watch cleanup triggered");
+
     try {
       const result = await this.gmailWatchService.stopAllActiveWatches();
-      this.logger.log('✅ Manual cleanup completed successfully');
+      this.logger.log("✅ Manual cleanup completed successfully");
       return result;
     } catch (error) {
-      this.logger.error('❌ Manual cleanup failed:', error);
+      this.logger.error("❌ Manual cleanup failed:", error);
       throw error;
     }
   }
@@ -123,4 +141,4 @@ export class GmailShutdownService implements OnApplicationShutdown {
   isCleanupEnabled(): boolean {
     return this.shouldCleanupWatches;
   }
-} 
+}

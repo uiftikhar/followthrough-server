@@ -1,6 +1,10 @@
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { EmailTriageState, EmailTriageResult, UserToneProfile } from "../dtos/email-triage.dto";
+import {
+  EmailTriageState,
+  EmailTriageResult,
+  UserToneProfile,
+} from "../dtos/email-triage.dto";
 
 // Import all email agents for direct injection
 import { EmailClassificationAgent } from "../agents/email-classification.agent";
@@ -47,7 +51,7 @@ export class EmailTriageGraphBuilder {
   constructor(
     // Add EventEmitter for notifications
     private readonly eventEmitter: EventEmitter2,
-    
+
     // Inject all email agents with @Optional decorators for graceful fallbacks
     @Optional()
     private readonly emailClassificationAgent?: EmailClassificationAgent,
@@ -79,7 +83,9 @@ export class EmailTriageGraphBuilder {
    * Build the enhanced email triage graph with RAG context enrichment, tone learning, and true parallel processing
    */
   async buildGraph(): Promise<any> {
-    this.logger.log("Building RAG-enhanced agentic email triage graph - Phase 3 & 4");
+    this.logger.log(
+      "Building RAG-enhanced agentic email triage graph - Phase 3 & 4",
+    );
 
     // Create enhanced graph structure for email triage
     const graph = {
@@ -89,7 +95,9 @@ export class EmailTriageGraphBuilder {
       exitPoint: this.nodeNames.END,
     };
 
-    this.logger.log("RAG-enhanced agentic email triage graph with tone learning and true parallel processing built successfully");
+    this.logger.log(
+      "RAG-enhanced agentic email triage graph with tone learning and true parallel processing built successfully",
+    );
     return graph;
   }
 
@@ -100,7 +108,8 @@ export class EmailTriageGraphBuilder {
     return {
       [this.nodeNames.START]: this.startNode.bind(this),
       [this.nodeNames.INITIALIZATION]: this.initializationNode.bind(this),
-      [this.nodeNames.CONTEXT_ENRICHMENT]: this.contextEnrichmentNode.bind(this),
+      [this.nodeNames.CONTEXT_ENRICHMENT]:
+        this.contextEnrichmentNode.bind(this),
       [this.nodeNames.PARALLEL_ANALYSIS]: this.parallelAnalysisNode.bind(this),
       [this.nodeNames.COORDINATION]: this.coordinationNode.bind(this),
       [this.nodeNames.REPLY_DRAFT]: this.replyDraftNode.bind(this),
@@ -117,9 +126,18 @@ export class EmailTriageGraphBuilder {
   private defineEdges(): Array<{ from: string; to: string }> {
     return [
       { from: this.nodeNames.START, to: this.nodeNames.INITIALIZATION },
-      { from: this.nodeNames.INITIALIZATION, to: this.nodeNames.CONTEXT_ENRICHMENT },
-      { from: this.nodeNames.CONTEXT_ENRICHMENT, to: this.nodeNames.PARALLEL_ANALYSIS },
-      { from: this.nodeNames.PARALLEL_ANALYSIS, to: this.nodeNames.COORDINATION },
+      {
+        from: this.nodeNames.INITIALIZATION,
+        to: this.nodeNames.CONTEXT_ENRICHMENT,
+      },
+      {
+        from: this.nodeNames.CONTEXT_ENRICHMENT,
+        to: this.nodeNames.PARALLEL_ANALYSIS,
+      },
+      {
+        from: this.nodeNames.PARALLEL_ANALYSIS,
+        to: this.nodeNames.COORDINATION,
+      },
       { from: this.nodeNames.COORDINATION, to: this.nodeNames.REPLY_DRAFT },
       { from: this.nodeNames.REPLY_DRAFT, to: this.nodeNames.PATTERN_STORAGE },
       { from: this.nodeNames.PATTERN_STORAGE, to: this.nodeNames.FINALIZATION },
@@ -131,7 +149,9 @@ export class EmailTriageGraphBuilder {
    * Start node - initialize email triage state
    */
   private async startNode(state: EmailTriageState): Promise<EmailTriageState> {
-    this.logger.log(`Starting RAG-enhanced agentic email triage for session: ${state.sessionId}`);
+    this.logger.log(
+      `Starting RAG-enhanced agentic email triage for session: ${state.sessionId}`,
+    );
     return {
       ...state,
       currentStep: "started",
@@ -154,16 +174,18 @@ export class EmailTriageGraphBuilder {
         !state.emailData.body ||
         !state.emailData.metadata
       ) {
-        throw new Error("Invalid email data structure - missing body or metadata");
+        throw new Error(
+          "Invalid email data structure - missing body or metadata",
+        );
       }
 
       // Log available agents and services for debugging
       this.logger.log(
         `Available services: Classification=${!!this.emailClassificationAgent}, ` +
-        `Summarization=${!!this.emailSummarizationAgent}, ` +
-        `RAG_Summarization=${!!this.emailRagSummarizationAgent}, ` +
-        `ReplyDraft=${!!this.emailReplyDraftAgent}, ` +
-        `RAG_Service=${!!this.ragService}`
+          `Summarization=${!!this.emailSummarizationAgent}, ` +
+          `RAG_Summarization=${!!this.emailRagSummarizationAgent}, ` +
+          `ReplyDraft=${!!this.emailReplyDraftAgent}, ` +
+          `RAG_Service=${!!this.ragService}`,
       );
 
       return {
@@ -172,7 +194,10 @@ export class EmailTriageGraphBuilder {
         progress: 10,
       };
     } catch (error) {
-      this.logger.error(`Error in initialization: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error in initialization: ${error.message}`,
+        error.stack,
+      );
       return {
         ...state,
         error: {
@@ -193,12 +218,16 @@ export class EmailTriageGraphBuilder {
     state: EmailTriageState,
   ): Promise<EmailTriageState> {
     const startTime = Date.now();
-    
+
     try {
-      this.logger.log("🔍 Enhanced context retrieval starting - Phase 5 implementation");
+      this.logger.log(
+        "🔍 Enhanced context retrieval starting - Phase 5 implementation",
+      );
 
       if (!this.ragService) {
-        this.logger.warn("RAG service not available, proceeding without context enrichment");
+        this.logger.warn(
+          "RAG service not available, proceeding without context enrichment",
+        );
         return {
           ...state,
           currentStep: "context_enrichment",
@@ -217,7 +246,8 @@ export class EmailTriageGraphBuilder {
       // Initialize processing metadata
       const processingMetadata = {
         ...state.processingMetadata,
-        startedAt: state.processingMetadata?.startedAt || new Date().toISOString(),
+        startedAt:
+          state.processingMetadata?.startedAt || new Date().toISOString(),
         ragEnhanced: true,
         agentsUsed: state.processingMetadata?.agentsUsed || [],
       };
@@ -226,7 +256,7 @@ export class EmailTriageGraphBuilder {
       const retrievalQueries = [
         // Historical email patterns
         {
-          query: `Subject: ${state.emailData.metadata.subject || 'Email'} Content: ${state.emailData.body.substring(0, 200)}`,
+          query: `Subject: ${state.emailData.metadata.subject || "Email"} Content: ${state.emailData.body.substring(0, 200)}`,
           namespace: "email-patterns",
           purpose: "historical_patterns",
           topK: 3,
@@ -234,13 +264,13 @@ export class EmailTriageGraphBuilder {
         // Email classification patterns
         {
           query: `Email classification priority category: ${state.emailData.metadata.subject} from ${state.emailData.metadata.from}`,
-          namespace: "email-patterns", 
+          namespace: "email-patterns",
           purpose: "classification_patterns",
           topK: 2,
         },
         // Email summarization examples
         {
-          query: `Email summary analysis: ${this.extractKeywords(state.emailData.body).join(' ')}`,
+          query: `Email summary analysis: ${this.extractKeywords(state.emailData.body).join(" ")}`,
           namespace: "email-summaries",
           purpose: "summarization_examples",
           topK: 2,
@@ -249,7 +279,7 @@ export class EmailTriageGraphBuilder {
         {
           query: `Email reply patterns for: ${state.emailData.metadata.subject}`,
           namespace: "reply-patterns",
-          purpose: "reply_examples", 
+          purpose: "reply_examples",
           topK: 2,
         },
       ];
@@ -264,7 +294,9 @@ export class EmailTriageGraphBuilder {
         });
       }
 
-      this.logger.log(`📊 Executing ${retrievalQueries.length} context retrieval queries across ${new Set(retrievalQueries.map(q => q.namespace)).size} namespaces`);
+      this.logger.log(
+        `📊 Executing ${retrievalQueries.length} context retrieval queries across ${new Set(retrievalQueries.map((q) => q.namespace)).size} namespaces`,
+      );
 
       // Execute all retrieval queries in parallel
       const contextPromises = retrievalQueries.map(async (queryConfig) => {
@@ -277,14 +309,16 @@ export class EmailTriageGraphBuilder {
           });
 
           // Enhance results with query metadata
-          return results.map(doc => ({
+          return results.map((doc) => ({
             ...doc,
             namespace: queryConfig.namespace,
             purpose: queryConfig.purpose,
             queryText: queryConfig.query,
           }));
         } catch (error) {
-          this.logger.error(`Failed to retrieve from namespace ${queryConfig.namespace}: ${error.message}`);
+          this.logger.error(
+            `Failed to retrieve from namespace ${queryConfig.namespace}: ${error.message}`,
+          );
           return [];
         }
       });
@@ -294,14 +328,23 @@ export class EmailTriageGraphBuilder {
 
       // Extract user tone profile if available
       let userToneProfile: UserToneProfile | undefined;
-      const toneProfileDocs = retrievedContext.filter(doc => doc.namespace === "user-tone-profiles");
+      const toneProfileDocs = retrievedContext.filter(
+        (doc) => doc.namespace === "user-tone-profiles",
+      );
       if (toneProfileDocs.length > 0 && this.emailToneAnalysisAgent) {
         try {
           // Reconstruct tone profile from RAG data
-          userToneProfile = await this.emailToneAnalysisAgent.reconstructToneProfileFromRAG(toneProfileDocs[0]);
-          this.logger.log(`👤 Retrieved user tone profile for: ${state.emailData.metadata.from}`);
+          userToneProfile =
+            await this.emailToneAnalysisAgent.reconstructToneProfileFromRAG(
+              toneProfileDocs[0],
+            );
+          this.logger.log(
+            `👤 Retrieved user tone profile for: ${state.emailData.metadata.from}`,
+          );
         } catch (error) {
-          this.logger.error(`Failed to reconstruct tone profile: ${error.message}`);
+          this.logger.error(
+            `Failed to reconstruct tone profile: ${error.message}`,
+          );
         }
       }
 
@@ -312,18 +355,24 @@ export class EmailTriageGraphBuilder {
       const contextRetrievalResults = {
         totalQueries: retrievalQueries.length,
         totalDocuments: retrievedContext.length,
-        namespaces: [...new Set(retrievedContext.map(doc => doc.namespace).filter(Boolean))],
+        namespaces: [
+          ...new Set(
+            retrievedContext.map((doc) => doc.namespace).filter(Boolean),
+          ),
+        ],
         retrievalDuration,
         retrievedAt: new Date().toISOString(),
       };
 
       this.logger.log(
-        `📋 Enhanced context retrieval completed: ${retrievedContext.length} documents from ${contextRetrievalResults.namespaces.length} namespaces in ${retrievalDuration}ms`
+        `📋 Enhanced context retrieval completed: ${retrievedContext.length} documents from ${contextRetrievalResults.namespaces.length} namespaces in ${retrievalDuration}ms`,
       );
 
       // Log detailed breakdown
-      contextRetrievalResults.namespaces.forEach(namespace => {
-        const count = retrievedContext.filter(doc => doc.namespace === namespace).length;
+      contextRetrievalResults.namespaces.forEach((namespace) => {
+        const count = retrievedContext.filter(
+          (doc) => doc.namespace === namespace,
+        ).length;
         this.logger.log(`  📁 ${namespace}: ${count} documents`);
       });
 
@@ -345,12 +394,12 @@ export class EmailTriageGraphBuilder {
     } catch (error) {
       const endTime = Date.now();
       const retrievalDuration = endTime - startTime;
-      
+
       this.logger.error(
         `Error in enhanced context enrichment: ${error.message}`,
         error.stack,
       );
-      
+
       return {
         ...state,
         currentStep: "context_enrichment",
@@ -377,20 +426,38 @@ export class EmailTriageGraphBuilder {
    */
   private extractKeywords(content: string): string[] {
     // Simple keyword extraction (can be enhanced with NLP)
-    const stopWords = ['the', 'is', 'at', 'which', 'on', 'and', 'a', 'to', 'are', 'as', 'was', 'with', 'for'];
-    const words = content.toLowerCase()
-      .replace(/[^\w\s]/g, ' ')
+    const stopWords = [
+      "the",
+      "is",
+      "at",
+      "which",
+      "on",
+      "and",
+      "a",
+      "to",
+      "are",
+      "as",
+      "was",
+      "with",
+      "for",
+    ];
+    const words = content
+      .toLowerCase()
+      .replace(/[^\w\s]/g, " ")
       .split(/\s+/)
-      .filter(word => word.length > 3 && !stopWords.includes(word));
-    
+      .filter((word) => word.length > 3 && !stopWords.includes(word));
+
     // Return top 10 most frequent words
-    const wordCount = words.reduce((acc, word) => {
-      acc[word] = (acc[word] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
+    const wordCount = words.reduce(
+      (acc, word) => {
+        acc[word] = (acc[word] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
     return Object.entries(wordCount)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 10)
       .map(([word]) => word);
   }
@@ -404,11 +471,17 @@ export class EmailTriageGraphBuilder {
     state: EmailTriageState,
   ): Promise<EmailTriageState> {
     const startTime = Date.now();
-    
-    try {
-      this.logger.log("🔄 Executing enhanced true parallel analysis (classification + summarization) - Phase 6");
 
-      if (!this.emailClassificationAgent && !this.emailSummarizationAgent && !this.emailRagSummarizationAgent) {
+    try {
+      this.logger.log(
+        "🔄 Executing enhanced true parallel analysis (classification + summarization) - Phase 6",
+      );
+
+      if (
+        !this.emailClassificationAgent &&
+        !this.emailSummarizationAgent &&
+        !this.emailRagSummarizationAgent
+      ) {
         this.logger.warn("No analysis agents available");
         return {
           ...state,
@@ -422,73 +495,88 @@ export class EmailTriageGraphBuilder {
         };
       }
 
-       // Extract user tone profile if available
-       let userToneProfile: UserToneProfile | undefined;
-       const toneProfileDocs = state.retrievedContext?.filter(doc => doc.namespace === "user-tone-profiles") || [];
-       if (toneProfileDocs.length > 0 && this.emailToneAnalysisAgent) {
-         try {
-           // Reconstruct tone profile from RAG data
-           const profile = await this.emailToneAnalysisAgent.reconstructToneProfileFromRAG(toneProfileDocs[0]);
-           userToneProfile = profile || undefined;
-           this.logger.log(`👤 Retrieved user tone profile for: ${state.emailData.metadata.from}`);
-         } catch (error) {
-           this.logger.error(`Failed to reconstruct tone profile: ${error.message}`);
-         }
-       }
+      // Extract user tone profile if available
+      let userToneProfile: UserToneProfile | undefined;
+      const toneProfileDocs =
+        state.retrievedContext?.filter(
+          (doc) => doc.namespace === "user-tone-profiles",
+        ) || [];
+      if (toneProfileDocs.length > 0 && this.emailToneAnalysisAgent) {
+        try {
+          // Reconstruct tone profile from RAG data
+          const profile =
+            await this.emailToneAnalysisAgent.reconstructToneProfileFromRAG(
+              toneProfileDocs[0],
+            );
+          userToneProfile = profile || undefined;
+          this.logger.log(
+            `👤 Retrieved user tone profile for: ${state.emailData.metadata.from}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Failed to reconstruct tone profile: ${error.message}`,
+          );
+        }
+      }
 
-       // Update processing metadata with agents used
-       const agentsUsed = [...(state.processingMetadata?.agentsUsed || [])];
-       if (this.emailClassificationAgent) agentsUsed.push('EmailClassificationAgent');
-       if (this.emailRagSummarizationAgent) agentsUsed.push('EmailRagSummarizationAgent');
-       else if (this.emailSummarizationAgent) agentsUsed.push('EmailSummarizationAgent');
+      // Update processing metadata with agents used
+      const agentsUsed = [...(state.processingMetadata?.agentsUsed || [])];
+      if (this.emailClassificationAgent)
+        agentsUsed.push("EmailClassificationAgent");
+      if (this.emailRagSummarizationAgent)
+        agentsUsed.push("EmailRagSummarizationAgent");
+      else if (this.emailSummarizationAgent)
+        agentsUsed.push("EmailSummarizationAgent");
 
-       // Track parallel execution timing
-       const classificationStartTime = Date.now();
-       const summarizationStartTime = Date.now();
+      // Track parallel execution timing
+      const classificationStartTime = Date.now();
+      const summarizationStartTime = Date.now();
 
-       // Execute classification and summarization in TRUE parallel using Promise.all()
-       const [classificationResult, summarizationResult] = await Promise.all([
-         this.executeClassificationWithTiming(state, classificationStartTime),
-         this.executeSummarizationWithTiming(state, summarizationStartTime),
-       ]);
+      // Execute classification and summarization in TRUE parallel using Promise.all()
+      const [classificationResult, summarizationResult] = await Promise.all([
+        this.executeClassificationWithTiming(state, classificationStartTime),
+        this.executeSummarizationWithTiming(state, summarizationStartTime),
+      ]);
 
-       const endTime = Date.now();
-       const parallelDuration = endTime - startTime;
+      const endTime = Date.now();
+      const parallelDuration = endTime - startTime;
 
-       // Create comprehensive performance metrics
-       const parallelResults = {
-         classificationStarted: true,
-         summarizationStarted: true,
-         classificationCompleted: true,
-         summarizationCompleted: true,
-         parallelCompletedAt: new Date().toISOString(),
-         parallelDuration,
-       };
+      // Create comprehensive performance metrics
+      const parallelResults = {
+        classificationStarted: true,
+        summarizationStarted: true,
+        classificationCompleted: true,
+        summarizationCompleted: true,
+        parallelCompletedAt: new Date().toISOString(),
+        parallelDuration,
+      };
 
-       this.logger.log(`✅ Enhanced parallel analysis completed in ${parallelDuration}ms - Priority: ${classificationResult.priority}, Category: ${classificationResult.category}`);
+      this.logger.log(
+        `✅ Enhanced parallel analysis completed in ${parallelDuration}ms - Priority: ${classificationResult.priority}, Category: ${classificationResult.category}`,
+      );
 
-       return {
-         ...state,
-         classification: classificationResult,
-         summary: summarizationResult,
-         userToneProfile,
-         currentStep: "parallel_analysis",
-         progress: 50,
-         parallelResults,
-         processingMetadata: {
-           ...state.processingMetadata,
-           agentsUsed,
-           performanceMetrics: {
-             ...state.processingMetadata?.performanceMetrics,
-             classificationMs: classificationResult.timing,
-             summarizationMs: summarizationResult.timing,
-           },
-         },
-       };
+      return {
+        ...state,
+        classification: classificationResult,
+        summary: summarizationResult,
+        userToneProfile,
+        currentStep: "parallel_analysis",
+        progress: 50,
+        parallelResults,
+        processingMetadata: {
+          ...state.processingMetadata,
+          agentsUsed,
+          performanceMetrics: {
+            ...state.processingMetadata?.performanceMetrics,
+            classificationMs: classificationResult.timing,
+            summarizationMs: summarizationResult.timing,
+          },
+        },
+      };
     } catch (error) {
       const endTime = Date.now();
       const parallelDuration = endTime - startTime;
-      
+
       this.logger.error(
         `Error in enhanced parallel analysis: ${error.message}`,
         error.stack,
@@ -517,9 +605,14 @@ export class EmailTriageGraphBuilder {
   /**
    * Helper: Execute email classification with timing
    */
-  private async executeClassificationWithTiming(state: EmailTriageState, startTime: number) {
+  private async executeClassificationWithTiming(
+    state: EmailTriageState,
+    startTime: number,
+  ) {
     if (!this.emailClassificationAgent) {
-      this.logger.warn("EmailClassificationAgent not available, using fallback");
+      this.logger.warn(
+        "EmailClassificationAgent not available, using fallback",
+      );
       return {
         priority: "normal" as const,
         category: "other" as const,
@@ -553,10 +646,15 @@ export class EmailTriageGraphBuilder {
   /**
    * Helper: Execute email summarization with timing
    */
-  private async executeSummarizationWithTiming(state: EmailTriageState, startTime: number) {
+  private async executeSummarizationWithTiming(
+    state: EmailTriageState,
+    startTime: number,
+  ) {
     // Prefer RAG-enhanced summarization if available
     if (this.emailRagSummarizationAgent) {
-      this.logger.log("Using RAG-enhanced email summarization agent with timing");
+      this.logger.log(
+        "Using RAG-enhanced email summarization agent with timing",
+      );
       try {
         const result = await this.emailRagSummarizationAgent.summarizeEmail(
           state.emailData.body,
@@ -606,16 +704,20 @@ export class EmailTriageGraphBuilder {
     state: EmailTriageState,
   ): Promise<EmailTriageState> {
     const startTime = Date.now();
-    
+
     try {
-      this.logger.log("🎭 Generating tone-adapted reply draft using RAG capabilities with performance tracking");
+      this.logger.log(
+        "🎭 Generating tone-adapted reply draft using RAG capabilities with performance tracking",
+      );
 
       // Prefer RAG-enhanced reply draft agent for tone learning
       if (this.ragEmailReplyDraftAgent) {
         this.logger.log("Using RAG Email Reply Draft Agent with tone learning");
-        
+
         if (!state.classification || !state.summary) {
-          this.logger.warn("Missing classification or summary for reply draft generation");
+          this.logger.warn(
+            "Missing classification or summary for reply draft generation",
+          );
           // Create fallback values if missing
           const fallbackClassification = state.classification || {
             priority: "normal" as const,
@@ -623,7 +725,7 @@ export class EmailTriageGraphBuilder {
             reasoning: "Missing classification",
             confidence: 0.0,
           };
-          
+
           const fallbackSummary = state.summary || {
             problem: "Unable to identify problem",
             context: "Missing summary",
@@ -631,12 +733,13 @@ export class EmailTriageGraphBuilder {
             summary: "Email processing incomplete",
           };
 
-          const replyDraft = await this.ragEmailReplyDraftAgent.generateReplyDraft(
-            state.emailData.body,
-            state.emailData.metadata,
-            fallbackClassification,
-            fallbackSummary,
-          );
+          const replyDraft =
+            await this.ragEmailReplyDraftAgent.generateReplyDraft(
+              state.emailData.body,
+              state.emailData.metadata,
+              fallbackClassification,
+              fallbackSummary,
+            );
 
           const replyDraftMs = Date.now() - startTime;
 
@@ -655,16 +758,19 @@ export class EmailTriageGraphBuilder {
           };
         }
 
-        const replyDraft = await this.ragEmailReplyDraftAgent.generateReplyDraft(
-          state.emailData.body,
-          state.emailData.metadata,
-          state.classification,
-          state.summary,
-        );
+        const replyDraft =
+          await this.ragEmailReplyDraftAgent.generateReplyDraft(
+            state.emailData.body,
+            state.emailData.metadata,
+            state.classification,
+            state.summary,
+          );
 
         const replyDraftMs = Date.now() - startTime;
 
-        this.logger.log(`Tone-adapted reply draft generated successfully in ${replyDraftMs}ms`);
+        this.logger.log(
+          `Tone-adapted reply draft generated successfully in ${replyDraftMs}ms`,
+        );
 
         return {
           ...state,
@@ -684,9 +790,11 @@ export class EmailTriageGraphBuilder {
       // Fallback to regular reply draft agent
       if (this.emailReplyDraftAgent) {
         this.logger.log("Using regular EmailReplyDraftAgent");
-        
+
         if (!state.classification || !state.summary) {
-          this.logger.warn("Missing classification or summary for reply draft generation");
+          this.logger.warn(
+            "Missing classification or summary for reply draft generation",
+          );
           // Create fallback values if missing
           const fallbackClassification = state.classification || {
             priority: "normal" as const,
@@ -694,7 +802,7 @@ export class EmailTriageGraphBuilder {
             reasoning: "Missing classification",
             confidence: 0.0,
           };
-          
+
           const fallbackSummary = state.summary || {
             problem: "Unable to identify problem",
             context: "Missing summary",
@@ -735,7 +843,9 @@ export class EmailTriageGraphBuilder {
 
         const replyDraftMs = Date.now() - startTime;
 
-        this.logger.log(`Regular reply draft generated successfully in ${replyDraftMs}ms`);
+        this.logger.log(
+          `Regular reply draft generated successfully in ${replyDraftMs}ms`,
+        );
 
         return {
           ...state,
@@ -754,7 +864,7 @@ export class EmailTriageGraphBuilder {
 
       // Final fallback
       const replyDraftMs = Date.now() - startTime;
-      
+
       this.logger.warn("No reply draft agent available, using fallback");
       return {
         ...state,
@@ -776,7 +886,7 @@ export class EmailTriageGraphBuilder {
       };
     } catch (error) {
       const replyDraftMs = Date.now() - startTime;
-      
+
       this.logger.error(
         `Error in reply draft generation: ${error.message}`,
         error.stack,
@@ -807,18 +917,21 @@ export class EmailTriageGraphBuilder {
     state: EmailTriageState,
   ): Promise<EmailTriageState> {
     try {
-      this.logger.log("📊 Finalizing enhanced email triage process with comprehensive metrics");
+      this.logger.log(
+        "📊 Finalizing enhanced email triage process with comprehensive metrics",
+      );
 
       // Calculate total processing time
-      const totalStartTime = state.processingMetadata?.startedAt ? 
-        new Date(state.processingMetadata.startedAt).getTime() : Date.now();
+      const totalStartTime = state.processingMetadata?.startedAt
+        ? new Date(state.processingMetadata.startedAt).getTime()
+        : Date.now();
       const totalProcessingMs = Date.now() - totalStartTime;
 
       // Create comprehensive performance metrics
       const performanceMetrics = {
         ...state.processingMetadata?.performanceMetrics,
         totalProcessingMs,
-        completedAt: new Date().toISOString()
+        completedAt: new Date().toISOString(),
       };
 
       // Create final result
@@ -839,41 +952,51 @@ export class EmailTriageGraphBuilder {
         result: finalResult,
         processingMetadata: {
           ...state.processingMetadata,
-          performanceMetrics
-        }
+          performanceMetrics,
+        },
       };
 
       // 📢 NOTIFICATION FIX: Emit completion event via WebSocket
-      this.logger.log(`📨 Emitting triage.completed notification for session: ${state.sessionId}`);
-      
+      this.logger.log(
+        `📨 Emitting triage.completed notification for session: ${state.sessionId}`,
+      );
+
       try {
         // Emit to the specific user who triggered the triage
-        const userEmail = state.emailData.metadata.from || state.emailData.metadata.userId;
+        const userEmail =
+          state.emailData.metadata.from || state.emailData.metadata.userId;
         if (userEmail) {
           // Emit completion notification with detailed results
           const notificationPayload = {
             sessionId: state.sessionId,
             emailId: finalResult.emailId,
-            status: 'completed',
+            status: "completed",
             result: finalResult,
             performanceMetrics,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           };
 
-          this.logger.log(`🚀 Broadcasting triage.completed to user: ${userEmail}`, notificationPayload);
-          
+          this.logger.log(
+            `🚀 Broadcasting triage.completed to user: ${userEmail}`,
+            notificationPayload,
+          );
+
           // Use EventEmitter to broadcast notification
-          this.eventEmitter.emit('email.triage.completed', {
+          this.eventEmitter.emit("email.triage.completed", {
             userEmail,
-            ...notificationPayload
+            ...notificationPayload,
           });
 
-          this.logger.log(`✅ Successfully emitted triage.completed notification`);
+          this.logger.log(
+            `✅ Successfully emitted triage.completed notification`,
+          );
         } else {
           this.logger.warn(`⚠️ No user email found for notification emission`);
         }
       } catch (notificationError) {
-        this.logger.error(`❌ Failed to emit completion notification: ${notificationError.message}`);
+        this.logger.error(
+          `❌ Failed to emit completion notification: ${notificationError.message}`,
+        );
         // Don't fail the entire process for notification errors
       }
 
@@ -883,13 +1006,15 @@ export class EmailTriageGraphBuilder {
         - Category: ${state.classification?.category}
         - Processing Time: ${totalProcessingMs}ms
         - RAG Enhanced: ${state.processingMetadata?.ragEnhanced}
-        - Agents Used: ${state.processingMetadata?.agentsUsed?.join(', ')}`);
+        - Agents Used: ${state.processingMetadata?.agentsUsed?.join(", ")}`);
 
       return finalState;
-      
     } catch (error) {
-      this.logger.error(`Failed to finalize email triage: ${error.message}`, error.stack);
-      
+      this.logger.error(
+        `Failed to finalize email triage: ${error.message}`,
+        error.stack,
+      );
+
       return {
         ...state,
         currentStep: "error",
@@ -907,7 +1032,9 @@ export class EmailTriageGraphBuilder {
    * End node - Exit point for email triage
    */
   private async endNode(state: EmailTriageState): Promise<EmailTriageState> {
-    this.logger.log(`Agentic email triage completed for session: ${state.sessionId}`);
+    this.logger.log(
+      `Agentic email triage completed for session: ${state.sessionId}`,
+    );
     return state;
   }
 
@@ -918,33 +1045,37 @@ export class EmailTriageGraphBuilder {
   async executeGraph(
     initialState: EmailTriageState,
   ): Promise<EmailTriageState> {
-    this.logger.log("Executing RAG-enhanced agentic email triage graph - Phase 3 & 4");
+    this.logger.log(
+      "Executing RAG-enhanced agentic email triage graph - Phase 3 & 4",
+    );
 
     try {
       // Execute enhanced flow: START -> INITIALIZATION -> CONTEXT_ENRICHMENT -> PARALLEL_ANALYSIS -> COORDINATION -> REPLY_DRAFT -> PATTERN_STORAGE -> FINALIZATION -> END
-      
+
       let currentState = await this.startNode(initialState);
       currentState = await this.initializationNode(currentState);
-      
+
       // Phase 2: Context enrichment before analysis
       currentState = await this.contextEnrichmentNode(currentState);
-      
+
       // Phase 4: TRUE parallel processing using Promise.all() within parallelAnalysisNode
       currentState = await this.parallelAnalysisNode(currentState);
 
       // Continue with sequential execution
       currentState = await this.coordinationNode(currentState);
-      
+
       // Phase 3: Use tone-adapted reply generation
       currentState = await this.replyDraftNode(currentState);
-      
+
       // Phase 2: Store pattern for future learning
       currentState = await this.patternStorageNode(currentState);
-      
+
       currentState = await this.finalizationNode(currentState);
       currentState = await this.endNode(currentState);
 
-      this.logger.log("RAG-enhanced agentic email triage graph execution completed successfully");
+      this.logger.log(
+        "RAG-enhanced agentic email triage graph execution completed successfully",
+      );
       return currentState;
     } catch (error) {
       this.logger.error(
@@ -968,14 +1099,14 @@ export class EmailTriageGraphBuilder {
       if (!state.classification) {
         this.logger.warn("Missing classification result in coordination");
       }
-      
+
       if (!state.summary) {
         this.logger.warn("Missing summary result in coordination");
       }
 
       this.logger.log(
-        `Coordination complete - Priority: ${state.classification?.priority || 'unknown'}, ` +
-        `Category: ${state.classification?.category || 'unknown'}`
+        `Coordination complete - Priority: ${state.classification?.priority || "unknown"}, ` +
+          `Category: ${state.classification?.category || "unknown"}`,
       );
 
       return {
@@ -984,10 +1115,7 @@ export class EmailTriageGraphBuilder {
         progress: 60,
       };
     } catch (error) {
-      this.logger.error(
-        `Error in coordination: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error in coordination: ${error.message}`, error.stack);
       return {
         ...state,
         error: {
@@ -1010,7 +1138,9 @@ export class EmailTriageGraphBuilder {
       this.logger.log("📦 Storing email pattern for future learning");
 
       if (!this.emailPatternStorageService) {
-        this.logger.warn("EmailPatternStorageService not available, skipping pattern storage");
+        this.logger.warn(
+          "EmailPatternStorageService not available, skipping pattern storage",
+        );
         return {
           ...state,
           currentStep: "pattern_storage",
@@ -1028,9 +1158,11 @@ export class EmailTriageGraphBuilder {
       }
 
       // Store pattern using dedicated service (async to not block response)
-      this.emailPatternStorageService.storeEmailPattern(state).catch(error => {
-        this.logger.error(`Failed to store email pattern: ${error.message}`);
-      });
+      this.emailPatternStorageService
+        .storeEmailPattern(state)
+        .catch((error) => {
+          this.logger.error(`Failed to store email pattern: ${error.message}`);
+        });
 
       this.logger.log("📋 Email pattern queued for storage");
 

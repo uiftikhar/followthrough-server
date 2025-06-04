@@ -46,7 +46,10 @@ export class EmbeddingService {
     this.defaultModel = this.configService.get<EmbeddingModel>(
       "OPENAI_EMBEDDING_MODEL",
       // Fallback to legacy EMBEDDING_MODEL if new one not set
-      this.configService.get<EmbeddingModel>("EMBEDDING_MODEL", EmbeddingModel.OPENAI_3_LARGE),
+      this.configService.get<EmbeddingModel>(
+        "EMBEDDING_MODEL",
+        EmbeddingModel.OPENAI_3_LARGE,
+      ),
     );
     this.defaultDimensions = this.configService.get<number>(
       "OPENAI_EMBEDDING_DIMENSIONS",
@@ -182,7 +185,9 @@ export class EmbeddingService {
 
       return embedding;
     } catch (error) {
-      this.logger.error(`Error generating embedding for openaiEmbeddings: ${error.message}`);
+      this.logger.error(
+        `Error generating embedding for openaiEmbeddings: ${error.message}`,
+      );
       throw error;
     }
   }

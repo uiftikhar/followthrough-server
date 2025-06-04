@@ -37,25 +37,25 @@ import { GoogleOAuthModule } from "./integrations/google/google-oauth.module";
     // Core Services Layer
     LlmModule,
     VectorModule,
-    
+
     // Platform Services Layer
     LanggraphCoreModule, // Core LangGraph services
     RagCoreModule,
     AgentFrameworkModule,
     WorkflowFrameworkModule,
-    
+
     // Domain Services Layer
     MeetingAgentsModule,
     MeetingWorkflowModule,
-    
+
     // Domain Services Layer - Email (NEW)
     EmailAgentsModule,
     EmailWorkflowModule,
-    
+
     // Application Layer
     MeetingAnalysisModule,
     EmailModule, // NEW - Provides email triage endpoints
-    
+
     // External modules
     AppConfigModule,
     LoggingModule,

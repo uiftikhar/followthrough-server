@@ -27,11 +27,12 @@ export class EmailTriageManager {
       this.eventEmitter.emit("email.triage.started", {
         sessionId,
         emailId: emailData.id,
-        emailAddress: emailData.metadata?.to || emailData.metadata?.emailAddress,
+        emailAddress:
+          emailData.metadata?.to || emailData.metadata?.emailAddress,
         subject: emailData.metadata?.subject,
         from: emailData.metadata?.from,
         timestamp: new Date().toISOString(),
-        source: context.source || 'email_manager',
+        source: context.source || "email_manager",
       });
 
       // Execute classification and summarization workers in parallel
@@ -80,11 +81,12 @@ export class EmailTriageManager {
       this.eventEmitter.emit("email.triage.completed", {
         sessionId,
         emailId: emailData.id,
-        emailAddress: emailData.metadata?.to || emailData.metadata?.emailAddress,
+        emailAddress:
+          emailData.metadata?.to || emailData.metadata?.emailAddress,
         subject: emailData.metadata?.subject,
         result,
         timestamp: new Date().toISOString(),
-        source: context.source || 'email_manager',
+        source: context.source || "email_manager",
       });
 
       this.logger.log(
@@ -101,11 +103,12 @@ export class EmailTriageManager {
       this.eventEmitter.emit("email.triage.failed", {
         sessionId,
         emailId: emailData.id,
-        emailAddress: emailData.metadata?.to || emailData.metadata?.emailAddress,
+        emailAddress:
+          emailData.metadata?.to || emailData.metadata?.emailAddress,
         subject: emailData.metadata?.subject,
         error: error.message,
         timestamp: new Date().toISOString(),
-        source: context.source || 'email_manager',
+        source: context.source || "email_manager",
       });
 
       // Return failed result instead of throwing
