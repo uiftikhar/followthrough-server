@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { StorageService } from '../../storage/storage.service';
-import * as path from 'path';
+import { Injectable } from "@nestjs/common";
+import { StorageService } from "../../storage/storage.service";
+import * as path from "path";
 
 interface StateCheckpoint {
   id: string;
@@ -68,8 +68,8 @@ export class StateStorageService {
     try {
       const files = await this.storageService.listFiles(sessionDir);
       return files
-        .filter((file) => file.endsWith('.json'))
-        .map((file) => path.basename(file, '.json'));
+        .filter((file) => file.endsWith(".json"))
+        .map((file) => path.basename(file, ".json"));
     } catch (error) {
       return [];
     }

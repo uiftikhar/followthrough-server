@@ -1,1 +1,1 @@
-export { SharedCoreModule } from './shared-core.module'; 
+export { SharedCoreModule } from "./shared-core.module";

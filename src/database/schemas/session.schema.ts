@@ -1,72 +1,72 @@
-import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
-import { ApiProperty } from '@nestjs/swagger';
+import { Schema, Prop, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
+import { ApiProperty } from "@nestjs/swagger";
 
 export type SessionDocument = Session & Document;
 
 @Schema({ timestamps: true })
 export class Session {
   @Prop({ required: true })
-  @ApiProperty({ description: 'Unique session identifier' })
+  @ApiProperty({ description: "Unique session identifier" })
   sessionId: string;
 
   @Prop({ required: true })
-  @ApiProperty({ description: 'User ID who created the session' })
+  @ApiProperty({ description: "User ID who created the session" })
   userId: string;
 
   @Prop({
     required: true,
-    enum: ['pending', 'in_progress', 'completed', 'failed'],
-    default: 'pending',
+    enum: ["pending", "in_progress", "completed", "failed"],
+    default: "pending",
   })
   @ApiProperty({
-    description: 'Current status of the session',
-    enum: ['pending', 'in_progress', 'completed', 'failed'],
+    description: "Current status of the session",
+    enum: ["pending", "in_progress", "completed", "failed"],
   })
   status: string;
 
   @Prop({ type: Number, default: 0 })
-  @ApiProperty({ 
-    description: 'Progress percentage of the analysis (0-100)',
+  @ApiProperty({
+    description: "Progress percentage of the analysis (0-100)",
     minimum: 0,
-    maximum: 100
+    maximum: 100,
   })
   progress?: number;
 
   @Prop({ type: Date, required: true })
-  @ApiProperty({ description: 'When the session was created' })
+  @ApiProperty({ description: "When the session was created" })
   startTime: Date;
 
   @Prop({ type: Date })
-  @ApiProperty({ description: 'When the session was completed or failed' })
+  @ApiProperty({ description: "When the session was completed or failed" })
   endTime?: Date;
 
   @Prop({ type: Object })
-  @ApiProperty({ description: 'The transcript text that was analyzed' })
+  @ApiProperty({ description: "The transcript text that was analyzed" })
   transcript?: string;
 
   @Prop({ type: Object })
-  @ApiProperty({ description: 'Additional metadata about the session' })
+  @ApiProperty({ description: "Additional metadata about the session" })
   metadata?: Record<string, any>;
 
   @Prop({ type: Object })
-  @ApiProperty({ description: 'Topics extracted from the transcript' })
+  @ApiProperty({ description: "Topics extracted from the transcript" })
   topics?: any[];
 
   @Prop({ type: Object })
-  @ApiProperty({ description: 'Action items extracted from the transcript' })
+  @ApiProperty({ description: "Action items extracted from the transcript" })
   actionItems?: any[];
 
   @Prop({ type: Object })
-  @ApiProperty({ description: 'Generated summary of the transcript' })
+  @ApiProperty({ description: "Generated summary of the transcript" })
   summary?: any;
 
   @Prop({ type: Object })
-  @ApiProperty({ description: 'Sentiment analysis results' })
+  @ApiProperty({ description: "Sentiment analysis results" })
   sentiment?: any;
 
   @Prop({ type: Array })
-  @ApiProperty({ description: 'Any errors that occurred during analysis' })
+  @ApiProperty({ description: "Any errors that occurred during analysis" })
   errors?: Array<{
     step: string;
     error: string;
@@ -74,12 +74,12 @@ export class Session {
   }>;
 
   @Prop()
-  @ApiProperty({ description: 'When the session was created' })
+  @ApiProperty({ description: "When the session was created" })
   createdAt?: Date;
 
   @Prop()
-  @ApiProperty({ description: 'When the session was last updated' })
+  @ApiProperty({ description: "When the session was last updated" })
   updatedAt?: Date;
 }
 
-export const SessionSchema = SchemaFactory.createForClass(Session); 
+export const SessionSchema = SchemaFactory.createForClass(Session);

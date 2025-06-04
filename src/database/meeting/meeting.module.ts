@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { Meeting, MeetingSchema } from '../schemas/meeting.schema';
-import { MeetingRepository } from '../repositories/meeting.repository';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { Meeting, MeetingSchema } from "../schemas/meeting.schema";
+import { MeetingRepository } from "../repositories/meeting.repository";
 
 @Module({
   imports: [

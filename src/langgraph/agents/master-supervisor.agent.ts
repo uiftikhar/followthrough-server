@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { BaseAgent, AgentConfig } from './base-agent';
-import { LlmService } from '../llm/llm.service';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { Injectable, Logger } from "@nestjs/common";
+import { BaseAgent, AgentConfig } from "./base-agent";
+import { LlmService } from "../llm/llm.service";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 
 export const MASTER_SUPERVISOR_PROMPT = `You are the Master Supervisor, responsible for routing incoming requests to the appropriate specialized team.
 Your job is to analyze the input and determine which team should handle it based on its type and content.
@@ -14,7 +14,7 @@ Make your routing decisions based solely on the content and metadata of the inpu
 export interface RoutingDecision {
   team: string;
   reason: string;
-  priority: 'high' | 'medium' | 'low';
+  priority: "high" | "medium" | "low";
 }
 
 @Injectable()
@@ -23,11 +23,11 @@ export class MasterSupervisorAgent extends BaseAgent {
 
   constructor(protected readonly llmService: LlmService) {
     const config: AgentConfig = {
-      name: 'MasterSupervisorAgent',
+      name: "MasterSupervisorAgent",
       systemPrompt: MASTER_SUPERVISOR_PROMPT,
       llmOptions: {
         temperature: 0.1,
-        model: 'gpt-4o',
+        model: "gpt-4o",
       },
     };
     super(llmService, config);
@@ -36,7 +36,7 @@ export class MasterSupervisorAgent extends BaseAgent {
   async determineTeam(input: any): Promise<RoutingDecision> {
     const model = this.getChatModel();
     const inputDescription = this.formatInputForDecision(input);
-    
+
     const messages = [
       new SystemMessage(MASTER_SUPERVISOR_PROMPT),
       new HumanMessage(`
@@ -57,20 +57,21 @@ export class MasterSupervisorAgent extends BaseAgent {
     try {
       // Extract JSON decision from response
       const content = response.content.toString();
-      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) ||
-                       content.match(/```\n([\s\S]*?)\n```/) ||
-                       content.match(/(\{[\s\S]*\})/);
+      const jsonMatch =
+        content.match(/```json\n([\s\S]*?)\n```/) ||
+        content.match(/```\n([\s\S]*?)\n```/) ||
+        content.match(/(\{[\s\S]*\})/);
 
       const jsonStr = jsonMatch ? jsonMatch[1] : content;
       return JSON.parse(jsonStr) as RoutingDecision;
     } catch (error) {
       this.logger.error(`Failed to parse routing decision: ${error.message}`);
-      
+
       // Fallback decision
       return {
         team: this.determineTeamHeuristically(input),
-        reason: 'Fallback decision due to parsing error',
-        priority: 'medium',
+        reason: "Fallback decision due to parsing error",
+        priority: "medium",
       };
     }
   }
@@ -83,21 +84,21 @@ export class MasterSupervisorAgent extends BaseAgent {
         Content: Input is undefined or null
       `;
     }
-    
+
     // Format input for LLM decision making
-    if (input.type === 'email') {
+    if (input.type === "email") {
       return `
         Type: Email
-        From: ${input.from || 'Unknown'}
-        Subject: ${input.subject || 'No subject'}
-        Body snippet: ${(input.body || '').substring(0, 200)}...
+        From: ${input.from || "Unknown"}
+        Subject: ${input.subject || "No subject"}
+        Body snippet: ${(input.body || "").substring(0, 200)}...
         Metadata: ${JSON.stringify(input.metadata || {})}
       `;
-    } else if (input.type === 'meeting_transcript') {
+    } else if (input.type === "meeting_transcript") {
       return `
         Type: Meeting Transcript
-        Length: ${input.transcript ? input.transcript.length : 'Unknown'} characters
-        Participants: ${input.participants?.join(', ') || 'Unknown'}
+        Length: ${input.transcript ? input.transcript.length : "Unknown"} characters
+        Participants: ${input.participants?.join(", ") || "Unknown"}
         Metadata: ${JSON.stringify(input.metadata || {})}
       `;
     } else {
@@ -111,14 +112,14 @@ export class MasterSupervisorAgent extends BaseAgent {
   private determineTeamHeuristically(input: any): string {
     // Handle case where input might be undefined
     if (!input) {
-      return 'unknown';
+      return "unknown";
     }
-    
-    if (input.type === 'email' || input.subject || input.from) {
-      return 'email_triage';
-    } else if (input.type === 'meeting_transcript' || input.transcript) {
-      return 'meeting_analysis';
+
+    if (input.type === "email" || input.subject || input.from) {
+      return "email_triage";
+    } else if (input.type === "meeting_transcript" || input.transcript) {
+      return "meeting_analysis";
     }
-    return 'unknown';
+    return "unknown";
   }
-} 
+}

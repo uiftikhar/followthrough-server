@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { LangchainMcpAdapter } from './adapters/langchain-adapter';
-import { MultiServerMCPClient } from '@langchain/mcp-adapters';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { LangchainMcpAdapter } from "./adapters/langchain-adapter";
+import { MultiServerMCPClient } from "@langchain/mcp-adapters";
 
 @Injectable()
 export class MCPService {
@@ -25,49 +25,51 @@ export class MCPService {
     }
 
     const serverConfigs = {};
-    
+
     // Add Gmail MCP server if configured
-    const gmailMcpServer = this.configService.get<string>('GMAIL_MCP_SERVER');
+    const gmailMcpServer = this.configService.get<string>("GMAIL_MCP_SERVER");
     if (gmailMcpServer) {
-      serverConfigs['gmail'] = { url: gmailMcpServer };
+      serverConfigs["gmail"] = { url: gmailMcpServer };
     }
-    
+
     // Add Outlook MCP server if configured
-    const outlookMcpServer = this.configService.get<string>('OUTLOOK_MCP_SERVER');
+    const outlookMcpServer =
+      this.configService.get<string>("OUTLOOK_MCP_SERVER");
     if (outlookMcpServer) {
-      serverConfigs['outlook'] = { url: outlookMcpServer };
+      serverConfigs["outlook"] = { url: outlookMcpServer };
     }
-    
+
     // Add Jira MCP server if configured
-    const jiraMcpServer = this.configService.get<string>('JIRA_MCP_SERVER');
+    const jiraMcpServer = this.configService.get<string>("JIRA_MCP_SERVER");
     if (jiraMcpServer) {
-      serverConfigs['jira'] = { url: jiraMcpServer };
+      serverConfigs["jira"] = { url: jiraMcpServer };
     }
-    
+
     // Add Asana MCP server if configured
-    const asanaMcpServer = this.configService.get<string>('ASANA_MCP_SERVER');
+    const asanaMcpServer = this.configService.get<string>("ASANA_MCP_SERVER");
     if (asanaMcpServer) {
-      serverConfigs['asana'] = { url: asanaMcpServer };
+      serverConfigs["asana"] = { url: asanaMcpServer };
     }
-    
+
     // Add Trello MCP server if configured
-    const trelloMcpServer = this.configService.get<string>('TRELLO_MCP_SERVER');
+    const trelloMcpServer = this.configService.get<string>("TRELLO_MCP_SERVER");
     if (trelloMcpServer) {
-      serverConfigs['trello'] = { url: trelloMcpServer };
+      serverConfigs["trello"] = { url: trelloMcpServer };
     }
-    
+
     // Add Zapier MCP server if configured
-    const zapierMcpServer = this.configService.get<string>('ZAPIER_MCP_SERVER');
+    const zapierMcpServer = this.configService.get<string>("ZAPIER_MCP_SERVER");
     if (zapierMcpServer) {
-      serverConfigs['zapier'] = { url: zapierMcpServer };
+      serverConfigs["zapier"] = { url: zapierMcpServer };
     }
-    
+
     if (Object.keys(serverConfigs).length === 0) {
-      this.logger.warn('No MCP servers configured');
-      throw new Error('No MCP servers configured');
+      this.logger.warn("No MCP servers configured");
+      throw new Error("No MCP servers configured");
     }
-    
-    this.multiServerClient = await this.langchainAdapter.createMultiServerClient(serverConfigs);
+
+    this.multiServerClient =
+      await this.langchainAdapter.createMultiServerClient(serverConfigs);
     return this.multiServerClient;
   }
 
@@ -84,7 +86,10 @@ export class MCPService {
    */
   async getToolsFromServers(serverNames: string[]): Promise<any[]> {
     const client = await this.initializeMultiServerClient();
-    return await this.langchainAdapter.loadToolsFromServers(client, serverNames);
+    return await this.langchainAdapter.loadToolsFromServers(
+      client,
+      serverNames,
+    );
   }
 
   async connectToServer(serverUrl: string): Promise<boolean> {
@@ -95,7 +100,7 @@ export class MCPService {
 
       const client = await this.langchainAdapter.createMcpClient(serverUrl);
       this.clients.set(serverUrl, client);
-      
+
       this.logger.log(`Connected to MCP server: ${serverUrl}`);
       return true;
     } catch (error) {
@@ -108,14 +113,18 @@ export class MCPService {
     try {
       const client = await this.getOrCreateClient(serverUrl);
       const resources = await client.listResources();
-      
+
       // Filter resources by type if specified
       if (resourceType && Array.isArray(resources)) {
-        return resources.filter(resource => 
-          resource && typeof resource === 'object' && 'type' in resource && resource.type === resourceType
+        return resources.filter(
+          (resource) =>
+            resource &&
+            typeof resource === "object" &&
+            "type" in resource &&
+            resource.type === resourceType,
         );
       }
-      
+
       return Array.isArray(resources) ? resources : [];
     } catch (error) {
       this.logger.error(`Failed to get resources: ${error.message}`);
@@ -123,14 +132,18 @@ export class MCPService {
     }
   }
 
-  async executeTool(serverUrl: string, toolId: string, params: any): Promise<any> {
+  async executeTool(
+    serverUrl: string,
+    toolId: string,
+    params: any,
+  ): Promise<any> {
     try {
       const client = await this.getOrCreateClient(serverUrl);
       const result = await client.callTool({
         name: toolId,
         arguments: params,
       });
-      
+
       return result;
     } catch (error) {
       this.logger.error(`Failed to execute tool: ${error.message}`);
@@ -155,34 +168,36 @@ export class MCPService {
   async executeToolAcrossServers(toolName: string, params: any): Promise<any> {
     try {
       const client = await this.initializeMultiServerClient();
-      
+
       // If tool name contains server prefix (server__toolName), we need to get the right client
-      if (toolName.includes('__')) {
-        const [serverName, actualToolName] = toolName.split('__', 2);
+      if (toolName.includes("__")) {
+        const [serverName, actualToolName] = toolName.split("__", 2);
         const serverClient = await client.getClient(serverName);
-        
+
         if (!serverClient) {
           throw new Error(`No client found for server: ${serverName}`);
         }
-        
+
         return await serverClient.callTool({
           name: actualToolName,
           arguments: params,
         });
       }
-      
+
       // If no server prefix, try executing on all servers until one succeeds
       const tools = await this.langchainAdapter.loadAllTools(client);
-      const matchingTool = tools.find(tool => tool.name === toolName);
-      
+      const matchingTool = tools.find((tool) => tool.name === toolName);
+
       if (!matchingTool) {
         throw new Error(`No tool found with name: ${toolName}`);
       }
-      
+
       // Execute using the tool's execute method
       return await matchingTool.invoke(params);
     } catch (error) {
-      this.logger.error(`Failed to execute tool across servers: ${error.message}`);
+      this.logger.error(
+        `Failed to execute tool across servers: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -191,12 +206,12 @@ export class MCPService {
     if (!this.clients.has(serverUrl)) {
       await this.connectToServer(serverUrl);
     }
-    
+
     const client = this.clients.get(serverUrl);
     if (!client) {
       throw new Error(`No client found for server: ${serverUrl}`);
     }
-    
+
     return client;
   }
-} 
+}

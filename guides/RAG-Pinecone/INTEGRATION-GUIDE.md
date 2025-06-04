@@ -30,7 +30,7 @@ PINECONE_INDEX_NAME=your-index-name
 OPENAI_API_KEY=your-openai-api-key
 
 # Embedding configuration
-EMBEDDING_MODEL=llama-text-embed-v2
+EMBEDDING_MODEL=text-embedding-3-large
 EMBEDDING_DIMENSIONS=1024
 ```
 

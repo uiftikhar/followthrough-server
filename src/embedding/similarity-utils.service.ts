@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 
 @Injectable()
 export class SimilarityUtilsService {
@@ -11,7 +11,7 @@ export class SimilarityUtilsService {
     try {
       if (!a || !b) {
         this.logger.warn(
-          'Received null or undefined vectors for similarity calculation',
+          "Received null or undefined vectors for similarity calculation",
         );
         return 0;
       }
@@ -35,7 +35,7 @@ export class SimilarityUtilsService {
       const normProduct = Math.sqrt(normA) * Math.sqrt(normB);
       if (normProduct === 0) {
         this.logger.warn(
-          'Zero norm product in cosine similarity calculation, returning 0',
+          "Zero norm product in cosine similarity calculation, returning 0",
         );
         return 0;
       }
@@ -77,7 +77,7 @@ export class SimilarityUtilsService {
         embeddings.length === 0
       ) {
         this.logger.warn(
-          'Invalid embeddings array provided to computeSimilarityMatrix',
+          "Invalid embeddings array provided to computeSimilarityMatrix",
         );
         return [[]];
       }
@@ -174,7 +174,7 @@ export class SimilarityUtilsService {
     try {
       if (!similarities || similarities.length === 0) {
         this.logger.warn(
-          'Invalid similarities matrix provided to adjustThreshold',
+          "Invalid similarities matrix provided to adjustThreshold",
         );
         return initialThreshold;
       }
@@ -208,21 +208,21 @@ export class SimilarityUtilsService {
       // 3. Target chunk count (more chunks -> lower threshold)
 
       let adjustedThreshold = initialThreshold;
-      let adjustmentReason = '';
+      let adjustmentReason = "";
 
       // Adjust for average similarity
       if (avgSimilarity > 0.8) {
         adjustedThreshold += 0.05;
-        adjustmentReason += 'high average similarity (+0.05), ';
+        adjustmentReason += "high average similarity (+0.05), ";
       } else if (avgSimilarity < 0.4) {
         adjustedThreshold -= 0.05;
-        adjustmentReason += 'low average similarity (-0.05), ';
+        adjustmentReason += "low average similarity (-0.05), ";
       }
 
       // Adjust for content length
       if (contentLength > 10000) {
         adjustedThreshold -= 0.03;
-        adjustmentReason += 'long content (-0.03), ';
+        adjustmentReason += "long content (-0.03), ";
       }
 
       // Adjust for target chunk count
@@ -232,7 +232,7 @@ export class SimilarityUtilsService {
         estimatedChunkCount > targetChunkCount * 1.5
       ) {
         adjustedThreshold -= 0.05;
-        adjustmentReason += 'high estimated chunk count (-0.05), ';
+        adjustmentReason += "high estimated chunk count (-0.05), ";
       }
 
       // Ensure threshold stays in reasonable bounds
@@ -242,7 +242,7 @@ export class SimilarityUtilsService {
         adjustmentReason += `bounded from ${adjustedThreshold.toFixed(2)} to ${boundedThreshold.toFixed(2)}`;
       } else {
         // Remove trailing comma and space if exists
-        adjustmentReason = adjustmentReason.replace(/, $/, '');
+        adjustmentReason = adjustmentReason.replace(/, $/, "");
       }
 
       this.logger.log(
@@ -269,12 +269,12 @@ export class SimilarityUtilsService {
   ): number {
     try {
       if (!group1Indices || !group2Indices || !similarityMatrix) {
-        this.logger.warn('Invalid inputs to calculateGroupsSimilarity');
+        this.logger.warn("Invalid inputs to calculateGroupsSimilarity");
         return 0;
       }
 
       if (group1Indices.length === 0 || group2Indices.length === 0) {
-        this.logger.debug('Empty group provided to calculateGroupsSimilarity');
+        this.logger.debug("Empty group provided to calculateGroupsSimilarity");
         return 0;
       }
 
@@ -330,7 +330,7 @@ export class SimilarityUtilsService {
   ): number[][] {
     try {
       if (!chunks || !similarityMatrix) {
-        this.logger.warn('Invalid inputs to computeAdvancedSimilarities');
+        this.logger.warn("Invalid inputs to computeAdvancedSimilarities");
         return [[]];
       }
 

@@ -1,14 +1,14 @@
-import { Logger, Inject } from '@nestjs/common';
-import { BaseAgent, AgentConfig } from '../../langgraph/agents/base-agent';
-import { IRetrievalService, IRagService } from '../index';
-import { RetrievalOptions, RetrievedDocument } from '../retrieval.service';
-import { RetrievedContext } from '../rag.service';
-import { RAG_SERVICE } from '../constants/injection-tokens';
-import { LLM_SERVICE } from '../../langgraph/llm/constants/injection-tokens';
-import { STATE_SERVICE } from '../../langgraph/state/constants/injection-tokens';
-import { LlmService } from '../../langgraph/llm/llm.service';
-import { StateService } from '../../langgraph/state/state.service';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { Logger, Inject } from "@nestjs/common";
+import { BaseAgent, AgentConfig } from "../../langgraph/agents/base-agent";
+import { IRetrievalService, IRagService } from "../index";
+import { RetrievalOptions, RetrievedDocument } from "../retrieval.service";
+import { RetrievedContext } from "../rag.service";
+import { RAG_SERVICE } from "../constants/injection-tokens";
+import { LLM_SERVICE } from "../../langgraph/llm/constants/injection-tokens";
+import { STATE_SERVICE } from "../../langgraph/state/constants/injection-tokens";
+import { LlmService } from "../../langgraph/llm/llm.service";
+import { StateService } from "../../langgraph/state/state.service";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 
 export interface RagAgentOptions {
   retrievalOptions?: RetrievalOptions;
@@ -24,15 +24,15 @@ export interface RagAgentConfig extends AgentConfig {
  * Type for agent expertise
  */
 export enum AgentExpertise {
-  TOPIC_ANALYSIS = 'topic_analysis',
-  ACTION_ITEM_EXTRACTION = 'action_item_extraction',
-  PARTICIPANT_DYNAMICS = 'participant_dynamics',
-  SUMMARY_GENERATION = 'summary_generation',
-  DECISION_TRACKING = 'decision_tracking',
-  SENTIMENT_ANALYSIS = 'sentiment_analysis',
-  CONTEXT_INTEGRATION = 'context_integration',
-  COORDINATION = 'coordination',
-  MANAGEMENT = 'management',
+  TOPIC_ANALYSIS = "topic_analysis",
+  ACTION_ITEM_EXTRACTION = "action_item_extraction",
+  PARTICIPANT_DYNAMICS = "participant_dynamics",
+  SUMMARY_GENERATION = "summary_generation",
+  DECISION_TRACKING = "decision_tracking",
+  SENTIMENT_ANALYSIS = "sentiment_analysis",
+  CONTEXT_INTEGRATION = "context_integration",
+  COORDINATION = "coordination",
+  MANAGEMENT = "management",
 }
 
 /**
@@ -41,7 +41,8 @@ export enum AgentExpertise {
 export abstract class RagEnhancedAgent extends BaseAgent {
   protected readonly logger: Logger;
   private readonly ragOptions: RagAgentOptions;
-  protected readonly expertisePrompts: Partial<Record<AgentExpertise, string>> = {};
+  protected readonly expertisePrompts: Partial<Record<AgentExpertise, string>> =
+    {};
 
   constructor(
     @Inject(LLM_SERVICE) protected readonly llmService: LlmService,
@@ -74,25 +75,25 @@ export abstract class RagEnhancedAgent extends BaseAgent {
     state: any,
   ): string {
     // Get the base prompt for this expertise
-    let prompt = this.expertisePrompts[expertise] || '';
+    let prompt = this.expertisePrompts[expertise] || "";
 
     if (!prompt) {
       // Use a default prompt based on the expertise
       switch (expertise) {
         case AgentExpertise.TOPIC_ANALYSIS:
-          prompt = 'Extract the main topics discussed in this content.';
+          prompt = "Extract the main topics discussed in this content.";
           break;
         case AgentExpertise.ACTION_ITEM_EXTRACTION:
           prompt =
-            'Extract all action items assigned, including who they were assigned to and any deadlines.';
+            "Extract all action items assigned, including who they were assigned to and any deadlines.";
           break;
         case AgentExpertise.SENTIMENT_ANALYSIS:
           prompt =
-            'Analyze the sentiment, providing an overall score and key sentiment indicators.';
+            "Analyze the sentiment, providing an overall score and key sentiment indicators.";
           break;
         case AgentExpertise.SUMMARY_GENERATION:
           prompt =
-            'Generate a comprehensive summary, including key points, decisions, and next steps.';
+            "Generate a comprehensive summary, including key points, decisions, and next steps.";
           break;
         default:
           prompt = `Analyze this content focusing on ${expertise}.`;
@@ -100,9 +101,15 @@ export abstract class RagEnhancedAgent extends BaseAgent {
     }
 
     // Add the content - for transcript-based agents, this would be the transcript
-    const contentKey = typeof state === 'object' && 'transcript' in state ? 'transcript' : 'content';
-    const content = typeof state === 'object' && state[contentKey] ? state[contentKey] : JSON.stringify(state);
-    
+    const contentKey =
+      typeof state === "object" && "transcript" in state
+        ? "transcript"
+        : "content";
+    const content =
+      typeof state === "object" && state[contentKey]
+        ? state[contentKey]
+        : JSON.stringify(state);
+
     prompt += `\n\n${contentKey.charAt(0).toUpperCase() + contentKey.slice(1)}:\n${content}`;
 
     return prompt;
@@ -118,14 +125,14 @@ export abstract class RagEnhancedAgent extends BaseAgent {
    */
   protected formatRetrievedContext(context: RetrievedContext): string {
     if (!context || !context.documents || context.documents.length === 0) {
-      return '';
+      return "";
     }
 
     const formattedDocs = context.documents
       .map((doc, index) => {
         return `Document ${index + 1}: ${doc.content}`;
       })
-      .join('\n\n');
+      .join("\n\n");
 
     return `
 RELEVANT CONTEXT:
@@ -198,7 +205,7 @@ ${formattedDocs}
 
     // If state has a transcript, use it as the human message content
     const content =
-      typeof state === 'object' && state.transcript
+      typeof state === "object" && state.transcript
         ? state.transcript
         : JSON.stringify(state);
 
@@ -211,7 +218,7 @@ ${formattedDocs}
 
     // Try to parse response as JSON if the state was JSON
     try {
-      if (typeof state === 'object') {
+      if (typeof state === "object") {
         const result = JSON.parse(response.content.toString());
         return result;
       }

@@ -1,10 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 
 export interface ChunkingOptions {
   chunkSize?: number;
   chunkOverlap?: number;
   separator?: string;
-  splitBy?: 'token' | 'sentence' | 'paragraph';
+  splitBy?: "token" | "sentence" | "paragraph";
   minChunkSize?: number;
 }
 
@@ -28,12 +28,12 @@ export class ChunkingService {
     } = {},
   ): string[] {
     if (!text || text.trim().length === 0) {
-      return [''];
+      return [""];
     }
 
     const chunkSize = options.chunkSize || 1000;
     const chunkOverlap = options.chunkOverlap || 200;
-    const separator = options.separator || ' ';
+    const separator = options.separator || " ";
     const minChunkSize = options.minChunkSize || 1;
 
     const tokens = text.split(separator);
@@ -88,8 +88,8 @@ export class ChunkingService {
 
     // Simple sentence splitting - for production consider a more robust approach
     const sentences = text
-      .replace(/([.!?])\s+/g, '$1|')
-      .split('|')
+      .replace(/([.!?])\s+/g, "$1|")
+      .split("|")
       .filter((s) => s.trim());
 
     if (sentences.length <= chunkSize) {
@@ -101,7 +101,7 @@ export class ChunkingService {
     for (let i = 0; i < sentences.length; i += chunkSize - chunkOverlap) {
       const chunk = sentences
         .slice(i, Math.min(i + chunkSize, sentences.length))
-        .join(' ');
+        .join(" ");
       if (chunk.trim() && chunk.split(/[.!?]/).length >= minChunkSize) {
         chunks.push(chunk);
       }
@@ -123,7 +123,7 @@ export class ChunkingService {
     } = {},
   ): string[] {
     const maxParagraphsPerChunk = options.maxParagraphsPerChunk || 3;
-    const paragraphSeparator = options.paragraphSeparator || '\n\n';
+    const paragraphSeparator = options.paragraphSeparator || "\n\n";
     const chunkOverlap = options.chunkOverlap || 1;
     const minChunkSize = options.minChunkSize || 1;
 
@@ -142,7 +142,7 @@ export class ChunkingService {
     ) {
       const chunk = paragraphs
         .slice(i, Math.min(i + maxParagraphsPerChunk, paragraphs.length))
-        .join('\n\n');
+        .join("\n\n");
 
       if (
         chunk.trim() &&
@@ -160,19 +160,19 @@ export class ChunkingService {
    * Smart chunking based on content type
    */
   smartChunk(text: string, options: ChunkingOptions = {}): string[] {
-    const splitBy = options.splitBy || 'token';
+    const splitBy = options.splitBy || "token";
 
     switch (splitBy) {
-      case 'sentence':
+      case "sentence":
         return this.chunkBySentences(text, options);
-      case 'paragraph':
+      case "paragraph":
         return this.chunkByParagraphs(text, {
           maxParagraphsPerChunk: options.chunkSize || 3,
-          paragraphSeparator: options.separator || '\n\n',
+          paragraphSeparator: options.separator || "\n\n",
           chunkOverlap: options.chunkOverlap,
           minChunkSize: options.minChunkSize,
         });
-      case 'token':
+      case "token":
       default:
         return this.chunkByTokens(text, options);
     }
@@ -229,7 +229,7 @@ export class ChunkingService {
   ): string[] {
     const maxChunkSize = options.maxChunkSize || 2000;
     const minChunkSize = options.minChunkSize || 100;
-    const separator = options.separator || ' ';
+    const separator = options.separator || " ";
 
     // If text is already small enough, return it as is
     if (text.length <= maxChunkSize) {
@@ -237,7 +237,7 @@ export class ChunkingService {
     }
 
     // Try to split at paragraph boundaries first
-    const paragraphs = text.split('\n\n').filter((p) => p.trim());
+    const paragraphs = text.split("\n\n").filter((p) => p.trim());
 
     if (paragraphs.length > 1) {
       let currentChunk: string[] = [];
@@ -250,7 +250,7 @@ export class ChunkingService {
           currentLength + paragraph.length > maxChunkSize &&
           currentLength >= minChunkSize
         ) {
-          chunks.push(currentChunk.join('\n\n'));
+          chunks.push(currentChunk.join("\n\n"));
           currentChunk = [paragraph];
           currentLength = paragraph.length;
         } else {
@@ -261,7 +261,7 @@ export class ChunkingService {
 
       // Add the last chunk if it's not empty
       if (currentChunk.length > 0) {
-        chunks.push(currentChunk.join('\n\n'));
+        chunks.push(currentChunk.join("\n\n"));
       }
 
       return chunks;
@@ -282,7 +282,7 @@ export class ChunkingService {
           currentLength + sentence.length > maxChunkSize &&
           currentLength >= minChunkSize
         ) {
-          chunks.push(currentChunk.join(' '));
+          chunks.push(currentChunk.join(" "));
           currentChunk = [sentence];
           currentLength = sentence.length;
         } else {
@@ -293,7 +293,7 @@ export class ChunkingService {
 
       // Add the last chunk if it's not empty
       if (currentChunk.length > 0) {
-        chunks.push(currentChunk.join(' '));
+        chunks.push(currentChunk.join(" "));
       }
 
       return chunks;

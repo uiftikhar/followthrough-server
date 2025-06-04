@@ -1,4 +1,4 @@
-import { RecordMetadata } from '@pinecone-database/pinecone';
+import { RecordMetadata } from "@pinecone-database/pinecone";
 
 export interface VectorRecord<T extends RecordMetadata = RecordMetadata> {
   id: string;

@@ -1,15 +1,15 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
-import { PineconeService } from '../pinecone/pinecone.service';
-import { EmbeddingService } from '../embedding/embedding.service';
-import { VectorIndexes } from '../pinecone/pinecone-index.service';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import * as crypto from 'crypto';
-import { IRetrievalService } from './interfaces/retrieval-service.interface';
-import { RETRIEVAL_SERVICE } from './constants/injection-tokens';
-import { PINECONE_SERVICE } from '../pinecone/constants/injection-tokens';
-import { EMBEDDING_SERVICE } from '../embedding/constants/injection-tokens';
-import { DimensionAdapterService } from '../embedding/dimension-adapter.service';
+import { Injectable, Logger, Inject } from "@nestjs/common";
+import { PineconeService } from "../pinecone/pinecone.service";
+import { EmbeddingService } from "../embedding/embedding.service";
+import { VectorIndexes } from "../pinecone/pinecone-index.service";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Cache } from "cache-manager";
+import * as crypto from "crypto";
+import { IRetrievalService } from "./interfaces/retrieval-service.interface";
+import { RETRIEVAL_SERVICE } from "./constants/injection-tokens";
+import { PINECONE_SERVICE } from "../pinecone/constants/injection-tokens";
+import { EMBEDDING_SERVICE } from "../embedding/constants/injection-tokens";
+import { DimensionAdapterService } from "../embedding/dimension-adapter.service";
 
 export interface RetrievedDocument {
   id: string;
@@ -47,7 +47,7 @@ export class RetrievalService implements IRetrievalService {
     options: RetrievalOptions = {},
   ): Promise<RetrievedDocument[]> {
     const indexName = options.indexName || VectorIndexes.MEETING_ANALYSIS;
-    const namespace = options.namespace || 'documents';
+    const namespace = options.namespace || "documents";
     const topK = options.topK || 5;
     const minScore = options.minScore || 0.7;
     const useCaching = options.useCaching !== false;
@@ -76,11 +76,17 @@ export class RetrievalService implements IRetrievalService {
 
       // Apply dimension adaptation if needed
       let queryEmbedding = originalQueryEmbedding;
-      if (this.dimensionAdapterService.needsAdaptation(originalQueryEmbedding.length)) {
+      if (
+        this.dimensionAdapterService.needsAdaptation(
+          originalQueryEmbedding.length,
+        )
+      ) {
         this.logger.log(
           `Adapting query embedding dimension from ${originalQueryEmbedding.length} to ${this.dimensionAdapterService.getTargetDimension()}`,
         );
-        queryEmbedding = this.dimensionAdapterService.adaptDimension(originalQueryEmbedding);
+        queryEmbedding = this.dimensionAdapterService.adaptDimension(
+          originalQueryEmbedding,
+        );
       }
 
       // Retrieve similar vectors from Pinecone
@@ -99,7 +105,7 @@ export class RetrievalService implements IRetrievalService {
       // Map results to a more usable format, ensuring content is always a string
       const documents: RetrievedDocument[] = results.map((result) => ({
         id: result.id,
-        content: String(result.metadata.content || ''),
+        content: String(result.metadata.content || ""),
         metadata: result.metadata,
         score: result.score,
       }));
@@ -131,11 +137,11 @@ export class RetrievalService implements IRetrievalService {
     namespace: string,
     filter?: Record<string, any>,
   ): string {
-    const filterStr = filter ? JSON.stringify(filter) : '';
+    const filterStr = filter ? JSON.stringify(filter) : "";
     const hash = crypto
-      .createHash('md5')
+      .createHash("md5")
       .update(`${query}:${indexName}:${namespace}:${filterStr}`)
-      .digest('hex');
+      .digest("hex");
 
     return `retrieval:${hash}`;
   }
@@ -204,7 +210,7 @@ export class RetrievalService implements IRetrievalService {
       .toLowerCase()
       .split(/\s+/)
       .filter((word) => word.length > 3)
-      .map((word) => word.replace(/[^\w]/g, ''));
+      .map((word) => word.replace(/[^\w]/g, ""));
 
     if (keywords.length === 0) {
       return [];
@@ -230,14 +236,14 @@ export class RetrievalService implements IRetrievalService {
         {
           topK: options.topK || 5,
           filter,
-          namespace: options.namespace || 'documents',
+          namespace: options.namespace || "documents",
           includeValues: false,
         },
       );
 
       // Score based on keyword matches, ensuring content is always a string
       return results.map((result) => {
-        const content = String(result.metadata.content || '');
+        const content = String(result.metadata.content || "");
         const matchCount = keywords.reduce(
           (count, keyword) =>
             count + (content.toLowerCase().includes(keyword) ? 1 : 0),

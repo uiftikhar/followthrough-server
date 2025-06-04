@@ -1,17 +1,17 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
-import { RagService } from './rag.service';
-import { RetrievalService } from './retrieval.service';
-import { LlmService } from '../langgraph/llm/llm.service';
-import { RetrievalOptions } from './retrieval.service';
-import { IAdaptiveRagService } from './interfaces/adaptive-rag.interface';
-import { IRagService } from './interfaces/rag-service.interface';
-import { IRetrievalService } from './interfaces/retrieval-service.interface';
+import { Injectable, Logger, Inject } from "@nestjs/common";
+import { RagService } from "./rag.service";
+import { RetrievalService } from "./retrieval.service";
+import { LlmService } from "../langgraph/llm/llm.service";
+import { RetrievalOptions } from "./retrieval.service";
+import { IAdaptiveRagService } from "./interfaces/adaptive-rag.interface";
+import { IRagService } from "./interfaces/rag-service.interface";
+import { IRetrievalService } from "./interfaces/retrieval-service.interface";
 import {
   RAG_SERVICE,
   RETRIEVAL_SERVICE,
   ADAPTIVE_RAG_SERVICE,
-} from './constants/injection-tokens';
-import { LLM_SERVICE } from '../langgraph/llm/constants/injection-tokens';
+} from "./constants/injection-tokens";
+import { LLM_SERVICE } from "../langgraph/llm/constants/injection-tokens";
 
 @Injectable()
 export class AdaptiveRagService implements IAdaptiveRagService {
@@ -28,7 +28,7 @@ export class AdaptiveRagService implements IAdaptiveRagService {
    * Determine the best retrieval strategy for a query
    */
   async determineRetrievalStrategy(query: string): Promise<{
-    strategy: 'semantic' | 'keyword' | 'hybrid' | 'none';
+    strategy: "semantic" | "keyword" | "hybrid" | "none";
     settings: Partial<RetrievalOptions>;
   }> {
     try {
@@ -36,7 +36,7 @@ export class AdaptiveRagService implements IAdaptiveRagService {
 
       const response = await model.invoke([
         {
-          role: 'system',
+          role: "system",
           content: `
             You are a retrieval strategy selector. Analyze the query and determine the best retrieval approach:
             - 'semantic': For conceptual, abstract, or complex queries requiring understanding of meaning
@@ -50,7 +50,7 @@ export class AdaptiveRagService implements IAdaptiveRagService {
           `,
         },
         {
-          role: 'user',
+          role: "user",
           content: `Analyze this query: "${query}"`,
         },
       ]);
@@ -76,7 +76,7 @@ export class AdaptiveRagService implements IAdaptiveRagService {
       } catch (error) {
         // Default if parsing fails
         return {
-          strategy: 'hybrid',
+          strategy: "hybrid",
           settings: { topK: 5, minScore: 0.7 },
         };
       }
@@ -85,7 +85,7 @@ export class AdaptiveRagService implements IAdaptiveRagService {
         `Error determining retrieval strategy: ${error.message}`,
       );
       return {
-        strategy: 'semantic',
+        strategy: "semantic",
         settings: {},
       };
     }
@@ -104,7 +104,7 @@ export class AdaptiveRagService implements IAdaptiveRagService {
         const query = queryExtractor(state);
 
         if (!query) {
-          this.logger.warn('No query extracted from state');
+          this.logger.warn("No query extracted from state");
           return {};
         }
 
@@ -121,25 +121,25 @@ export class AdaptiveRagService implements IAdaptiveRagService {
         // Retrieve based on strategy
         let documents;
         switch (strategy) {
-          case 'semantic':
+          case "semantic":
             documents = await this.retrievalService.retrieveDocuments(
               query,
               options,
             );
             break;
-          case 'keyword':
-            documents = await this.retrievalService['keywordSearch'](
+          case "keyword":
+            documents = await this.retrievalService["keywordSearch"](
               query,
               options,
             );
             break;
-          case 'hybrid':
+          case "hybrid":
             documents = await this.retrievalService.hybridSearch(
               query,
               options,
             );
             break;
-          case 'none':
+          case "none":
             documents = [];
             break;
           default:
@@ -171,21 +171,21 @@ export class AdaptiveRagService implements IAdaptiveRagService {
   addAdaptiveRagToGraph(graph: any, options: RetrievalOptions = {}): void {
     // Add adaptive RAG node
     graph.addNode(
-      'adaptive_rag',
-      this.createAdaptiveRagNode((state) => state.transcript || '', options),
+      "adaptive_rag",
+      this.createAdaptiveRagNode((state) => state.transcript || "", options),
     );
 
     // Modify graph edges
-    graph.addEdge('adaptive_rag', 'topic_extraction');
+    graph.addEdge("adaptive_rag", "topic_extraction");
 
     // Replace start edge
-    const edges = graph['edges'];
-    const startEdges = edges.filter((e) => e.source === '__start__');
+    const edges = graph["edges"];
+    const startEdges = edges.filter((e) => e.source === "__start__");
 
     for (const edge of startEdges) {
-      if (edge.target === 'topic_extraction') {
-        graph['edges'] = edges.filter((e) => e !== edge);
-        graph.addEdge('__start__', 'adaptive_rag');
+      if (edge.target === "topic_extraction") {
+        graph["edges"] = edges.filter((e) => e !== edge);
+        graph.addEdge("__start__", "adaptive_rag");
         break;
       }
     }

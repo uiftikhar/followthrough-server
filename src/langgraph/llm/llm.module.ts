@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { LlmService } from './llm.service';
-import { LLM_SERVICE } from './constants/injection-tokens';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { LlmService } from "./llm.service";
+import { LLM_SERVICE } from "./constants/injection-tokens";
 
 @Module({
   imports: [ConfigModule],

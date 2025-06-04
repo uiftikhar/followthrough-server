@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { MCPService } from '../mcp/mcp.service';
-import { Task } from './models/task.model';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { MCPService } from "../mcp/mcp.service";
+import { Task } from "./models/task.model";
 
 @Injectable()
 export class TasksService {
@@ -13,26 +13,30 @@ export class TasksService {
     private mcpService: MCPService,
   ) {
     // Initialize task platform MCP servers
-    const jiraMcpServer = this.configService.get<string>('JIRA_MCP_SERVER');
+    const jiraMcpServer = this.configService.get<string>("JIRA_MCP_SERVER");
     if (jiraMcpServer) {
-      this.taskPlatforms.set('jira', jiraMcpServer);
+      this.taskPlatforms.set("jira", jiraMcpServer);
     }
-    
-    const asanaMcpServer = this.configService.get<string>('ASANA_MCP_SERVER');
+
+    const asanaMcpServer = this.configService.get<string>("ASANA_MCP_SERVER");
     if (asanaMcpServer) {
-      this.taskPlatforms.set('asana', asanaMcpServer);
+      this.taskPlatforms.set("asana", asanaMcpServer);
     }
-    
-    const trelloMcpServer = this.configService.get<string>('TRELLO_MCP_SERVER');
+
+    const trelloMcpServer = this.configService.get<string>("TRELLO_MCP_SERVER");
     if (trelloMcpServer) {
-      this.taskPlatforms.set('trello', trelloMcpServer);
+      this.taskPlatforms.set("trello", trelloMcpServer);
     }
   }
 
   /**
    * Create a task in the specified platform
    */
-  async createTask(userId: string, platform: string, task: Partial<Task>): Promise<Task> {
+  async createTask(
+    userId: string,
+    platform: string,
+    task: Partial<Task>,
+  ): Promise<Task> {
     const serverUrl = this.taskPlatforms.get(platform);
     if (!serverUrl) {
       throw new Error(`Unsupported task platform: ${platform}`);
@@ -41,13 +45,13 @@ export class TasksService {
     try {
       const result = await this.mcpService.executeTool(
         serverUrl,
-        'createTask',
+        "createTask",
         {
           userId,
           task,
-        }
+        },
       );
-      
+
       return new Task(result.task);
     } catch (error) {
       this.logger.error(`Failed to create task: ${error.message}`);
@@ -58,22 +62,22 @@ export class TasksService {
   /**
    * Get a specific task by ID
    */
-  async getTask(userId: string, platform: string, taskId: string): Promise<Task> {
+  async getTask(
+    userId: string,
+    platform: string,
+    taskId: string,
+  ): Promise<Task> {
     const serverUrl = this.taskPlatforms.get(platform);
     if (!serverUrl) {
       throw new Error(`Unsupported task platform: ${platform}`);
     }
 
     try {
-      const result = await this.mcpService.executeTool(
-        serverUrl,
-        'fetchTask',
-        {
-          userId,
-          taskId,
-        }
-      );
-      
+      const result = await this.mcpService.executeTool(serverUrl, "fetchTask", {
+        userId,
+        taskId,
+      });
+
       return new Task(result.task);
     } catch (error) {
       this.logger.error(`Failed to fetch task: ${error.message}`);
@@ -84,7 +88,11 @@ export class TasksService {
   /**
    * Get all tasks for a user from a platform
    */
-  async getTasks(userId: string, platform: string, options: any = {}): Promise<Task[]> {
+  async getTasks(
+    userId: string,
+    platform: string,
+    options: any = {},
+  ): Promise<Task[]> {
     const serverUrl = this.taskPlatforms.get(platform);
     if (!serverUrl) {
       throw new Error(`Unsupported task platform: ${platform}`);
@@ -93,14 +101,14 @@ export class TasksService {
     try {
       const result = await this.mcpService.executeTool(
         serverUrl,
-        'fetchTasks',
+        "fetchTasks",
         {
           userId,
           ...options,
-        }
+        },
       );
-      
-      return result.tasks.map(task => new Task(task));
+
+      return result.tasks.map((task) => new Task(task));
     } catch (error) {
       this.logger.error(`Failed to fetch tasks: ${error.message}`);
       throw error;
@@ -110,7 +118,12 @@ export class TasksService {
   /**
    * Update an existing task
    */
-  async updateTask(userId: string, platform: string, taskId: string, updates: Partial<Task>): Promise<Task> {
+  async updateTask(
+    userId: string,
+    platform: string,
+    taskId: string,
+    updates: Partial<Task>,
+  ): Promise<Task> {
     const serverUrl = this.taskPlatforms.get(platform);
     if (!serverUrl) {
       throw new Error(`Unsupported task platform: ${platform}`);
@@ -119,14 +132,14 @@ export class TasksService {
     try {
       const result = await this.mcpService.executeTool(
         serverUrl,
-        'updateTask',
+        "updateTask",
         {
           userId,
           taskId,
           updates,
-        }
+        },
       );
-      
+
       return new Task(result.task);
     } catch (error) {
       this.logger.error(`Failed to update task: ${error.message}`);
@@ -137,7 +150,11 @@ export class TasksService {
   /**
    * Delete a task
    */
-  async deleteTask(userId: string, platform: string, taskId: string): Promise<boolean> {
+  async deleteTask(
+    userId: string,
+    platform: string,
+    taskId: string,
+  ): Promise<boolean> {
     const serverUrl = this.taskPlatforms.get(platform);
     if (!serverUrl) {
       throw new Error(`Unsupported task platform: ${platform}`);
@@ -146,13 +163,13 @@ export class TasksService {
     try {
       const result = await this.mcpService.executeTool(
         serverUrl,
-        'deleteTask',
+        "deleteTask",
         {
           userId,
           taskId,
-        }
+        },
       );
-      
+
       return result.success === true;
     } catch (error) {
       this.logger.error(`Failed to delete task: ${error.message}`);
@@ -166,4 +183,4 @@ export class TasksService {
   getSupportedPlatforms(): string[] {
     return Array.from(this.taskPlatforms.keys());
   }
-} 
+}

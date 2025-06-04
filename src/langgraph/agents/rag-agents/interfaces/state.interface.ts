@@ -29,7 +29,7 @@ export interface MeetingTranscript {
       role?: string;
     }>;
     location?: string;
-    format?: 'in-person' | 'virtual' | 'hybrid';
+    format?: "in-person" | "virtual" | "hybrid";
     tags?: string[];
     [key: string]: any;
   };
@@ -55,8 +55,8 @@ export interface ActionItem {
   description: string;
   assignee?: string;
   dueDate?: string;
-  priority?: 'low' | 'medium' | 'high';
-  status?: 'pending' | 'in_progress' | 'completed';
+  priority?: "low" | "medium" | "high";
+  status?: "pending" | "in_progress" | "completed";
   relatedTopics?: string[];
 }
 
@@ -83,7 +83,7 @@ export interface MeetingAnalysisState {
   topics?: Topic[];
   actionItems?: ActionItem[];
   sentiment?: {
-    overall: 'positive' | 'negative' | 'neutral' | 'mixed';
+    overall: "positive" | "negative" | "neutral" | "mixed";
     score: number;
     segments?: Array<{
       text: string;
@@ -109,7 +109,7 @@ export interface MeetingAnalysisState {
     error: string;
     timestamp: string;
   }>;
-  status?: 'pending' | 'in_progress' | 'completed' | 'failed';
+  status?: "pending" | "in_progress" | "completed" | "failed";
   currentStep?: string;
   completedSteps?: string[];
-} 
+}

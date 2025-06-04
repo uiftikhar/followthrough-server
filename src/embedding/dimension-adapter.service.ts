@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 
 /**
  * Service for adapting embedding dimensions to match index requirements
@@ -10,13 +10,22 @@ export class DimensionAdapterService {
   private readonly targetDimension: number;
 
   constructor(private readonly configService: ConfigService) {
-    // Get the target dimension from config, default to 1024 (which is what Pinecone seems to expect)
+    // Get the target dimension from config, default to 1024 (which is what Pinecone expects for text-embedding-3-large)
     this.targetDimension = this.configService.get<number>(
-      'PINECONE_DIMENSIONS',
+      "PINECONE_DIMENSIONS",
       1024,
     );
+    
+    const openaiDimensions = this.configService.get<number>(
+      "OPENAI_EMBEDDING_DIMENSIONS",
+      this.configService.get<number>("EMBEDDING_DIMENSIONS", 1024),
+    );
+    
     this.logger.log(
-      `Dimension adapter initialized with target dimension: ${this.targetDimension}`,
+      `🔧 Dimension adapter initialized:
+      - Target Pinecone dimensions: ${this.targetDimension}
+      - OpenAI embedding dimensions: ${openaiDimensions}
+      - Auto-adaptation: ${this.targetDimension !== openaiDimensions ? 'ENABLED' : 'NOT NEEDED'}`,
     );
   }
 

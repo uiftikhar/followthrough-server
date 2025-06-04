@@ -1,11 +1,11 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { RagService, RetrievedContext } from './rag.service';
-import { RetrievalService, RetrievedDocument } from './retrieval.service';
-import { AdaptiveRagService } from './adaptive-rag.service';
-import { http, HttpResponse } from 'msw';
-import { server } from '../test/mocks/server';
-import { Logger } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Test, TestingModule } from "@nestjs/testing";
+import { RagService, RetrievedContext } from "./rag.service";
+import { RetrievalService, RetrievedDocument } from "./retrieval.service";
+import { AdaptiveRagService } from "./adaptive-rag.service";
+import { http, HttpResponse } from "msw";
+import { server } from "../test/mocks/server";
+import { Logger } from "@nestjs/common";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import {
   IRetrievalService,
   IRagService,
@@ -13,18 +13,18 @@ import {
   RETRIEVAL_SERVICE,
   RAG_SERVICE,
   ADAPTIVE_RAG_SERVICE,
-} from './index';
-import { EMBEDDING_SERVICE } from '../embedding/constants/injection-tokens';
-import { LLM_SERVICE } from '../langgraph/llm/constants/injection-tokens';
-import { STATE_SERVICE } from '../langgraph/state/constants/injection-tokens';
-import { PINECONE_SERVICE } from '../pinecone/constants/injection-tokens';
-import { ConfigService } from '@nestjs/config';
-import { DimensionAdapterService } from '../embedding/dimension-adapter.service';
-import { SemanticChunkingService } from '../embedding/semantic-chunking.service';
-import { SimilarityUtilsService } from '../embedding/similarity-utils.service';
-import { SentenceParserService } from '../embedding/sentence-parser.service';
-import { ChunkOptimizationService } from '../embedding/chunk-optimization.service';
-import { ChunkingService } from '../embedding/chunking.service';
+} from "./index";
+import { EMBEDDING_SERVICE } from "../embedding/constants/injection-tokens";
+import { LLM_SERVICE } from "../langgraph/llm/constants/injection-tokens";
+import { STATE_SERVICE } from "../langgraph/state/constants/injection-tokens";
+import { PINECONE_SERVICE } from "../pinecone/constants/injection-tokens";
+import { ConfigService } from "@nestjs/config";
+import { DimensionAdapterService } from "../embedding/dimension-adapter.service";
+import { SemanticChunkingService } from "../embedding/semantic-chunking.service";
+import { SimilarityUtilsService } from "../embedding/similarity-utils.service";
+import { SentenceParserService } from "../embedding/sentence-parser.service";
+import { ChunkOptimizationService } from "../embedding/chunk-optimization.service";
+import { ChunkingService } from "../embedding/chunking.service";
 
 // Define the state interface with retrieved context
 interface TranscriptState {
@@ -32,7 +32,7 @@ interface TranscriptState {
   retrievedContext?: RetrievedContext;
 }
 
-describe('RAG Services Integration', () => {
+describe("RAG Services Integration", () => {
   let ragService: IRagService;
   let retrievalService: IRetrievalService;
   let adaptiveRagService: IAdaptiveRagService;
@@ -50,26 +50,26 @@ describe('RAG Services Integration', () => {
 
   const mockEmbeddingService = {
     generateEmbedding: jest.fn().mockResolvedValue(Array(1024).fill(0.1)),
-    chunkText: jest.fn().mockReturnValue(['chunk1', 'chunk2']),
+    chunkText: jest.fn().mockReturnValue(["chunk1", "chunk2"]),
   };
 
   const mockPineconeService = {
     querySimilar: jest.fn().mockResolvedValue([
       {
-        id: 'test-doc-1',
+        id: "test-doc-1",
         score: 0.95,
         metadata: {
-          content: 'This is a test document content for the product roadmap',
-          document_id: 'doc-123',
+          content: "This is a test document content for the product roadmap",
+          document_id: "doc-123",
         },
       },
       {
-        id: 'test-doc-2',
+        id: "test-doc-2",
         score: 0.85,
         metadata: {
           content:
-            'The product roadmap includes several key features planned for Q3',
-          document_id: 'doc-456',
+            "The product roadmap includes several key features planned for Q3",
+          document_id: "doc-456",
         },
       },
     ]),
@@ -87,8 +87,8 @@ describe('RAG Services Integration', () => {
 
   const mockConfigService = {
     get: jest.fn().mockImplementation((key, defaultValue) => {
-      if (key === 'PINECONE_DIMENSIONS') return 1024;
-      if (key === 'USE_SEMANTIC_CHUNKING') return 'true';
+      if (key === "PINECONE_DIMENSIONS") return 1024;
+      if (key === "USE_SEMANTIC_CHUNKING") return "true";
       return defaultValue;
     }),
   };
@@ -103,7 +103,7 @@ describe('RAG Services Integration', () => {
 
   // Mock services for semantic chunking
   const mockChunkingService = {
-    smartChunk: jest.fn().mockReturnValue(['chunk1', 'chunk2']),
+    smartChunk: jest.fn().mockReturnValue(["chunk1", "chunk2"]),
   };
 
   const mockSimilarityUtilsService = {
@@ -116,13 +116,13 @@ describe('RAG Services Integration', () => {
   };
 
   const mockSentenceParserService = {
-    parseSentences: jest.fn().mockReturnValue(['Sentence 1', 'Sentence 2']),
+    parseSentences: jest.fn().mockReturnValue(["Sentence 1", "Sentence 2"]),
     parseAdvancedSentences: jest
       .fn()
-      .mockReturnValue(['Sentence 1', 'Sentence 2']),
+      .mockReturnValue(["Sentence 1", "Sentence 2"]),
     splitBySemanticBoundaries: jest
       .fn()
-      .mockReturnValue(['Sentence 1', 'Sentence 2']),
+      .mockReturnValue(["Sentence 1", "Sentence 2"]),
   };
 
   const mockChunkOptimizationService = {
@@ -130,18 +130,18 @@ describe('RAG Services Integration', () => {
     optimizeAndRebalanceChunks: jest.fn().mockReturnValue([[0, 1]]),
     applyContextPrefixToChunks: jest
       .fn()
-      .mockReturnValue(['Chunk 1 with context']),
+      .mockReturnValue(["Chunk 1 with context"]),
   };
 
   const mockSemanticChunkingService = {
-    chunkTextSemantically: jest.fn().mockResolvedValue(['Chunk 1', 'Chunk 2']),
+    chunkTextSemantically: jest.fn().mockResolvedValue(["Chunk 1", "Chunk 2"]),
     chunkDocumentSemantically: jest.fn().mockResolvedValue([
-      { id: 'test-chunk-0', content: 'Chunk 1', metadata: { chunk_index: 0 } },
-      { id: 'test-chunk-1', content: 'Chunk 2', metadata: { chunk_index: 1 } },
+      { id: "test-chunk-0", content: "Chunk 1", metadata: { chunk_index: 0 } },
+      { id: "test-chunk-1", content: "Chunk 2", metadata: { chunk_index: 1 } },
     ]),
     batchProcessDocuments: jest.fn().mockResolvedValue([
-      { id: 'test-chunk-0', content: 'Chunk 1', metadata: { chunk_index: 0 } },
-      { id: 'test-chunk-1', content: 'Chunk 2', metadata: { chunk_index: 1 } },
+      { id: "test-chunk-0", content: "Chunk 1", metadata: { chunk_index: 0 } },
+      { id: "test-chunk-1", content: "Chunk 2", metadata: { chunk_index: 1 } },
     ]),
   };
 
@@ -149,17 +149,17 @@ describe('RAG Services Integration', () => {
     // Setup MSW handlers for external API calls
     server.use(
       // Mock OpenAI Embeddings API
-      http.post('https://api.openai.com/v1/embeddings', async () => {
+      http.post("https://api.openai.com/v1/embeddings", async () => {
         return HttpResponse.json({
           data: [
             {
               embedding: Array(1024).fill(0.1),
               index: 0,
-              object: 'embedding',
+              object: "embedding",
             },
           ],
-          model: 'llama-text-embed-v2',
-          object: 'list',
+          model: "text-embedding-3-large",
+          object: "list",
           usage: {
             prompt_tokens: 10,
             total_tokens: 10,
@@ -168,59 +168,59 @@ describe('RAG Services Integration', () => {
       }),
 
       // Mock Pinecone query API
-      http.post('*/query', async () => {
+      http.post("*/query", async () => {
         return HttpResponse.json({
           matches: [
             {
-              id: 'test-doc-1',
+              id: "test-doc-1",
               score: 0.95,
               metadata: {
                 content:
-                  'This is a test document content for the product roadmap',
-                document_id: 'doc-123',
+                  "This is a test document content for the product roadmap",
+                document_id: "doc-123",
                 chunk_index: 0,
                 chunk_count: 2,
               },
             },
             {
-              id: 'test-doc-2',
+              id: "test-doc-2",
               score: 0.85,
               metadata: {
                 content:
-                  'The product roadmap includes several key features planned for Q3',
-                document_id: 'doc-456',
+                  "The product roadmap includes several key features planned for Q3",
+                document_id: "doc-456",
                 chunk_index: 1,
                 chunk_count: 3,
               },
             },
           ],
-          namespace: 'documents',
+          namespace: "documents",
         });
       }),
 
       // Mock Pinecone upsert API
-      http.post('*/vectors/upsert', async () => {
+      http.post("*/vectors/upsert", async () => {
         return HttpResponse.json({
           upsertedCount: 1,
         });
       }),
 
       // Mock chat completion API response for strategy determination
-      http.post('https://api.openai.com/v1/chat/completions', async () => {
+      http.post("https://api.openai.com/v1/chat/completions", async () => {
         return HttpResponse.json({
-          id: 'chatcmpl-mock-123',
-          object: 'chat.completion',
+          id: "chatcmpl-mock-123",
+          object: "chat.completion",
           created: Date.now(),
-          model: 'gpt-4o',
+          model: "gpt-4o",
           choices: [
             {
               index: 0,
               message: {
-                role: 'assistant',
+                role: "assistant",
                 content:
                   '```json\n{"strategy": "hybrid", "topK": 5, "minScore": 0.8}\n```',
               },
-              finish_reason: 'stop',
+              finish_reason: "stop",
             },
           ],
           usage: {
@@ -313,10 +313,10 @@ describe('RAG Services Integration', () => {
       moduleRef.get<IAdaptiveRagService>(ADAPTIVE_RAG_SERVICE);
 
     // Suppress logger output
-    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
-    jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
-    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, "log").mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, "debug").mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, "error").mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, "warn").mockImplementation(() => undefined);
   });
 
   afterAll(async () => {
@@ -324,20 +324,20 @@ describe('RAG Services Integration', () => {
     jest.clearAllMocks();
   });
 
-  describe('RetrievalService', () => {
-    it('should retrieve relevant documents for a query', async () => {
+  describe("RetrievalService", () => {
+    it("should retrieve relevant documents for a query", async () => {
       // Test query
       const query =
-        'What were the key points discussed in the last meeting about the product roadmap?';
+        "What were the key points discussed in the last meeting about the product roadmap?";
 
       // Mock the implementation for this specific test
       mockPineconeService.querySimilar.mockResolvedValueOnce([
         {
-          id: 'test-doc-1',
+          id: "test-doc-1",
           score: 0.95,
           metadata: {
-            content: 'This is a test document content for the product roadmap',
-            document_id: 'doc-123',
+            content: "This is a test document content for the product roadmap",
+            document_id: "doc-123",
           },
         },
       ]);
@@ -349,13 +349,13 @@ describe('RAG Services Integration', () => {
       expect(results.length).toBeGreaterThan(0);
 
       // Check structure of the first result
-      expect(results[0]).toHaveProperty('id', 'test-doc-1');
-      expect(results[0]).toHaveProperty('content');
-      expect(results[0]).toHaveProperty('metadata');
-      expect(results[0]).toHaveProperty('score', 0.95);
+      expect(results[0]).toHaveProperty("id", "test-doc-1");
+      expect(results[0]).toHaveProperty("content");
+      expect(results[0]).toHaveProperty("metadata");
+      expect(results[0]).toHaveProperty("score", 0.95);
 
       // Verify content has been properly extracted
-      expect(results[0].content).toContain('product roadmap');
+      expect(results[0].content).toContain("product roadmap");
 
       // Verify embedding service was called
       expect(mockEmbeddingService.generateEmbedding).toHaveBeenCalledWith(
@@ -364,20 +364,20 @@ describe('RAG Services Integration', () => {
     });
   });
 
-  describe('RagService', () => {
-    it('should enhance state with retrieved context', async () => {
+  describe("RagService", () => {
+    it("should enhance state with retrieved context", async () => {
       const query =
-        'What were the key points discussed in the last meeting about the product roadmap?';
+        "What were the key points discussed in the last meeting about the product roadmap?";
       const state: TranscriptState = {
-        transcript: 'Discussion about product roadmap and feature priorities',
+        transcript: "Discussion about product roadmap and feature priorities",
       };
 
       // Setup mock documents that will be returned
       const mockDocuments: RetrievedDocument[] = [
         {
-          id: 'test-doc-1',
-          content: 'This is a test document content for the product roadmap',
-          metadata: { document_id: 'doc-123' },
+          id: "test-doc-1",
+          content: "This is a test document content for the product roadmap",
+          metadata: { document_id: "doc-123" },
           score: 0.95,
         },
       ];
@@ -386,7 +386,7 @@ describe('RAG Services Integration', () => {
       const retrievalServiceRef =
         moduleRef.get<IRetrievalService>(RETRIEVAL_SERVICE);
       jest
-        .spyOn(retrievalServiceRef, 'retrieveDocuments')
+        .spyOn(retrievalServiceRef, "retrieveDocuments")
         .mockResolvedValueOnce(mockDocuments);
 
       const enhancedState = await ragService.enhanceStateWithContext(
@@ -395,12 +395,12 @@ describe('RAG Services Integration', () => {
       );
 
       expect(enhancedState).toBeDefined();
-      expect(enhancedState).toHaveProperty('transcript');
-      expect(enhancedState).toHaveProperty('retrievedContext');
+      expect(enhancedState).toHaveProperty("transcript");
+      expect(enhancedState).toHaveProperty("retrievedContext");
 
       if (enhancedState.retrievedContext) {
-        expect(enhancedState.retrievedContext).toHaveProperty('query', query);
-        expect(enhancedState.retrievedContext).toHaveProperty('documents');
+        expect(enhancedState.retrievedContext).toHaveProperty("query", query);
+        expect(enhancedState.retrievedContext).toHaveProperty("documents");
         expect(Array.isArray(enhancedState.retrievedContext.documents)).toBe(
           true,
         );
@@ -411,18 +411,18 @@ describe('RAG Services Integration', () => {
     });
   });
 
-  describe('AdaptiveRagService', () => {
-    it('should determine appropriate retrieval strategy for a query', async () => {
+  describe("AdaptiveRagService", () => {
+    it("should determine appropriate retrieval strategy for a query", async () => {
       const query =
-        'What were the key points discussed in the last meeting about the product roadmap?';
+        "What were the key points discussed in the last meeting about the product roadmap?";
 
       const result = await adaptiveRagService.determineRetrievalStrategy(query);
 
       expect(result).toBeDefined();
-      expect(result).toHaveProperty('strategy', 'hybrid');
-      expect(result).toHaveProperty('settings');
-      expect(result.settings).toHaveProperty('topK', 5);
-      expect(result.settings).toHaveProperty('minScore', 0.8);
+      expect(result).toHaveProperty("strategy", "hybrid");
+      expect(result).toHaveProperty("settings");
+      expect(result.settings).toHaveProperty("topK", 5);
+      expect(result.settings).toHaveProperty("minScore", 0.8);
 
       // Verify LLM service was called
       expect(mockLlmService.getChatModel).toHaveBeenCalled();

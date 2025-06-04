@@ -28,17 +28,39 @@ export const configValidationSchema = Joi.object({
   PINECONE_REGION: Joi.string().default('us-west-2'),
   PINECONE_DIMENSIONS: Joi.number().default(1024),
 
-  // Embedding Configuration
+  // OpenAI Embedding Generation Configuration (used by EmbeddingService)
+  OPENAI_EMBEDDING_MODEL: Joi.string()
+    .valid(
+      'text-embedding-ada-002',
+      'text-embedding-3-small',
+      'text-embedding-3-large',
+    )
+    .default('text-embedding-3-large'),
+  OPENAI_EMBEDDING_DIMENSIONS: Joi.number().default(1024),
+
+  // Pinecone Index Embedding Model Configuration (metadata only for index creation)
+  PINECONE_EMBEDDING_MODEL: Joi.string()
+    .valid(
+      'multilingual-e5-large',
+      'pinecone-sparse-english-v0',
+      'text-embedding-3-large',
+      'text-embedding-ada-002',
+      'llama-text-embed-v2',
+    )
+    .default('text-embedding-3-large'),
+
+  // Legacy support (will map to new variables)
   EMBEDDING_MODEL: Joi.string()
     .valid(
       'text-embedding-ada-002',
       'text-embedding-3-small',
-      'llama-text-embed-v2',
+      'text-embedding-3-large',
       'anthropic',
       'llama-text-embed-v2',
+      'multilingual-e5-large',
     )
-    .default('llama-text-embed-v2'),
-  EMBEDDING_DIMENSIONS: Joi.number().default(1024),
+    .optional(),
+  EMBEDDING_DIMENSIONS: Joi.number().optional(),
 
   // RAG Configuration
   RAG_ENABLE: Joi.boolean().default(true),
@@ -47,4 +69,11 @@ export const configValidationSchema = Joi.object({
 
   // Storage Configuration
   STORAGE_PATH: Joi.string().default('./data/file-storage'),
+
+  // Google OAuth and Gmail Configuration
+  GOOGLE_CLIENT_ID: Joi.string().required(),
+  GOOGLE_CLIENT_SECRET: Joi.string().required(),
+  GOOGLE_CLOUD_PROJECT_ID: Joi.string().required(),
+  GMAIL_PUBSUB_TOPIC: Joi.string().default('gmail-notifications'),
+  GOOGLE_REMOVE_ACTIVE_WATCHERS: Joi.boolean().default(false),
 });

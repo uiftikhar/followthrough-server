@@ -45,4 +45,4 @@ Rules:
 3. Focus on substantive discussion topics, not procedural elements
 4. Be concise but descriptive in topic names
 5. Include relevant context in descriptions
-6. Assign realistic relevance scores based on discussion time and importance`; 
+6. Assign realistic relevance scores based on discussion time and importance`;

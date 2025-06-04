@@ -1,7 +1,7 @@
 export interface ToolParameter {
   name: string;
   description?: string;
-  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  type: "string" | "number" | "boolean" | "object" | "array";
   required?: boolean;
   default?: any;
   enum?: string[];
@@ -30,8 +30,8 @@ export class Tool {
   handler?: (...args: any[]) => Promise<any>;
 
   constructor(data: Partial<Tool>) {
-    this.id = data.id || '';
-    this.name = data.name || '';
+    this.id = data.id || "";
+    this.name = data.name || "";
     this.description = data.description;
     this.schema = data.schema || { name: this.name, parameters: {} };
     this.handler = data.handler;
@@ -59,4 +59,4 @@ export class Tool {
       schema: this.schema,
     };
   }
-} 
+}

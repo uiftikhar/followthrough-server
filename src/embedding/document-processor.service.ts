@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { EmbeddingService, EmbeddingOptions } from './embedding.service';
-import { ChunkingService, ChunkingOptions } from './chunking.service';
-import { PineconeService } from '../pinecone/pinecone.service';
-import { VectorIndexes } from '../pinecone/pinecone-index.service';
-import { v4 as uuidv4 } from 'uuid';
+import { Injectable, Logger } from "@nestjs/common";
+import { EmbeddingService, EmbeddingOptions } from "./embedding.service";
+import { ChunkingService, ChunkingOptions } from "./chunking.service";
+import { PineconeService } from "../pinecone/pinecone.service";
+import { VectorIndexes } from "../pinecone/pinecone-index.service";
+import { v4 as uuidv4 } from "uuid";
 
 export interface DocumentMetadata {
   title?: string;
@@ -58,7 +58,7 @@ export class DocumentProcessorService {
     } = {},
   ): Promise<string[]> {
     const indexName = options.indexName || VectorIndexes.MEETING_ANALYSIS;
-    const namespace = options.namespace || 'documents';
+    const namespace = options.namespace || "documents";
 
     try {
       // Generate a document ID if not provided
@@ -181,7 +181,7 @@ export class DocumentProcessorService {
     } = {},
   ): Promise<void> {
     const indexName = options.indexName || VectorIndexes.MEETING_ANALYSIS;
-    const namespace = options.namespace || 'documents';
+    const namespace = options.namespace || "documents";
 
     try {
       this.logger.log(
@@ -229,7 +229,7 @@ export class DocumentProcessorService {
     }>
   > {
     const indexName = options.indexName || VectorIndexes.MEETING_ANALYSIS;
-    const namespace = options.namespace || 'documents';
+    const namespace = options.namespace || "documents";
     const topK = options.topK || 10;
     const minScore = options.minScore || 0.7;
 
@@ -262,7 +262,7 @@ export class DocumentProcessorService {
       return results.map((result) => ({
         id: result.id,
         content:
-          typeof result.metadata.text === 'string' ? result.metadata.text : '',
+          typeof result.metadata.text === "string" ? result.metadata.text : "",
         metadata: { ...result.metadata, text: undefined }, // Remove text from returned metadata to avoid duplication
         score: result.score,
       }));

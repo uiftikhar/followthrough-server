@@ -130,7 +130,7 @@ describe('EmbeddingService', () => {
                 object: 'embedding',
               },
             ],
-            model: 'llama-text-embed-v2',
+            model: 'text-embedding-3-large',
             object: 'list',
             usage: { prompt_tokens: 10, total_tokens: 10 },
           });

@@ -24,4 +24,4 @@ export const JIRA_TICKET_GENERATOR_PROMPT = `You are an advanced AI tasked with 
 - Every item in the JSON array must be fully valid.
 - Remove any incomplete or invalid JSON objects from the final array.
 - If no tickets are generated, return an empty array.
-- Never truncate JSON objects or arrays.`
+- Never truncate JSON objects or arrays.`;
