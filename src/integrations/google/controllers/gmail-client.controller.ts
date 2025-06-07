@@ -893,8 +893,7 @@ export class GmailClientController {
           projectId: process.env.GOOGLE_CLOUD_PROJECT_ID
             ? "✅ Set"
             : "❌ Missing",
-          topic:
-            process.env.GMAIL_PUBSUB_TOPIC || "gmail-triage",
+          topic: process.env.GMAIL_PUBSUB_TOPIC || "gmail-triage",
           credentials: process.env.GOOGLE_APPLICATION_CREDENTIALS
             ? "✅ Set"
             : "❌ Missing",
@@ -1760,7 +1759,7 @@ export class GmailClientController {
       const userEmail = req.user.email;
 
       this.logger.log(
-        `🧹 CLEANUP: Starting notification cleanup for user: ${userId} (${userEmail})`
+        `🧹 CLEANUP: Starting notification cleanup for user: ${userId} (${userEmail})`,
       );
 
       const results = {
@@ -1784,9 +1783,9 @@ export class GmailClientController {
       let existingWatch;
       try {
         existingWatch = await this.gmailWatchService.getWatchInfo(
-          new Types.ObjectId(userId)
+          new Types.ObjectId(userId),
         );
-        
+
         if (existingWatch) {
           results.details.watchInfo = {
             watchId: existingWatch.watchId,
@@ -1798,80 +1797,112 @@ export class GmailClientController {
           };
         }
       } catch (error) {
-        results.details.errors.push(`Failed to check existing watch: ${error.message}`);
+        results.details.errors.push(
+          `Failed to check existing watch: ${error.message}`,
+        );
       }
 
       // Step 2: Stop Gmail watch via Google API (even if not in our database)
       try {
-        const client = await this.googleOAuthService.getAuthenticatedClient(userId);
+        const client =
+          await this.googleOAuthService.getAuthenticatedClient(userId);
         const gmail = google.gmail({ version: "v1", auth: client });
 
         // Try to stop any active watch for this user
         await gmail.users.stop({ userId: "me" });
         results.actions.googleApiCalled = true;
-        
-        this.logger.log(`✅ CLEANUP: Stopped Gmail watch via Google API for user: ${userId}`);
+
+        this.logger.log(
+          `✅ CLEANUP: Stopped Gmail watch via Google API for user: ${userId}`,
+        );
       } catch (error) {
         // This is expected if no watch exists
-        if (error.code === 404 || error.message?.includes('not found')) {
-          this.logger.log(`ℹ️ CLEANUP: No active watch found on Google's side for user: ${userId}`);
+        if (error.code === 404 || error.message?.includes("not found")) {
+          this.logger.log(
+            `ℹ️ CLEANUP: No active watch found on Google's side for user: ${userId}`,
+          );
         } else {
-          results.details.errors.push(`Google API stop failed: ${error.message}`);
-          this.logger.warn(`⚠️ CLEANUP: Failed to stop watch via Google API: ${error.message}`);
+          results.details.errors.push(
+            `Google API stop failed: ${error.message}`,
+          );
+          this.logger.warn(
+            `⚠️ CLEANUP: Failed to stop watch via Google API: ${error.message}`,
+          );
         }
       }
 
       // Step 3: Clean up database records
       try {
         if (existingWatch) {
-          const stopped = await this.gmailWatchService.stopWatch(new Types.ObjectId(userId));
+          const stopped = await this.gmailWatchService.stopWatch(
+            new Types.ObjectId(userId),
+          );
           results.actions.watchStopped = stopped;
           results.actions.databaseCleaned = true;
-          
-          this.logger.log(`✅ CLEANUP: Cleaned up database watch for user: ${userId}`);
+
+          this.logger.log(
+            `✅ CLEANUP: Cleaned up database watch for user: ${userId}`,
+          );
         } else {
           // Even if no watch in database, make sure it's deactivated
-          await this.gmailWatchService.deactivateWatch(new Types.ObjectId(userId));
+          await this.gmailWatchService.deactivateWatch(
+            new Types.ObjectId(userId),
+          );
           results.actions.databaseCleaned = true;
-          
-          this.logger.log(`✅ CLEANUP: Ensured no database watch for user: ${userId}`);
+
+          this.logger.log(
+            `✅ CLEANUP: Ensured no database watch for user: ${userId}`,
+          );
         }
       } catch (error) {
-        results.details.errors.push(`Database cleanup failed: ${error.message}`);
-        this.logger.error(`❌ CLEANUP: Database cleanup failed: ${error.message}`);
+        results.details.errors.push(
+          `Database cleanup failed: ${error.message}`,
+        );
+        this.logger.error(
+          `❌ CLEANUP: Database cleanup failed: ${error.message}`,
+        );
       }
 
       // Step 4: Clear WebSocket sessions
       try {
         // Get the user's Google email for session cleanup
         let googleEmail = userEmail; // fallback to authenticated email
-        
+
         if (existingWatch) {
           googleEmail = existingWatch.googleEmail;
         } else {
           // Try to get from Google profile
           try {
-            const client = await this.googleOAuthService.getAuthenticatedClient(userId);
+            const client =
+              await this.googleOAuthService.getAuthenticatedClient(userId);
             const gmail = google.gmail({ version: "v1", auth: client });
             const profile = await gmail.users.getProfile({ userId: "me" });
             googleEmail = profile.data.emailAddress || userEmail;
           } catch (error) {
-            this.logger.warn(`Could not get Google email for session cleanup: ${error.message}`);
+            this.logger.warn(
+              `Could not get Google email for session cleanup: ${error.message}`,
+            );
           }
         }
 
-                 // Clear any active WebSocket sessions (force cleanup all inactive sessions)
-         await this.gmailNotificationService.forceCleanupInactiveSessions();
-         results.actions.sessionsCleared = true;
-         
-         this.logger.log(`✅ CLEANUP: Cleared WebSocket sessions for: ${googleEmail}`);
+        // Clear any active WebSocket sessions (force cleanup all inactive sessions)
+        await this.gmailNotificationService.forceCleanupInactiveSessions();
+        results.actions.sessionsCleared = true;
+
+        this.logger.log(
+          `✅ CLEANUP: Cleared WebSocket sessions for: ${googleEmail}`,
+        );
       } catch (error) {
         results.details.errors.push(`Session cleanup failed: ${error.message}`);
-        this.logger.error(`❌ CLEANUP: Session cleanup failed: ${error.message}`);
+        this.logger.error(
+          `❌ CLEANUP: Session cleanup failed: ${error.message}`,
+        );
       }
 
       // Step 5: Summary and recommendations
-      const actionsCount = Object.values(results.actions).filter(Boolean).length;
+      const actionsCount = Object.values(results.actions).filter(
+        Boolean,
+      ).length;
       const hasErrors = results.details.errors.length > 0;
 
       if (hasErrors) {
@@ -1893,14 +1924,14 @@ export class GmailClientController {
         nextSteps: {
           recommendation: "You can now set up fresh notifications",
           setupEndpoint: "POST /gmail/client/setup-notifications",
-          description: "This will create a new watch with current historyId, eliminating any stale data issues"
-        }
+          description:
+            "This will create a new watch with current historyId, eliminating any stale data issues",
+        },
       };
-
     } catch (error) {
       this.logger.error(
         `❌ CLEANUP: Failed for user ${req.user.id}: ${error.message}`,
-        error.stack
+        error.stack,
       );
 
       return {
@@ -1911,8 +1942,8 @@ export class GmailClientController {
         error: error.message,
         nextSteps: {
           recommendation: "Try again or contact support",
-          adminCleanup: "Admin can use nuclear reset if needed"
-        }
+          adminCleanup: "Admin can use nuclear reset if needed",
+        },
       };
     }
   }

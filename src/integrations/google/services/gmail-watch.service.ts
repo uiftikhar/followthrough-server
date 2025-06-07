@@ -39,8 +39,7 @@ export class GmailWatchService {
     private readonly configService: ConfigService,
   ) {
     this.topicName =
-      this.configService.get<string>("GMAIL_PUBSUB_TOPIC") ||
-      "gmail-triage";
+      this.configService.get<string>("GMAIL_PUBSUB_TOPIC") || "gmail-triage";
   }
 
   /**
@@ -450,7 +449,7 @@ export class GmailWatchService {
   async getAllActiveWatches(): Promise<WatchInfo[]> {
     try {
       const activeWatches = await this.gmailWatchRepository.findAllActive();
-      return activeWatches.map(watch => this.mapToWatchInfo(watch));
+      return activeWatches.map((watch) => this.mapToWatchInfo(watch));
     } catch (error) {
       this.logger.error("Failed to get all active watches:", error);
       throw error;
@@ -464,7 +463,10 @@ export class GmailWatchService {
     try {
       return await this.gmailWatchRepository.deactivateByUserId(userId);
     } catch (error) {
-      this.logger.error(`Failed to deactivate watch for user ${userId}:`, error);
+      this.logger.error(
+        `Failed to deactivate watch for user ${userId}:`,
+        error,
+      );
       throw error;
     }
   }
