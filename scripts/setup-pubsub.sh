@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_ID=${GOOGLE_CLOUD_PROJECT_ID:-""}
-TOPIC_NAME=${GMAIL_PUBSUB_TOPIC:-"gmail-notifications"}
+TOPIC_NAME=${GMAIL_PUBSUB_TOPIC:-"gmail-triage"}
 PUSH_SUBSCRIPTION_NAME=${GMAIL_PUSH_SUBSCRIPTION:-"gmail-push-notification-subscription"}
 PULL_SUBSCRIPTION_NAME=${GMAIL_PULL_SUBSCRIPTION:-"gmail-pull-notification-subscription"}
 WEBHOOK_ENDPOINT=${WEBHOOK_ENDPOINT:-"https://ffdf-2-201-41-78.ngrok-free.app/api/gmail/webhooks/push"}

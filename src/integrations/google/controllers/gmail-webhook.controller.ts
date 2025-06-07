@@ -10,6 +10,7 @@ import {
   Headers,
   BadRequestException,
   UnauthorizedException,
+  Param,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Types } from "mongoose";
@@ -325,18 +326,34 @@ export class GmailWebhookController {
 
       this.logger.log(`📬 Found ${newEmails.length} new emails for processing`);
 
-      // Process each new email through the triage system
+      // ENHANCED: Process each new email through the triage system with better error handling
       let processedCount = 0;
       for (const email of newEmails) {
         try {
           this.logger.log(
-            `🚀 Starting triage for email: ${email.id} - "${email.metadata.subject}"`,
+            `🚀 Starting triage for email: ${email.id} - "${email.metadata.subject}" from ${email.metadata.from}`,
           );
+
+          // Trigger the email triage process
           await this.triggerEmailTriage(watchInfo.watchId, email);
           processedCount++;
-          this.logger.log(`✅ Triage initiated for email: ${email.id}`);
+
+          this.logger.log(
+            `✅ Triage initiated successfully for email: ${email.id}`,
+          );
         } catch (error) {
           this.logger.error(`❌ Failed to process email ${email.id}:`, error);
+
+          // Still emit a failed event for this email
+          this.eventEmitter.emit("email.triage.failed", {
+            emailId: email.id,
+            emailAddress: notification.emailAddress,
+            subject: email.metadata.subject,
+            from: email.metadata.from,
+            error: error.message,
+            timestamp: new Date().toISOString(),
+            source: "gmail_push",
+          });
         }
       }
 
@@ -396,10 +413,19 @@ export class GmailWebhookController {
         this.logger.log(
           `💡 This watch may have been manually deactivated but not cleaned up in Google`,
         );
+
+        // Try to stop the watch on Google's side using the existing watch info
+        await this.attemptGoogleWatchCleanup(
+          emailAddress,
+          inactiveWatch.userId.toString(),
+        );
       } else {
         this.logger.log(
           `🔍 No watch record found in database for: ${emailAddress} - completely orphaned`,
         );
+
+        // Try to find user by email and stop any watches
+        await this.attemptOrphanedWatchCleanup(emailAddress);
       }
 
       // Emit event for monitoring/alerting systems
@@ -408,6 +434,7 @@ export class GmailWebhookController {
         timestamp: new Date().toISOString(),
         hasInactiveRecord: !!inactiveWatch,
         watchId: inactiveWatch?.watchId,
+        cleanupAttempted: true,
       });
 
       // TODO: Implement proactive cleanup if we have service account permissions
@@ -421,6 +448,87 @@ export class GmailWebhookController {
       this.logger.error(
         `❌ Failed to handle orphaned watch for ${emailAddress}:`,
         error,
+      );
+    }
+  }
+
+  /**
+   * Attempt to cleanup orphaned watch by trying to stop it on Google's side
+   */
+  private async attemptGoogleWatchCleanup(
+    emailAddress: string,
+    userId: string,
+  ): Promise<void> {
+    try {
+      this.logger.log(
+        `🔧 Attempting Google watch cleanup for: ${emailAddress} (userId: ${userId})`,
+      );
+
+      // Try to get authenticated client and stop the watch
+      const client =
+        await this.googleOAuthService.getAuthenticatedClient(userId);
+      const gmail = google.gmail({ version: "v1", auth: client });
+
+      // Stop any active watch for this user
+      await gmail.users.stop({ userId: "me" });
+
+      this.logger.log(
+        `✅ Successfully stopped Google watch for: ${emailAddress}`,
+      );
+
+      // Also ensure database record is cleaned up
+      await this.gmailWatchService.deactivateWatch(new Types.ObjectId(userId));
+
+      this.logger.log(`✅ Cleaned up database record for: ${emailAddress}`);
+    } catch (error) {
+      if (error.code === 404) {
+        this.logger.log(
+          `ℹ️ No active watch found on Google's side for: ${emailAddress} (already cleaned up)`,
+        );
+      } else if (error.code === 401 || error.code === 403) {
+        this.logger.warn(
+          `🔑 Authentication error cleaning up watch for ${emailAddress}: ${error.message}`,
+        );
+      } else {
+        this.logger.error(
+          `❌ Failed to cleanup Google watch for ${emailAddress}: ${error.message}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Attempt to cleanup completely orphaned watch (no database record)
+   */
+  private async attemptOrphanedWatchCleanup(
+    emailAddress: string,
+  ): Promise<void> {
+    try {
+      this.logger.log(
+        `🕵️ Attempting to find and cleanup completely orphaned watch for: ${emailAddress}`,
+      );
+
+      // For completely orphaned watches, we can't easily clean them up without knowing the userId
+      // The best we can do is log detailed information and provide cleanup guidance
+
+      this.logger.warn(`⚠️ COMPLETELY ORPHANED WATCH: ${emailAddress}
+        - No database record found
+        - Google is still sending notifications
+        - Cannot automatically clean up without user context
+        - Recommended actions:
+          1. Run nuclear reset: POST /api/gmail/webhooks/admin/reset-all-watches
+          2. Or wait 7 days for natural expiration
+          3. Or manually manage via Google Cloud Console`);
+
+      // Emit a special event for completely orphaned watches
+      this.eventEmitter.emit("gmail.completely_orphaned_watch", {
+        emailAddress,
+        timestamp: new Date().toISOString(),
+        recommendedAction: "nuclear_reset_or_wait_expiration",
+      });
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to analyze orphaned watch for ${emailAddress}: ${error.message}`,
       );
     }
   }
@@ -443,76 +551,237 @@ export class GmailWebhookController {
 
       const lastHistoryId = watchInfo.historyId;
       const userId = watchInfo.userId.toString(); // Convert ObjectId to string
+      let currentGmailHistoryId: string;
 
       this.logger.log(
         `Fetching Gmail history from ${lastHistoryId} to ${currentHistoryId} for ${emailAddress} (userId: ${userId})`,
       );
+
+      // IMPORTANT: Check if we're trying to fetch the same history range
+      if (lastHistoryId === currentHistoryId) {
+        this.logger.log(
+          `⚠️ Same history ID detected (${lastHistoryId}), skipping to avoid duplicates`,
+        );
+        return [];
+      }
 
       // Get authenticated Gmail client using the user ID
       const authClient =
         await this.googleOAuthService.getAuthenticatedClient(userId);
       const gmail = google.gmail({ version: "v1", auth: authClient });
 
-      // Get history of changes since last known history ID
-      const historyResponse = await gmail.users.history.list({
-        userId: "me",
-        startHistoryId: lastHistoryId,
-        historyTypes: ["messageAdded"],
-        labelId: "INBOX", // Focus on inbox messages
-        maxResults: 100,
-      });
+      // ENHANCED: Test authentication and detect stale historyId
+      try {
+        const profile = await gmail.users.getProfile({ userId: "me" });
+        currentGmailHistoryId = profile.data.historyId!;
+        this.logger.log(
+          `✅ Gmail authentication verified for ${emailAddress}, current historyId: ${currentGmailHistoryId}`,
+        );
+
+        // CRITICAL FIX: Detect if watch historyId is too old
+        const historyIdDiff =
+          parseInt(currentGmailHistoryId) - parseInt(lastHistoryId);
+        this.logger.log(
+          `📊 History ID analysis: Watch=${lastHistoryId}, Current=${currentGmailHistoryId}, Diff=${historyIdDiff}`,
+        );
+
+        // If difference is too large (>1000000), the historyId is stale
+        if (historyIdDiff > 1000000) {
+          this.logger.warn(
+            `🚨 STALE HISTORY ID DETECTED: Watch historyId ${lastHistoryId} is too old (current: ${currentGmailHistoryId}, diff: ${historyIdDiff})`,
+          );
+
+          // Reset watch to current historyId to fix the issue
+          await this.gmailWatchService.updateHistoryId(
+            watchId,
+            currentGmailHistoryId,
+          );
+          this.logger.log(
+            `🔄 Reset watch ${watchId} historyId from ${lastHistoryId} to ${currentGmailHistoryId}`,
+          );
+
+          // Skip processing this notification since we can't get historical data
+          this.logger.log(
+            `⏭️ Skipping notification processing due to stale historyId - watch is now synced for future notifications`,
+          );
+          return [];
+        }
+      } catch (authError) {
+        this.logger.error(
+          `❌ Gmail authentication failed for ${emailAddress}:`,
+          authError,
+        );
+        throw new Error(`Gmail authentication failed: ${authError.message}`);
+      }
+
+      // ENHANCED: Use improved history API parameters with fallback handling
+      this.logger.log(
+        `📡 Calling Gmail History API with startHistoryId: ${lastHistoryId}`,
+      );
+
+      let historyResponse;
+      try {
+        historyResponse = await gmail.users.history.list({
+          userId: "me",
+          startHistoryId: lastHistoryId,
+          historyTypes: ["messageAdded"], // Only look for new messages
+          maxResults: 100,
+          // Removed labelId filter to catch all messages, then filter client-side
+        });
+      } catch (historyError) {
+        this.logger.error(
+          `❌ Gmail History API error: ${historyError.message} (code: ${historyError.code})`,
+        );
+
+        // Handle 404 (history not found) by resetting to current historyId
+        if (historyError.code === 404) {
+          this.logger.warn(
+            `📭 History ID ${lastHistoryId} not found (too old), resetting to current: ${currentGmailHistoryId}`,
+          );
+
+          // Reset watch to current historyId
+          await this.gmailWatchService.updateHistoryId(
+            watchId,
+            currentGmailHistoryId,
+          );
+          this.logger.log(
+            `🔄 Watch ${watchId} reset to current historyId: ${currentGmailHistoryId}`,
+          );
+
+          // Return empty array - future notifications will work with synced historyId
+          return [];
+        }
+
+        // Re-throw other errors
+        throw historyError;
+      }
 
       const histories = historyResponse.data.history || [];
       const newEmails: GmailEmailData[] = [];
 
       this.logger.log(
-        `Found ${histories.length} history entries for ${emailAddress}`,
+        `📊 Gmail History API returned ${histories.length} history entries`,
       );
 
-      // Process each history entry
-      for (const history of histories) {
-        if (history.messagesAdded) {
+      // ENHANCED: More detailed logging for each history entry
+      for (let i = 0; i < histories.length; i++) {
+        const history = histories[i];
+        this.logger.log(
+          `📜 Processing history entry ${i + 1}/${histories.length}, historyId: ${history.id}`,
+        );
+
+        if (history.messagesAdded && history.messagesAdded.length > 0) {
+          this.logger.log(
+            `📬 Found ${history.messagesAdded.length} new messages in this history entry`,
+          );
+
           for (const messageAdded of history.messagesAdded) {
             try {
+              // Check if message has INBOX label (filter client-side)
+              const messageLabels = messageAdded.message?.labelIds || [];
+              if (!messageLabels.includes("INBOX")) {
+                this.logger.log(
+                  `⏭️ Skipping message ${messageAdded.message?.id} - not in INBOX (labels: ${messageLabels.join(", ")})`,
+                );
+                continue;
+              }
+
+              this.logger.log(
+                `🔄 Transforming message: ${messageAdded.message?.id}`,
+              );
+
               const emailData = await this.transformGmailMessage(
                 gmail,
                 messageAdded.message!,
                 emailAddress,
                 userId,
               );
+
               if (emailData) {
                 newEmails.push(emailData);
                 this.logger.log(
-                  `Transformed email: ${emailData.id} - "${emailData.metadata.subject}"`,
+                  `✅ Successfully transformed email: ${emailData.id} - "${emailData.metadata.subject}" from ${emailData.metadata.from}`,
+                );
+
+                // ENHANCED: Emit email received event immediately
+                this.logger.log(
+                  `📡 Emitting email.received event for: ${emailData.id}`,
+                );
+                this.eventEmitter.emit("email.received", {
+                  emailId: emailData.id,
+                  emailAddress: emailAddress,
+                  subject: emailData.metadata.subject,
+                  from: emailData.metadata.from,
+                  to: emailData.metadata.to,
+                  body: emailData.body.substring(0, 200), // Preview
+                  timestamp: new Date().toISOString(),
+                  fullEmail: {
+                    id: emailData.id,
+                    threadId: emailData.threadId,
+                    metadata: emailData.metadata,
+                    bodyLength: emailData.body.length,
+                  },
+                });
+              } else {
+                this.logger.warn(
+                  `⚠️ Failed to transform message ${messageAdded.message?.id} - returned null`,
                 );
               }
             } catch (error) {
               this.logger.error(
-                `Failed to transform Gmail message ${messageAdded.message?.id}:`,
+                `❌ Failed to transform Gmail message ${messageAdded.message?.id}:`,
                 error,
               );
             }
           }
+        } else {
+          this.logger.log(
+            `📭 No new messages in history entry ${i + 1}, historyId: ${history.id}`,
+          );
         }
       }
 
-      // Update watch with new history ID
-      if (newEmails.length > 0) {
-        await this.gmailWatchService.updateHistoryId(watchId, currentHistoryId);
-        this.logger.log(
-          `Updated watch ${watchId} with new history ID: ${currentHistoryId}`,
-        );
-      }
+      // ENHANCED: Always update watch with new history ID, even if no emails found
+      // This prevents reprocessing the same history range
+      this.logger.log(
+        `🔄 Updating watch ${watchId} history ID from ${lastHistoryId} to ${currentHistoryId}`,
+      );
+
+      await this.gmailWatchService.updateHistoryId(watchId, currentHistoryId);
+      this.logger.log(
+        `✅ Updated watch ${watchId} with new history ID: ${currentHistoryId}`,
+      );
 
       this.logger.log(
-        `Successfully processed ${newEmails.length} new emails for ${emailAddress}`,
+        `🎯 FINAL RESULT: Successfully processed ${newEmails.length} new emails for ${emailAddress} from ${histories.length} history entries`,
       );
+
       return newEmails;
     } catch (error) {
       this.logger.error(
-        `Failed to get emails from history for ${emailAddress}:`,
+        `❌ CRITICAL ERROR in getNewEmailsFromHistory for ${emailAddress}:`,
         error,
       );
+
+      // Enhanced error logging with context
+      if (error.code === 401) {
+        this.logger.error(
+          `🔑 Authentication error - token may be expired for ${emailAddress}`,
+        );
+      } else if (error.code === 403) {
+        this.logger.error(
+          `🚫 Permission error - check Gmail API scopes for ${emailAddress}`,
+        );
+      } else if (error.code === 404) {
+        this.logger.error(
+          `📭 History not found - historyId may be too old for ${emailAddress}`,
+        );
+      } else {
+        this.logger.error(
+          `🔥 Unexpected error (code: ${error.code}): ${error.message}`,
+        );
+      }
+
       return [];
     }
   }
@@ -928,6 +1197,693 @@ export class GmailWebhookController {
           timestamp: new Date().toISOString(),
         });
       }
+    }
+  }
+
+  @Get("debug/:emailAddress")
+  async debugEmailHistory(
+    @Param("emailAddress") emailAddress: string,
+  ): Promise<any> {
+    try {
+      this.logger.log(
+        `🔍 DEBUG: Analyzing Gmail notification processing for ${emailAddress}`,
+      );
+
+      // Get watch info
+      const watchInfo =
+        await this.gmailWatchService.getWatchInfoByEmail(emailAddress);
+      if (!watchInfo) {
+        return { error: "No watch found for email address" };
+      }
+
+      // Get authenticated Gmail client
+      const authClient = await this.googleOAuthService.getAuthenticatedClient(
+        watchInfo.userId.toString(),
+      );
+      const gmail = google.gmail({ version: "v1", auth: authClient });
+
+      // Get current profile to see latest history ID
+      const profile = await gmail.users.getProfile({ userId: "me" });
+      const currentHistoryId = profile.data.historyId!;
+
+      this.logger.log(
+        `📊 Watch historyId: ${watchInfo.historyId}, Current historyId: ${currentHistoryId}`,
+      );
+
+      // Try to fetch history
+      const historyResponse = await gmail.users.history.list({
+        userId: "me",
+        startHistoryId: watchInfo.historyId,
+        historyTypes: ["messageAdded"],
+        maxResults: 10,
+      });
+
+      const histories = historyResponse.data.history || [];
+      const debugInfo = {
+        emailAddress,
+        watchInfo: {
+          watchId: watchInfo.watchId,
+          historyId: watchInfo.historyId,
+          currentHistoryId,
+          isActive: watchInfo.isActive,
+          lastError: watchInfo.lastError,
+        },
+        historyResponse: {
+          totalHistories: histories.length,
+          histories: histories.map((h) => ({
+            id: h.id,
+            messagesAdded: h.messagesAdded?.length || 0,
+            messages:
+              h.messagesAdded?.map((m) => ({
+                id: m.message?.id,
+                labels: m.message?.labelIds,
+              })) || [],
+          })),
+        },
+        recommendation:
+          histories.length === 0
+            ? "No history entries found - this might be why no emails are being processed"
+            : `Found ${histories.length} history entries with messages to process`,
+      };
+
+      return debugInfo;
+    } catch (error) {
+      this.logger.error(`❌ Debug analysis failed:`, error);
+      return { error: error.message, stack: error.stack };
+    }
+  }
+
+  @Post("force-refresh/:emailAddress")
+  async forceRefreshEmailHistory(
+    @Param("emailAddress") emailAddress: string,
+  ): Promise<any> {
+    try {
+      this.logger.log(
+        `🔄 FORCE REFRESH: Manually processing emails for ${emailAddress}`,
+      );
+
+      // Get watch info
+      const watchInfo =
+        await this.gmailWatchService.getWatchInfoByEmail(emailAddress);
+      if (!watchInfo) {
+        return { error: "No watch found for email address" };
+      }
+
+      // Get authenticated Gmail client
+      const authClient = await this.googleOAuthService.getAuthenticatedClient(
+        watchInfo.userId.toString(),
+      );
+      const gmail = google.gmail({ version: "v1", auth: authClient });
+
+      // Get current profile to get latest history ID
+      const profile = await gmail.users.getProfile({ userId: "me" });
+      const currentHistoryId = profile.data.historyId!;
+
+      this.logger.log(
+        `📊 Current Gmail historyId: ${currentHistoryId}, Watch historyId: ${watchInfo.historyId}`,
+      );
+
+      // Force process with current history ID
+      const processedCount = await this.processGmailNotification({
+        emailAddress,
+        historyId: currentHistoryId,
+      });
+
+      return {
+        success: true,
+        message: `Force refresh completed for ${emailAddress}`,
+        processedEmails: processedCount,
+        watchInfo: {
+          watchId: watchInfo.watchId,
+          oldHistoryId: watchInfo.historyId,
+          newHistoryId: currentHistoryId,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`❌ Force refresh failed:`, error);
+      return {
+        success: false,
+        error: error.message,
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      };
+    }
+  }
+
+  /**
+   * Get all active Gmail watches (admin endpoint)
+   * GET /api/gmail/webhooks/admin/watches
+   */
+  @Get("admin/watches")
+  async getAllActiveWatches(): Promise<any> {
+    try {
+      this.logger.log(`📊 Getting all active Gmail watches`);
+
+      const allWatches = await this.gmailWatchService.getAllActiveWatches();
+
+      const watchesSummary = allWatches.map((watch) => ({
+        watchId: watch.watchId,
+        googleEmail: watch.googleEmail,
+        historyId: watch.historyId,
+        expiresAt: watch.expiresAt,
+        isActive: watch.isActive,
+        notificationsReceived: watch.notificationsReceived || 0,
+        emailsProcessed: watch.emailsProcessed || 0,
+        errorCount: watch.errorCount || 0,
+        lastError: watch.lastError,
+        userId: watch.userId,
+      }));
+
+      return {
+        success: true,
+        message: `Found ${allWatches.length} active watches`,
+        totalWatches: allWatches.length,
+        watches: watchesSummary,
+      };
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to get all active watches: ${error.message}`,
+        error.stack,
+      );
+      return {
+        success: false,
+        message: `Failed to get active watches: ${error.message}`,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * NUCLEAR OPTION: Delete ALL Gmail watches and start fresh
+   * POST /api/gmail/webhooks/admin/reset-all-watches
+   */
+  @Post("admin/reset-all-watches")
+  async resetAllWatches(): Promise<any> {
+    try {
+      this.logger.log(`🚨 NUCLEAR RESET: Deleting ALL Gmail watches`);
+
+      // Get all active watches first
+      const allWatches = await this.gmailWatchService.getAllActiveWatches();
+      const totalWatches = allWatches.length;
+
+      if (totalWatches === 0) {
+        return {
+          success: true,
+          message: "No active watches found to reset",
+          totalWatches: 0,
+          stoppedWatches: 0,
+          failedWatches: 0,
+          errors: [],
+        };
+      }
+
+      this.logger.log(`📊 Found ${totalWatches} watches to reset`);
+
+      let stoppedCount = 0;
+      let failedCount = 0;
+      const errors: string[] = [];
+      const resetResults: any[] = [];
+
+      // Stop all watches in parallel for speed
+      const stopPromises = allWatches.map(async (watch) => {
+        try {
+          this.logger.log(
+            `🛑 Stopping watch for: ${watch.googleEmail} (${watch.watchId})`,
+          );
+
+          let googleApiSuccess = false;
+          let authError = null;
+
+          // Try to stop the watch via Gmail API
+          try {
+            const client = await this.googleOAuthService.getAuthenticatedClient(
+              watch.userId.toString(),
+            );
+            const gmail = google.gmail({ version: "v1", auth: client });
+            await gmail.users.stop({ userId: "me" });
+            googleApiSuccess = true;
+            this.logger.log(
+              `✅ Stopped Google watch for: ${watch.googleEmail}`,
+            );
+          } catch (apiError) {
+            authError = apiError;
+            if (apiError.code === 404) {
+              this.logger.log(
+                `ℹ️ No active watch found on Google's side for: ${watch.googleEmail}`,
+              );
+              googleApiSuccess = true; // Consider 404 as success (already stopped)
+            } else if (apiError.code === 401 || apiError.code === 403) {
+              this.logger.warn(
+                `🔑 Authentication failed for ${watch.googleEmail}: ${apiError.message}`,
+              );
+            } else {
+              this.logger.error(
+                `❌ Google API error for ${watch.googleEmail}: ${apiError.message}`,
+              );
+            }
+          }
+
+          // Always try to deactivate in database, regardless of Google API result
+          try {
+            await this.gmailWatchService.deactivateWatch(watch.userId);
+            this.logger.log(
+              `✅ Deactivated database watch for: ${watch.googleEmail}`,
+            );
+          } catch (dbError) {
+            this.logger.error(
+              `❌ Database deactivation failed for ${watch.googleEmail}: ${dbError.message}`,
+            );
+            throw dbError; // This is more critical than Google API failure
+          }
+
+          stoppedCount++;
+
+          return {
+            success: true,
+            email: watch.googleEmail,
+            watchId: watch.watchId,
+            action: "stopped",
+            googleApiSuccess,
+            authError: authError ? (authError as any).message : undefined,
+          };
+        } catch (error) {
+          failedCount++;
+          const errorMsg = `Failed to stop watch for ${watch.googleEmail}: ${error.message}`;
+          errors.push(errorMsg);
+          this.logger.error(`❌ ${errorMsg}`);
+
+          return {
+            success: false,
+            email: watch.googleEmail,
+            watchId: watch.watchId,
+            error: errorMsg,
+          };
+        }
+      });
+
+      // Wait for all operations to complete
+      const results = await Promise.allSettled(stopPromises);
+
+      results.forEach((result) => {
+        if (result.status === "fulfilled") {
+          resetResults.push(result.value);
+        } else {
+          failedCount++;
+          errors.push(`Promise rejected: ${result.reason}`);
+          resetResults.push({
+            success: false,
+            error: `Promise rejected: ${result.reason}`,
+          });
+        }
+      });
+
+      const summary = {
+        success: stoppedCount > 0,
+        message: `Reset completed: ${stoppedCount} stopped, ${failedCount} failed`,
+        totalWatches,
+        stoppedWatches: stoppedCount,
+        failedWatches: failedCount,
+        successRate:
+          totalWatches > 0
+            ? Math.round((stoppedCount / totalWatches) * 100)
+            : 100,
+        errors,
+        results: resetResults,
+      };
+
+      this.logger.log(`🎯 Reset Summary:
+        - Total watches: ${totalWatches}
+        - Successfully stopped: ${stoppedCount}
+        - Failed: ${failedCount}
+        - Success rate: ${summary.successRate}%`);
+
+      if (errors.length > 0) {
+        this.logger.warn(`⚠️ Some watches failed to stop:`, errors);
+      }
+
+      return summary;
+    } catch (error) {
+      this.logger.error(
+        `❌ NUCLEAR RESET failed: ${error.message}`,
+        error.stack,
+      );
+      return {
+        success: false,
+        message: `Nuclear reset failed: ${error.message}`,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Create fresh Gmail watches for all authenticated users
+   * POST /api/gmail/webhooks/admin/recreate-all-watches
+   */
+  @Post("admin/recreate-all-watches")
+  async recreateAllWatches(): Promise<any> {
+    try {
+      this.logger.log(`🔄 Recreating fresh Gmail watches for all users`);
+
+      // This would need to be implemented based on how you track authenticated users
+      // For now, return instructions for manual recreation
+      return {
+        success: true,
+        message: "Use individual user endpoints to recreate watches",
+        instructions: [
+          "1. Each user should call POST /api/gmail/watch to create new watch",
+          "2. Or use POST /gmail/client/setup-notifications endpoint",
+          "3. New watches will be created with current historyId",
+          "4. This ensures no stale historyId issues",
+        ],
+        nextSteps: {
+          manualRecreation: "POST /api/gmail/watch (per user)",
+          clientSetup: "POST /gmail/client/setup-notifications (per user)",
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        `❌ Recreate all watches failed: ${error.message}`,
+        error.stack,
+      );
+      return {
+        success: false,
+        message: `Recreate failed: ${error.message}`,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Health check for Gmail watch system
+   * GET /api/gmail/webhooks/admin/watch-health
+   */
+  @Get("admin/watch-health")
+  async getWatchHealth(): Promise<any> {
+    try {
+      this.logger.log(`🩺 Checking Gmail watch system health`);
+
+      const allWatches = await this.gmailWatchService.getAllActiveWatches();
+      const now = new Date();
+
+      const healthStats = {
+        totalWatches: allWatches.length,
+        expiredWatches: 0,
+        expiringIn24h: 0,
+        watchesWithErrors: 0,
+        staleWatches: 0,
+        healthyWatches: 0,
+      };
+
+      const watchDetails = allWatches.map((watch) => {
+        const timeToExpiry =
+          new Date(watch.expiresAt).getTime() - now.getTime();
+        const hoursToExpiry = timeToExpiry / (1000 * 60 * 60);
+        const isExpired = hoursToExpiry <= 0;
+        const isExpiringSoon = hoursToExpiry <= 24 && hoursToExpiry > 0;
+        const hasErrors = (watch.errorCount || 0) > 0;
+
+        // Check for stale historyId (rough estimate)
+        const historyIdNum = parseInt(watch.historyId);
+        const isStale = !isNaN(historyIdNum) && historyIdNum < 1000000; // Very rough heuristic
+
+        if (isExpired) healthStats.expiredWatches++;
+        if (isExpiringSoon) healthStats.expiringIn24h++;
+        if (hasErrors) healthStats.watchesWithErrors++;
+        if (isStale) healthStats.staleWatches++;
+        if (!isExpired && !hasErrors && !isStale) healthStats.healthyWatches++;
+
+        return {
+          watchId: watch.watchId,
+          googleEmail: watch.googleEmail,
+          historyId: watch.historyId,
+          hoursToExpiry: Math.round(hoursToExpiry * 10) / 10,
+          isExpired,
+          isExpiringSoon,
+          hasErrors,
+          errorCount: watch.errorCount || 0,
+          lastError: watch.lastError,
+          isStale,
+          notificationsReceived: watch.notificationsReceived || 0,
+          emailsProcessed: watch.emailsProcessed || 0,
+        };
+      });
+
+      const overallHealth = {
+        status:
+          healthStats.healthyWatches === healthStats.totalWatches
+            ? "healthy"
+            : healthStats.healthyWatches > healthStats.totalWatches * 0.8
+              ? "warning"
+              : "critical",
+        healthPercentage:
+          healthStats.totalWatches > 0
+            ? Math.round(
+                (healthStats.healthyWatches / healthStats.totalWatches) * 100,
+              )
+            : 100,
+      };
+
+      return {
+        success: true,
+        overallHealth,
+        healthStats,
+        recommendations: this.generateHealthRecommendations(healthStats),
+        watchDetails,
+        timestamp: now.toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(
+        `❌ Watch health check failed: ${error.message}`,
+        error.stack,
+      );
+      return {
+        success: false,
+        message: `Health check failed: ${error.message}`,
+        error: error.message,
+      };
+    }
+  }
+
+  private generateHealthRecommendations(stats: any): string[] {
+    const recommendations: string[] = [];
+
+    if (stats.expiredWatches > 0) {
+      recommendations.push(
+        `❌ ${stats.expiredWatches} watches have expired - recreate them immediately`,
+      );
+    }
+
+    if (stats.expiringIn24h > 0) {
+      recommendations.push(
+        `⚠️ ${stats.expiringIn24h} watches expire in 24h - renew them soon`,
+      );
+    }
+
+    if (stats.watchesWithErrors > 0) {
+      recommendations.push(
+        `🚨 ${stats.watchesWithErrors} watches have errors - investigate and fix`,
+      );
+    }
+
+    if (stats.staleWatches > 0) {
+      recommendations.push(
+        `🕰️ ${stats.staleWatches} watches may have stale historyId - reset them`,
+      );
+    }
+
+    if (stats.healthyWatches === stats.totalWatches && stats.totalWatches > 0) {
+      recommendations.push(`✅ All watches are healthy!`);
+    }
+
+    if (stats.totalWatches === 0) {
+      recommendations.push(
+        `📭 No active watches found - users need to set up notifications`,
+      );
+    }
+
+    return recommendations;
+  }
+
+  /**
+   * Force stop orphaned watch by email address
+   * POST /api/gmail/webhooks/admin/force-stop-orphaned/:emailAddress
+   */
+  @Post("admin/force-stop-orphaned/:emailAddress")
+  async forceStopOrphanedWatch(
+    @Param("emailAddress") emailAddress: string,
+  ): Promise<any> {
+    try {
+      this.logger.log(
+        `🚨 FORCE STOP ORPHANED WATCH: Starting cleanup for ${emailAddress}`,
+      );
+
+      const results = {
+        success: false,
+        message: "Cleanup in progress",
+        emailAddress,
+        actions: {
+          databaseSearched: false,
+          googleWatchStopped: false,
+          userAuthValid: false,
+          cleanupCompleted: false,
+        },
+        details: {
+          foundUser: null as any,
+          errors: [] as string[],
+        },
+      };
+
+      // Step 1: Search for any database records (active or inactive)
+      try {
+        const watchInfo =
+          await this.gmailWatchService.getWatchInfoByEmail(emailAddress);
+        results.actions.databaseSearched = true;
+
+        if (watchInfo) {
+          results.details.foundUser = {
+            userId: watchInfo.userId,
+            watchId: watchInfo.watchId,
+            isActive: watchInfo.isActive,
+            historyId: watchInfo.historyId,
+          };
+
+          this.logger.log(
+            `📋 Found database record for ${emailAddress}: userId=${watchInfo.userId}, watchId=${watchInfo.watchId}`,
+          );
+
+          // Step 2: Try to stop Google watch using the found user
+          try {
+            const client = await this.googleOAuthService.getAuthenticatedClient(
+              watchInfo.userId.toString(),
+            );
+            results.actions.userAuthValid = true;
+
+            const gmail = google.gmail({ version: "v1", auth: client });
+            await gmail.users.stop({ userId: "me" });
+            results.actions.googleWatchStopped = true;
+
+            this.logger.log(
+              `✅ Successfully stopped Google watch for ${emailAddress}`,
+            );
+
+            // Step 3: Clean up database record
+            await this.gmailWatchService.deactivateWatch(watchInfo.userId);
+            results.actions.cleanupCompleted = true;
+
+            this.logger.log(
+              `✅ Deactivated database watch for ${emailAddress}`,
+            );
+
+            results.success = true;
+            results.message = `Successfully cleaned up orphaned watch for ${emailAddress}`;
+          } catch (authError) {
+            results.details.errors.push(
+              `Authentication failed: ${authError.message}`,
+            );
+
+            if (authError.code === 404) {
+              this.logger.log(
+                `ℹ️ No active watch found on Google's side for ${emailAddress} (already stopped)`,
+              );
+              results.actions.googleWatchStopped = true; // Consider it stopped if 404
+            } else if (authError.code === 401 || authError.code === 403) {
+              this.logger.warn(
+                `🔑 Authentication expired for ${emailAddress}: ${authError.message}`,
+              );
+              results.actions.userAuthValid = false;
+            } else {
+              this.logger.error(
+                `❌ Failed to stop Google watch: ${authError.message}`,
+              );
+            }
+
+            // Still try to clean up database even if Google API fails
+            try {
+              await this.gmailWatchService.deactivateWatch(watchInfo.userId);
+              results.actions.cleanupCompleted = true;
+              this.logger.log(
+                `✅ Cleaned up database record despite Google API failure`,
+              );
+            } catch (dbError) {
+              results.details.errors.push(
+                `Database cleanup failed: ${dbError.message}`,
+              );
+            }
+          }
+        } else {
+          this.logger.log(
+            `📭 No database record found for ${emailAddress} - completely orphaned`,
+          );
+          results.details.errors.push(
+            "No database record found - completely orphaned watch",
+          );
+        }
+      } catch (error) {
+        results.details.errors.push(`Database search failed: ${error.message}`);
+        this.logger.error(`❌ Database search failed: ${error.message}`);
+      }
+
+      // Step 4: If no database record found, provide guidance
+      if (!results.details.foundUser) {
+        results.message = `No database record found for ${emailAddress}. This is a completely orphaned watch that must be handled via nuclear reset.`;
+        results.details.errors.push(
+          "Recommended action: Run nuclear reset to clean up all orphaned watches",
+        );
+      }
+
+      // Final assessment
+      if (
+        results.actions.cleanupCompleted ||
+        (!results.details.foundUser && results.actions.databaseSearched)
+      ) {
+        results.success = true;
+        if (!results.message.includes("Successfully")) {
+          results.message = `Cleanup completed for ${emailAddress} (no active watch found)`;
+        }
+      }
+
+      this.logger.log(`🎯 ORPHANED WATCH CLEANUP SUMMARY for ${emailAddress}:
+        - Database searched: ${results.actions.databaseSearched}
+        - User auth valid: ${results.actions.userAuthValid}
+        - Google watch stopped: ${results.actions.googleWatchStopped}
+        - Cleanup completed: ${results.actions.cleanupCompleted}
+        - Errors: ${results.details.errors.length}`);
+
+      return {
+        ...results,
+        nextSteps: results.success
+          ? {
+              status: "completed",
+              message: "Orphaned watch cleanup completed",
+              recommendation:
+                "Monitor logs to confirm no more notifications for this email",
+            }
+          : {
+              status: "partial_or_failed",
+              message: "Manual intervention may be required",
+              recommendations: [
+                "1. Try nuclear reset: POST /api/gmail/webhooks/admin/reset-all-watches",
+                "2. Check Google Cloud Console Pub/Sub subscriptions",
+                "3. Wait 7 days for natural watch expiration",
+                "4. Verify user OAuth tokens are still valid",
+              ],
+            },
+      };
+    } catch (error) {
+      this.logger.error(
+        `❌ FORCE STOP ORPHANED WATCH failed for ${emailAddress}: ${error.message}`,
+        error.stack,
+      );
+      return {
+        success: false,
+        message: `Force stop failed: ${error.message}`,
+        emailAddress,
+        error: error.message,
+        nextSteps: {
+          status: "failed",
+          recommendation:
+            "Try nuclear reset or manual Google Cloud Console cleanup",
+        },
+      };
     }
   }
 }

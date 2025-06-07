@@ -31,8 +31,7 @@ export class PubSubService {
     this.projectId = projectId;
 
     this.topicName =
-      this.configService.get<string>("GMAIL_PUBSUB_TOPIC") ||
-      "gmail-notifications";
+      this.configService.get<string>("GMAIL_PUBSUB_TOPIC") || "gmail-triage";
     this.pushSubscriptionName =
       this.configService.get<string>("GMAIL_PUSH_SUBSCRIPTION") ||
       "gmail-push-notification-subscription";

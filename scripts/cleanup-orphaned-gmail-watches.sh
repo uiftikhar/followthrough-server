@@ -19,10 +19,10 @@ source .env
 set +a
 
 # API endpoint base URL
-API_BASE="${WEBHOOK_BASE_URL:-http://localhost:3000}"
+API_BASE="${WEBHOOK_BASE_URL:-https://followthrough-server-production.up.railway.app}"
 
 # Default JWT token (provided by user)
-DEFAULT_JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2N2Q1ODk0MTZjZjMxODcxN2U3NGRkNTUiLCJlbWFpbCI6ImFiY0BnbWFpbC5jb20iLCJpYXQiOjE3NDg5NDg3NzksImV4cCI6MTc0OTAzNTE3OX0.Ku5WNfSnw9CwjMbNDQ1pCgyZ2keDwEaTPknhdYHbwtE"
+DEFAULT_JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2ODQzZGFjMTgyYmExNWVkMTFmZjljMmYiLCJlbWFpbCI6ImJ1bmQ5ODc2QGdtYWlsLmNvbSIsImlhdCI6MTc0OTI3OTI1NSwiZXhwIjoxNzQ5MzY1NjU1fQ.2RfX7PzvUE0-gofDfv4X37cXKoaP2Js7LxXvA_XehSE"
 
 echo "🔍 Checking for orphaned Gmail watches..."
 echo "API Base URL: $API_BASE"

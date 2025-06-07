@@ -39,8 +39,7 @@ export class GmailWatchService {
     private readonly configService: ConfigService,
   ) {
     this.topicName =
-      this.configService.get<string>("GMAIL_PUBSUB_TOPIC") ||
-      "gmail-notifications";
+      this.configService.get<string>("GMAIL_PUBSUB_TOPIC") || "gmail-triage";
   }
 
   /**
@@ -441,6 +440,42 @@ export class GmailWatchService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Get all active Gmail watches
+   * Admin function for watch management
+   */
+  async getAllActiveWatches(): Promise<WatchInfo[]> {
+    try {
+      const activeWatches = await this.gmailWatchRepository.findAllActive();
+      return activeWatches.map((watch) => this.mapToWatchInfo(watch));
+    } catch (error) {
+      this.logger.error("Failed to get all active watches:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Deactivate a watch by userId (for admin cleanup)
+   */
+  async deactivateWatch(userId: Types.ObjectId): Promise<boolean> {
+    try {
+      return await this.gmailWatchRepository.deactivateByUserId(userId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to deactivate watch for user ${userId}:`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get watch by email (alias for backward compatibility)
+   */
+  async getWatchByEmail(googleEmail: string): Promise<WatchInfo | null> {
+    return this.getWatchInfoByEmail(googleEmail);
   }
 
   /**
