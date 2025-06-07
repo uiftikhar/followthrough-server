@@ -197,6 +197,7 @@ export class EnhancedGraphService implements OnModuleInit {
       }
 
       // Route based on input type
+      this.logger.log(`Input type: ${inputType}`);
       if (inputType === "meeting_transcript") {
         return {
           ...state,
@@ -230,7 +231,7 @@ export class EnhancedGraphService implements OnModuleInit {
 
     // Create team nodes (use team handlers from registry)
     const meetingAnalysisTeamNode = async (state: any) => {
-      this.logger.log("Routing to meeting analysis team");
+      this.logger.log("Routing to meeting analysis team", JSON.stringify(state));
 
       // Get the meeting analysis team handler from registry
       const teamHandler =
@@ -262,8 +263,9 @@ export class EnhancedGraphService implements OnModuleInit {
 
       try {
         // Process with the actual team handler
+        // FIXED: Properly extract transcript from input structure
         const result = await teamHandler.process({
-          content: state.input?.content || state.transcript || "",
+          content: state.input?.content || state.input?.transcript || state.transcript || "",
           metadata: state.input?.metadata || {},
         });
 
@@ -334,10 +336,11 @@ export class EnhancedGraphService implements OnModuleInit {
       try {
         // Process with the actual team handler
         // EmailTriageService expects input with emailData and sessionId
+        // FIXED: Properly extract email content from input structure
         const result = await teamHandler.process({
           emailData: state.input?.emailData || {
             id: state.input?.id || `email-${Date.now()}`,
-            body: state.input?.content || state.input?.body || "",
+            body: state.input?.content || state.input?.body || state.input?.transcript || "",
             metadata: state.input?.metadata || {},
           },
           sessionId: state.sessionId || `session-${Date.now()}`,

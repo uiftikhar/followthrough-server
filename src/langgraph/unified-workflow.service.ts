@@ -78,6 +78,8 @@ export class UnifiedWorkflowService {
         };
       }
 
+      this.logger.log(`Session data: ${JSON.stringify(sessionData)}`);
+
       // Store the session in MongoDB
       await this.sessionRepository.createSession(sessionData);
       this.logger.log(
@@ -98,7 +100,7 @@ export class UnifiedWorkflowService {
 
       // Use master supervisor routing instead of directly calling analyzeMeeting
       this.logger.log(
-        "Using enhanced graph service with master supervisor routing",
+        "Using enhanced graph service with master supervisor routing", JSON.stringify(input)
       );
       this.runMasterSupervisorWorkflow(
         sessionId,

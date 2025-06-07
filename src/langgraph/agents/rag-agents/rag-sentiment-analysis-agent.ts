@@ -40,13 +40,14 @@ export interface SentimentAnalysis {
 }
 
 /**
- * RAG-enhanced agent specialized for sentiment analysis of meeting transcripts
- * Uses historical sentiment patterns and context to improve analysis accuracy
+ * RAG-Enhanced Sentiment Analysis Agent
+ * 
+ * Specialized agent for analyzing sentiment in meeting transcripts
+ * with enhanced context from previous sentiment analyses
  */
 @Injectable()
 export class RagSentimentAnalysisAgent extends RagEnhancedAgent {
   protected readonly logger = new Logger(RagSentimentAnalysisAgent.name);
-  protected readonly config: RagSentimentAnalysisConfig;
 
   constructor(
     @Inject(LLM_SERVICE) protected readonly llmService: LlmService,
@@ -54,14 +55,28 @@ export class RagSentimentAnalysisAgent extends RagEnhancedAgent {
     @Inject(RAG_SERVICE) protected readonly ragService: RagService,
     @Inject(RAG_SENTIMENT_ANALYSIS_CONFIG) config: RagSentimentAnalysisConfig,
   ) {
+    // Configure RAG options for sentiment analysis
+    const ragConfig = config.ragOptions || {
+      includeRetrievedContext: true,
+      retrievalOptions: {
+        indexName: "meeting-analysis",
+        namespace: "sentiment-analysis",
+        topK: 3,
+        minScore: 0.7,
+      },
+    };
+
     super(llmService, stateService, ragService, {
-      name: config.name || "RAG Sentiment Analysis Agent",
+      name: config.name || "Sentiment Analysis Agent",
       systemPrompt: config.systemPrompt || SENTIMENT_ANALYSIS_PROMPT,
       llmOptions: config.llmOptions,
-      ragOptions: config.ragOptions,
+      ragOptions: ragConfig,
     });
 
-    this.config = config;
+    // Override expertisePrompts with sentiment-specific prompts
+    (this as any).expertisePrompts = {
+      [AgentExpertise.SENTIMENT_ANALYSIS]: SENTIMENT_ANALYSIS_PROMPT,
+    };
   }
 
   /**
@@ -85,24 +100,33 @@ export class RagSentimentAnalysisAgent extends RagEnhancedAgent {
         participantNames: options?.participantNames || [],
       };
 
-      // Enhance with RAG context using similar sentiment analyses
-      const query = `Sentiment analysis for meeting: ${transcript.substring(0, 200)}...`;
-      const enhancedState = await this.ragService.enhanceStateWithContext(
-        state,
-        query,
-        options?.retrievalOptions || this.config.ragOptions?.retrievalOptions,
-      );
+             // Enhance with RAG context using similar sentiment analyses
+       const query = `Sentiment analysis for meeting: ${transcript.substring(0, 200)}...`;
+       
+       // Prepare retrieval options
+       const retrievalOptions = {
+         indexName: "meeting-analysis",
+         namespace: "sentiment-analysis",
+         topK: options?.retrievalOptions?.topK || 3,
+         minScore: options?.retrievalOptions?.minScore || 0.7,
+       };
+       
+       const enhancedState = await this.ragService.enhanceStateWithContext(
+         state,
+         query,
+         retrievalOptions,
+       );
 
-      // Generate prompt for sentiment analysis
-      const prompt = `${SENTIMENT_ANALYSIS_PROMPT}
+       // Generate prompt for sentiment analysis
+       const prompt = `${SENTIMENT_ANALYSIS_PROMPT}
 
 Meeting Transcript:
 ${transcript}
 
 Please analyze the sentiment of this meeting transcript and provide a comprehensive sentiment analysis in the specified JSON format.`;
 
-      // Execute LLM request with enhanced context
-      const result = await this.executeLlmRequest(prompt, enhancedState);
+       // Execute LLM request with enhanced context
+       const result = await this.executeSentimentLlmRequest(prompt, enhancedState);
 
       // Process and validate the result
       return this.processSentimentResult(result);
@@ -123,150 +147,19 @@ Please analyze the sentiment of this meeting transcript and provide a comprehens
   }
 
   /**
-   * Process the sentiment result from the LLM
+   * Execute LLM request for sentiment analysis
    */
-  private processSentimentResult(result: any): SentimentAnalysis {
-    this.logger.log("Processing sentiment result from LLM");
-    this.logger.log(
-      `Result type: ${typeof result}, preview: ${JSON.stringify(result).substring(0, 200)}...`,
-    );
-
+  private async executeSentimentLlmRequest(prompt: string, state: any): Promise<any> {
     try {
-      let cleanedResult = result;
+      this.logger.log("Executing LLM request for sentiment analysis");
 
-      // If result is a string, clean it first
-      if (typeof result === "string") {
-        this.logger.log("Result is string, cleaning and parsing");
-
-        // Try multiple JSON extraction patterns
-        let jsonStr = result;
-
-        // Remove markdown code blocks
-        const codeBlockMatch = result.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-        if (codeBlockMatch) {
-          jsonStr = codeBlockMatch[1];
-          this.logger.log("Extracted JSON from code block");
-        } else {
-          // Try to find JSON object in text
-          const jsonObjectMatch = result.match(/\{[\s\S]*\}/);
-          if (jsonObjectMatch) {
-            jsonStr = jsonObjectMatch[0];
-            this.logger.log("Extracted JSON object from text");
-          }
-        }
-
-        this.logger.log(
-          `Attempting to parse JSON: ${jsonStr.substring(0, 200)}...`,
-        );
-        cleanedResult = JSON.parse(jsonStr);
-      }
-
-      // Validate and format the sentiment analysis
-      return this.validateSentimentAnalysis(cleanedResult);
-    } catch (error) {
-      this.logger.warn(`Failed to parse sentiment result: ${error.message}`);
-      this.logger.warn("Returning default neutral sentiment");
-      return {
-        overall: "neutral",
-        score: 0,
-        segments: [],
-        keyEmotions: [],
-        toneShifts: [],
-      };
-    }
-  }
-
-  /**
-   * Validate and normalize sentiment analysis result
-   */
-  private validateSentimentAnalysis(result: any): SentimentAnalysis {
-    this.logger.log("Validating sentiment analysis result");
-
-    // Ensure overall sentiment is valid
-    const validOverallSentiments = ["positive", "negative", "neutral", "mixed"];
-    const overall = validOverallSentiments.includes(result.overall)
-      ? result.overall
-      : "neutral";
-
-    // Ensure score is a valid number between -1 and 1
-    let score = typeof result.score === "number" ? result.score : 0;
-    score = Math.max(-1, Math.min(1, score));
-
-    // Validate segments array
-    const segments = Array.isArray(result.segments)
-      ? result.segments.map((segment) => ({
-          text: segment.text || "",
-          sentiment: validOverallSentiments
-            .slice(0, 3)
-            .includes(segment.sentiment)
-            ? segment.sentiment
-            : "neutral", // only positive, negative, neutral for segments
-          score:
-            typeof segment.score === "number"
-              ? Math.max(-1, Math.min(1, segment.score))
-              : 0,
-          speaker: segment.speaker || undefined,
-          timestamp: segment.timestamp || undefined,
-        }))
-      : [];
-
-    // Validate other arrays
-    const keyEmotions = Array.isArray(result.keyEmotions)
-      ? result.keyEmotions.filter(
-          (emotion) => typeof emotion === "string" && emotion.trim().length > 0,
-        )
-      : [];
-
-    const toneShifts = Array.isArray(result.toneShifts)
-      ? result.toneShifts
-          .filter(
-            (shift) =>
-              shift &&
-              typeof shift.from === "string" &&
-              typeof shift.to === "string",
-          )
-          .map((shift) => ({
-            from: shift.from,
-            to: shift.to,
-            approximate_time: shift.approximate_time || undefined,
-            trigger: shift.trigger || undefined,
-          }))
-      : [];
-
-    this.logger.log(
-      `Validated sentiment: overall=${overall}, score=${score}, segments=${segments.length}, emotions=${keyEmotions.length}, shifts=${toneShifts.length}`,
-    );
-
-    return {
-      overall,
-      score,
-      segments,
-      keyEmotions,
-      toneShifts,
-    };
-  }
-
-  /**
-   * Extract query from state for RAG retrieval
-   */
-  protected extractQueryFromState(state: any): string {
-    if (state.transcript) {
-      return `Sentiment analysis context: ${state.transcript.substring(0, 300)}...`;
-    }
-    return "Meeting sentiment analysis";
-  }
-
-  /**
-   * Execute LLM request with enhanced context
-   */
-  protected async executeLlmRequest(prompt: string, state: any): Promise<any> {
-    try {
-      // Set up LLM options for sentiment analysis
+      // Set up LLM options
       const llmOptions = {
         model: "gpt-4o",
         temperature: 0.3,
       };
 
+      // Get the LLM chat model
       const llm = this.llmService.getChatModel(llmOptions);
 
       // Add retrieved context if available
@@ -282,23 +175,301 @@ Please analyze the sentiment of this meeting transcript and provide a comprehens
 
       // Invoke the LLM
       const messages = [
-        {
-          role: "system",
-          content:
-            "You are an expert at analyzing sentiment in meeting transcripts. Always respond with valid JSON in the exact format requested.",
-        },
+        { role: "system", content: SENTIMENT_ANALYSIS_PROMPT },
         { role: "user", content: promptWithContext },
       ];
 
       const response = await llm.invoke(messages);
-      return response.content.toString();
+
+      // Parse and return the result
+      const content = response.content.toString();
+      this.logger.log("Sentiment analysis LLM request completed");
+
+      return content;
     } catch (error) {
       this.logger.error(
-        `Error executing LLM request: ${error.message}`,
+        `Error executing LLM request for sentiment: ${error.message}`,
         error.stack,
       );
       throw error;
     }
+  }
+
+  /**
+   * Process sentiment result from LLM
+   */
+  private processSentimentResult(result: any): SentimentAnalysis {
+    try {
+      this.logger.log("Processing sentiment result from LLM");
+      this.logger.log(
+        `Result type: ${typeof result}, preview: ${JSON.stringify(result).substring(0, 200)}...`,
+      );
+
+      let parsed = result;
+
+      // Handle string responses
+      if (typeof result === "string") {
+        this.logger.log("Result is string, cleaning and parsing");
+        try {
+          // Enhanced JSON extraction for sentiment data
+          const cleaned = result
+            .replace(/```json\s*/gi, "")
+            .replace(/```\s*/g, "")
+            .trim();
+
+          parsed = JSON.parse(cleaned);
+          this.logger.log("Extracted JSON object from text");
+        } catch (parseError) {
+          this.logger.warn(`JSON parsing failed: ${parseError.message}`);
+          // Try to extract sentiment information from text
+          parsed = this.extractSentimentFromText(result);
+        }
+      }
+
+      this.logger.log(`Attempting to parse JSON: ${JSON.stringify(parsed).substring(0, 200)}...`);
+
+      // Enhanced sentiment object validation and construction
+      const sentiment: SentimentAnalysis = {
+        overall: this.normalizeOverallSentiment(parsed.overall || parsed.sentiment || "neutral"),
+        score: this.normalizeScore(parsed.score || 0),
+        segments: this.processSegments(parsed.segments || []),
+        keyEmotions: Array.isArray(parsed.keyEmotions) 
+          ? parsed.keyEmotions 
+          : Array.isArray(parsed.emotions) 
+            ? parsed.emotions 
+            : [],
+        toneShifts: Array.isArray(parsed.toneShifts) 
+          ? parsed.toneShifts 
+          : Array.isArray(parsed.shifts) 
+            ? parsed.shifts 
+            : [],
+      };
+
+      this.logger.log("Validating sentiment analysis result");
+      this.logger.log(
+        `Validated sentiment: overall=${sentiment.overall}, score=${sentiment.score}, segments=${sentiment.segments?.length}, emotions=${sentiment.keyEmotions?.length}, shifts=${sentiment.toneShifts?.length}`,
+      );
+
+      return sentiment;
+    } catch (error) {
+      this.logger.error(`Error processing sentiment result: ${error.message}`);
+      return this.createFallbackSentiment();
+    }
+  }
+
+  /**
+   * Extract sentiment information from plain text when JSON parsing fails
+   */
+  private extractSentimentFromText(text: string): any {
+    this.logger.log("Extracting sentiment from plain text");
+    
+    const sentiment: any = {
+      overall: "neutral",
+      score: 0,
+      segments: [],
+      keyEmotions: [],
+      toneShifts: [],
+    };
+
+    // Extract overall sentiment
+    if (text.toLowerCase().includes('positive')) {
+      sentiment.overall = "positive";
+      sentiment.score = 0.5;
+    } else if (text.toLowerCase().includes('negative')) {
+      sentiment.overall = "negative"; 
+      sentiment.score = -0.5;
+    } else if (text.toLowerCase().includes('mixed')) {
+      sentiment.overall = "mixed";
+      sentiment.score = 0.1;
+    }
+
+    // Extract emotions from text
+    const emotions: string[] = [];
+    const emotionPatterns = [
+      /(?:emotion|feeling|mood):\s*([^\n\r;,]+)/gi,
+      /(happy|sad|angry|excited|frustrated|hopeful|concerned|optimistic|pessimistic)/gi,
+    ];
+
+    for (const pattern of emotionPatterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const emotion = match[1].toLowerCase();
+        if (!emotions.includes(emotion)) {
+          emotions.push(emotion);
+        }
+      }
+    }
+
+    sentiment.keyEmotions = emotions;
+    return sentiment;
+  }
+
+  /**
+   * Process segments with enhanced speaker detection
+   */
+  private processSegments(segments: any[]): Array<{
+    text: string;
+    sentiment: "positive" | "negative" | "neutral";
+    score: number;
+    speaker?: string;
+    timestamp?: string;
+  }> {
+    if (!Array.isArray(segments)) {
+      return [];
+    }
+
+    return segments
+      .filter((segment: any) => segment && (segment.text || segment.content))
+      .map((segment: any) => ({
+        text: segment.text || segment.content || "",
+        sentiment: this.normalizeSegmentSentiment(segment.sentiment || "neutral"),
+        score: this.normalizeScore(segment.score || 0),
+        speaker: this.extractSpeakerFromSegment(segment),
+        timestamp: segment.timestamp || undefined,
+      }))
+      .filter((segment: any) => segment.text.trim().length > 0);
+  }
+
+  /**
+   * Extract speaker information from segment
+   */
+  private extractSpeakerFromSegment(segment: any): string | undefined {
+    if (!segment) return undefined;
+
+    // Check direct speaker properties
+    if (segment.speaker && typeof segment.speaker === 'string') {
+      return segment.speaker.trim();
+    }
+
+    if (segment.author && typeof segment.author === 'string') {
+      return segment.author.trim();
+    }
+
+    if (segment.name && typeof segment.name === 'string') {
+      return segment.name.trim();
+    }
+
+    // Try to extract speaker from text using common patterns
+    const text = segment.text || segment.content || "";
+    if (typeof text !== 'string') return undefined;
+
+    const speakerPatterns = [
+      /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*):/, // "John Smith:"
+      /^([A-Z][a-z]+):\s/, // "John: "
+      /^\[([^\]]+)\]/, // "[John Smith]"
+      /^<([^>]+)>/, // "<John>"
+    ];
+
+    for (const pattern of speakerPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const speaker = match[1].trim();
+        // Validate speaker name (basic check)
+        if (speaker.length > 1 && speaker.length < 50 && /^[A-Za-z\s]+$/.test(speaker)) {
+          return speaker;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Normalize overall sentiment value
+   */
+  private normalizeOverallSentiment(overall: any): "positive" | "negative" | "neutral" | "mixed" {
+    if (typeof overall === 'string') {
+      const normalized = overall.toLowerCase().trim();
+      if (['positive', 'pos', 'good', 'happy'].includes(normalized)) {
+        return "positive";
+      }
+      if (['negative', 'neg', 'bad', 'sad', 'angry'].includes(normalized)) {
+        return "negative";
+      }
+      if (['mixed', 'varied', 'complex'].includes(normalized)) {
+        return "mixed";
+      }
+    }
+    return "neutral";
+  }
+
+  /**
+   * Normalize segment sentiment value (no mixed for segments)
+   */
+  private normalizeSegmentSentiment(sentiment: any): "positive" | "negative" | "neutral" {
+    if (typeof sentiment === 'string') {
+      const normalized = sentiment.toLowerCase().trim();
+      if (['positive', 'pos', 'good', 'happy'].includes(normalized)) {
+        return "positive";
+      }
+      if (['negative', 'neg', 'bad', 'sad', 'angry'].includes(normalized)) {
+        return "negative";
+      }
+    }
+    return "neutral";
+  }
+
+  /**
+   * Normalize sentiment score to -1 to 1 range
+   */
+  private normalizeScore(score: any): number {
+    if (typeof score === 'number') {
+      return Math.max(-1, Math.min(1, score));
+    }
+    
+    if (typeof score === 'string') {
+      const parsed = parseFloat(score);
+      if (!isNaN(parsed)) {
+        return Math.max(-1, Math.min(1, parsed));
+      }
+    }
+    
+    return 0;
+  }
+
+  /**
+   * Create enhanced fallback sentiment with context
+   */
+  private createFallbackSentiment(): SentimentAnalysis {
+    return {
+      overall: "neutral",
+      score: 0,
+      segments: [],
+      keyEmotions: ["neutral"],
+      toneShifts: [],
+    };
+  }
+
+  /**
+   * Extract query from state for RAG retrieval
+   */
+  protected extractQueryFromState(state: any): string {
+    if (state.transcript) {
+      return `Sentiment analysis context: ${state.transcript.substring(0, 300)}...`;
+    }
+    return "Meeting sentiment analysis";
+  }
+
+  /**
+   * Process a state object for sentiment analysis
+   */
+  async processState(state: any): Promise<any> {
+    this.logger.debug("Processing state for sentiment analysis");
+
+    if (!state.transcript) {
+      this.logger.warn("No transcript found in state");
+      return state;
+    }
+
+    const sentiment = await this.analyzeSentiment(state.transcript, {
+      meetingId: state.meetingId,
+      participantNames: state.participantNames || [],
+    });
+
+    return {
+      ...state,
+      sentiment,
+    };
   }
 
   /**
@@ -325,4 +496,4 @@ ${context.documents
 Use the above context to inform your sentiment analysis, but focus on the current meeting content.
 `;
   }
-}
+} 

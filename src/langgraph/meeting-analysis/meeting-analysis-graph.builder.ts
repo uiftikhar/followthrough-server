@@ -3,9 +3,9 @@ import { BaseGraphBuilder } from "../core/base-graph-builder";
 import { MeetingAnalysisState } from "./interfaces/meeting-analysis-state.interface";
 import { RagMeetingAnalysisAgent } from "../agents/rag-agents/rag-meeting-agent";
 import { RagTopicExtractionAgent } from "../agents/rag-agents/rag-topic-extraction-agent";
-import { RagSentimentAnalysisAgent } from "../agents/rag-agents/rag-sentiment-analysis-agent";
 import { SentimentAnalysisAgent } from "../agents/sentiment-analysis.agent";
 import { ActionItemAgent } from "../agents/action-item.agent";
+import { RagSentimentAnalysisAgent } from "../agents/rag-agents/rag-sentiment-analysis-agent";
 
 /**
  * Graph builder for meeting analysis
@@ -103,6 +103,43 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
         `********* RAG TOPIC **********: Extracting topics for meeting ${state.meetingId}`,
       );
 
+      // FIXED: Check transcript existence and format
+      let transcript = state.transcript;
+      if (!transcript || (typeof transcript === 'string' && transcript.trim().length === 0)) {
+        this.logger.warn(
+          `No transcript found in state for meeting ${state.meetingId}`,
+        );
+        return {
+          ...state,
+          topics: [{
+            name: "No Content Available", 
+            relevance: 1,
+          }],
+          stage: "topic_extraction",
+          error: {
+            message: "No transcript available for topic extraction",
+            stage: "topic_extraction", 
+            timestamp: new Date().toISOString(),
+          },
+        };
+      }
+
+      // FIXED: Ensure transcript is string format
+      if (typeof transcript !== 'string') {
+        this.logger.log(`Converting transcript object to string format for topic extraction`);
+        if (transcript && typeof transcript === 'object' && 'content' in transcript) {
+          transcript = (transcript as any).content;
+        } else if (transcript && typeof transcript === 'object' && 'text' in transcript) {
+          transcript = (transcript as any).text;
+        } else {
+          transcript = JSON.stringify(transcript);
+        }
+      }
+
+      this.logger.log(
+        `Processing transcript of length: ${transcript.length} characters for topic extraction`,
+      );
+
       if (!this.ragTopicExtractionAgent) {
         this.logger.warn(
           " ----------------------: RAG topic extraction agent not available, using fallback",
@@ -119,12 +156,27 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
         };
       }
 
-      // Use the RAG topic extraction agent
+      // FIXED: Validate transcript content before processing
+      if (transcript.trim().length < 10) {
+        this.logger.warn(
+          `Transcript too short (${transcript.length} chars) for meaningful topic extraction`,
+        );
+        return {
+          ...state,
+          topics: [{
+            name: "Brief Discussion",
+            relevance: 2,
+          }],
+          stage: "topic_extraction",
+        };
+      }
+
+      // Use the RAG topic extraction agent with validated transcript
       const topics = await this.ragTopicExtractionAgent.extractTopics(
-        state.transcript,
+        transcript,
         {
           meetingId: state.meetingId,
-          participantNames: this.extractParticipantNames(state.transcript),
+          participantNames: this.extractParticipantNames(transcript),
           retrievalOptions: {
             includeHistoricalTopics: true,
             topK: 5,
@@ -134,6 +186,19 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
       );
 
       this.logger.log(`Extracted ${topics.length} topics using RAG agent`);
+
+      // FIXED: Ensure we always have at least one topic
+      if (!topics || topics.length === 0) {
+        this.logger.warn("No topics extracted, creating fallback topic");
+        return {
+          ...state,
+          topics: [{
+            name: "Meeting Discussion", 
+            relevance: 2,
+          }],
+          stage: "topic_extraction",
+        };
+      }
 
       return {
         ...state,
@@ -147,6 +212,10 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
       );
       return {
         ...state,
+        topics: [{
+          name: "Error in Topic Extraction",
+          relevance: 1,
+        }],
         error: {
           message: error.message,
           stage: "topic_extraction",
@@ -163,40 +232,92 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
     state: MeetingAnalysisState,
   ): Promise<MeetingAnalysisState> {
     try {
-      this.logger.log(`Extracting action items for meeting ${state.meetingId}`);
+      this.logger.log(
+        `Extracting action items for meeting ${state.meetingId}`,
+      );
 
-      if (!this.actionItemAgent) {
-        this.logger.warn("Action item agent not available, using fallback");
+      // FIXED: Check transcript existence and format
+      let transcript = state.transcript;
+      if (!transcript || transcript.trim().length === 0) {
+        this.logger.warn(
+          `No transcript found in state for meeting ${state.meetingId}`,
+        );
         return {
           ...state,
-          actionItems: [
-            {
-              description:
-                "Action items will be available when action item agent is properly configured",
-              status: "pending",
-            },
-          ],
+          actionItems: [],
+          stage: "action_item_extraction",
+          error: {
+            message: "No transcript available for action item extraction",
+            stage: "action_item_extraction", 
+            timestamp: new Date().toISOString(),
+          },
+        };
+      }
+
+      // FIXED: Ensure transcript is string format for ActionItemAgent
+      if (typeof transcript !== 'string') {
+        this.logger.log(`Converting transcript object to string format`);
+        if (transcript && typeof transcript === 'object' && 'content' in transcript) {
+          transcript = (transcript as any).content;
+        } else if (transcript && typeof transcript === 'object' && 'text' in transcript) {
+          transcript = (transcript as any).text;
+        } else {
+          transcript = JSON.stringify(transcript);
+        }
+      }
+
+      this.logger.log(
+        `Processing transcript of length: ${transcript.length} characters`,
+      );
+
+      if (!this.actionItemAgent) {
+        this.logger.warn(
+          "ActionItemAgent not available, using fallback",
+        );
+        return {
+          ...state,
+          actionItems: [],
           stage: "action_item_extraction",
         };
       }
 
-      // Use the ActionItemAgent to extract action items
-      const result = await this.actionItemAgent.processState({
-        transcript: state.transcript,
+      // FIXED: Use proper ActionItemAgent interface with structured input
+      const actionItemResult = await this.actionItemAgent.processState({
+        transcript,
         meetingId: state.meetingId,
-        participantNames: this.extractParticipantNames(state.transcript),
+        // Pass additional context if available
+        participants: this.extractParticipantNames(transcript),
+        topics: state.topics?.map(t => t.name) || [],
       });
 
-      // Extract action items from the result
-      const actionItems = result.actionItems || [];
+      // FIXED: Extract action items from result with validation
+      let actionItems: any[] = [];
+      if (actionItemResult && actionItemResult.actionItems) {
+        actionItems = Array.isArray(actionItemResult.actionItems) 
+          ? actionItemResult.actionItems 
+          : [];
+      } else if (Array.isArray(actionItemResult)) {
+        actionItems = actionItemResult;
+      }
+
+      // FIXED: Validate and clean action items
+      const validatedActionItems = actionItems
+        .filter((item: any) => item && typeof item === 'object' && item.description)
+        .map((item: any) => ({
+          description: item.description || 'Unknown action item',
+          assignee: item.assignee || undefined,
+          dueDate: item.dueDate || undefined,
+          status: item.status || 'pending',
+          priority: item.priority || 'medium',
+        }));
 
       this.logger.log(
-        `Extracted ${actionItems.length} action items using ActionItemAgent`,
+        `Extracted ${validatedActionItems.length} action items using ActionItemAgent`,
       );
 
       return {
         ...state,
-        actionItems,
+        actionItems: validatedActionItems,
         stage: "action_item_extraction",
       };
     } catch (error) {
@@ -206,6 +327,8 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
       );
       return {
         ...state,
+        actionItems: [],
+        stage: "action_item_extraction",
         error: {
           message: error.message,
           stage: "action_item_extraction",
@@ -227,15 +350,52 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
         `Available agents: RAG=${!!this.ragSentimentAnalysisAgent}, Regular=${!!this.sentimentAnalysisAgent}`,
       );
 
+      // FIXED: Check transcript existence and format for sentiment analysis
+      let transcript = state.transcript;
+      if (!transcript || (typeof transcript === 'string' && transcript.trim().length === 0)) {
+        this.logger.warn(
+          `No transcript found in state for sentiment analysis of meeting ${state.meetingId}`,
+        );
+        return {
+          ...state,
+          sentiment: {
+            overall: 0,
+            segments: [],
+          },
+          stage: "sentiment_analysis",
+          error: {
+            message: "No transcript available for sentiment analysis",
+            stage: "sentiment_analysis", 
+            timestamp: new Date().toISOString(),
+          },
+        };
+      }
+
+      // FIXED: Ensure transcript is string format for sentiment analysis
+      if (typeof transcript !== 'string') {
+        this.logger.log(`Converting transcript object to string format for sentiment analysis`);
+        if (transcript && typeof transcript === 'object' && 'content' in transcript) {
+          transcript = (transcript as any).content;
+        } else if (transcript && typeof transcript === 'object' && 'text' in transcript) {
+          transcript = (transcript as any).text;
+        } else {
+          transcript = JSON.stringify(transcript);
+        }
+      }
+
+      this.logger.log(
+        `Processing transcript of length: ${transcript.length} characters for sentiment analysis`,
+      );
+
       // Prefer RAG-enhanced agent if available
       if (this.ragSentimentAnalysisAgent) {
         this.logger.log("Using RAG-enhanced sentiment analysis agent");
 
         const sentiment = await this.ragSentimentAnalysisAgent.analyzeSentiment(
-          state.transcript,
+          transcript,
           {
             meetingId: state.meetingId,
-            participantNames: this.extractParticipantNames(state.transcript),
+            participantNames: this.extractParticipantNames(transcript),
           },
         );
 
@@ -279,9 +439,9 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
 
       this.logger.log("Using regular sentiment analysis agent");
 
-      // Use the SentimentAnalysisAgent to analyze sentiment
+      // Use the SentimentAnalysisAgent to analyze sentiment with validated transcript
       const result = await this.sentimentAnalysisAgent.processState({
-        transcript: state.transcript,
+        transcript: transcript,
         meetingId: state.meetingId,
       });
 

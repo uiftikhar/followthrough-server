@@ -140,15 +140,59 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
    * Process a meeting transcript
    */
   async process(input: any): Promise<MeetingAnalysisState> {
-    this.logger.log("Processing meeting transcript with enhanced RAG");
+    this.logger.log("Processing meeting transcript with enhanced RAG", JSON.stringify(input));
+    this.logger.log("TRACE: ", console.trace());
+
+    // FIXED: Validate and extract transcript from multiple possible sources
+    let transcript = input.content || input.transcript || input.text || '';
+    
+    // If transcript is an object, extract the content
+    if (typeof transcript === 'object' && transcript !== null) {
+      transcript = transcript.content || transcript.text || JSON.stringify(transcript);
+    }
+
+    // Ensure transcript is a string
+    transcript = String(transcript || '').trim();
+
+    this.logger.log(`📝 Transcript validation: length=${transcript.length}, type=${typeof transcript}`);
+
+    // FIXED: Validate transcript existence
+    if (!transcript || transcript.length === 0) {
+      this.logger.error(`❌ No transcript content found in input. Input keys: ${Object.keys(input)}`);
+      this.logger.error(`📄 Input structure: ${JSON.stringify(input, null, 2).substring(0, 500)}...`);
+      
+      return {
+        meetingId: input.metadata?.meetingId || uuidv4(),
+        transcript: '',
+        topics: [{
+          name: "No Transcript Provided",
+          relevance: 1,
+        }],
+        actionItems: [],
+        sentiment: { overall: 0, segments: [] },
+        summary: {
+          meetingTitle: "No Content Available",
+          summary: "No transcript content was provided for analysis.",
+          decisions: [],
+        },
+        stage: "completed",
+        error: {
+          message: "No transcript content found in input",
+          stage: "input_validation",
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+
+    this.logger.log(`✅ Transcript validated: ${transcript.length} characters`);
 
     // Create a unique ID for this meeting if not provided
     const meetingId = input.metadata?.meetingId || uuidv4();
 
-    // Prepare initial state
+    // Prepare initial state with validated transcript
     const initialState: MeetingAnalysisState = {
       meetingId,
-      transcript: input.content,
+      transcript,
       context: input.metadata || {},
     };
 
@@ -156,7 +200,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       // Step 1: Store current meeting transcript in Pinecone for future RAG retrieval
       await this.storeMeetingTranscriptForRag(
         meetingId,
-        input.content,
+        transcript,
         input.metadata,
       );
 
@@ -170,7 +214,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
           // Determine the best retrieval strategy using adaptive RAG
           const retrievalStrategy =
             await this.adaptiveRagService.determineRetrievalStrategy(
-              input.content.substring(0, 500), // Use a sample of the transcript for strategy determination
+              transcript.substring(0, 500), // Use a sample of the transcript for strategy determination
             );
 
           this.logger.log(
@@ -188,7 +232,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
 
           // Get context using the standard RAG service with adaptive settings
           const documents = await this.ragService.getContext(
-            input.content,
+            transcript,
             retrievalOptions,
           );
 
@@ -247,7 +291,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       // Ensure we return a properly formatted state with correct types
       return {
         ...result,
-        transcript: result.transcript || input.content,
+        transcript: result.transcript || transcript,
         topics: result.topics || [],
         actionItems: result.actionItems || [],
         sentiment: result.sentiment,
@@ -289,6 +333,14 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         `Storing meeting ${meetingId} transcript in Pinecone for RAG`,
       );
 
+      // FIXED: Validate transcript before storage
+      if (!transcript || transcript.trim().length === 0) {
+        this.logger.warn(`❌ Cannot store empty transcript for meeting ${meetingId}`);
+        return;
+      }
+
+      this.logger.log(`📝 Storing transcript: ${transcript.length} characters`);
+
       // Use semantic chunking for better chunk boundaries
       const chunks = await this.ragService.chunkText(transcript, {
         chunkSize: 1000,
@@ -296,19 +348,44 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         useSemanticChunking: true, // Use semantic chunking for better context
       });
 
+      // FIXED: Validate chunks were created
+      if (!chunks || chunks.length === 0) {
+        this.logger.warn(`❌ No chunks created for meeting ${meetingId} transcript`);
+        return;
+      }
+
+      this.logger.log(`📦 Created ${chunks.length} chunks for storage`);
+
       // Process and store chunks using DocumentProcessorService
-      const documents = chunks.map((chunk, index) => ({
-        id: `${meetingId}-chunk-${index}`,
-        content: chunk,
-        metadata: {
-          meetingId,
-          chunkIndex: index,
-          totalChunks: chunks.length,
-          timestamp: new Date().toISOString(),
-          type: "meeting_transcript",
-          ...metadata,
-        },
-      }));
+      const documents = chunks
+        .filter((chunk, index) => {
+          if (!chunk || chunk.trim().length === 0) {
+            this.logger.warn(`❌ Skipping empty chunk ${index} for meeting ${meetingId}`);
+            return false;
+          }
+          return true;
+        })
+        .map((chunk, index) => ({
+          id: `${meetingId}-chunk-${index}`,
+          content: chunk,
+          metadata: {
+            meetingId,
+            chunkIndex: index,
+            totalChunks: chunks.length,
+            timestamp: new Date().toISOString(),
+            type: "meeting_transcript",
+            text: chunk, // FIXED: Ensure text is also included in metadata
+            ...metadata,
+          },
+        }));
+
+      // FIXED: Validate we have valid documents to store
+      if (documents.length === 0) {
+        this.logger.warn(`❌ No valid documents to store for meeting ${meetingId}`);
+        return;
+      }
+
+      this.logger.log(`📄 Prepared ${documents.length} documents for storage`);
 
       // Store in Pinecone for future retrieval
       const storedChunkIds =
