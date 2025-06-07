@@ -32,7 +32,7 @@ export class PubSubService {
 
     this.topicName =
       this.configService.get<string>("GMAIL_PUBSUB_TOPIC") ||
-      "gmail-notifications";
+      "gmail-triage";
     this.pushSubscriptionName =
       this.configService.get<string>("GMAIL_PUSH_SUBSCRIPTION") ||
       "gmail-push-notification-subscription";
@@ -199,7 +199,7 @@ export class PubSubService {
         } catch (error) {
           this.logger.error(`Failed to process message ${message.id}:`, error);
           // Don't acknowledge failed messages - they'll be retried
-          message.nack();
+        message.nack();
         }
       }
 

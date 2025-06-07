@@ -14,7 +14,7 @@ export class GmailWatch {
   @Prop({ required: true })
   historyId: string;
 
-  @Prop({ required: true, default: "gmail-notifications" })
+  @Prop({ required: true, default: "gmail-triage" })
   topicName: string;
 
   @Prop({ type: [String], default: ["INBOX"] })

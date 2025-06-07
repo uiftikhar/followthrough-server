@@ -24,7 +24,6 @@ import { OnEvent } from "@nestjs/event-emitter";
       "https://followthrough-client.vercel.app",
       "https://followthrough-client-uiftikhars-projects.vercel.app",
       "https://followthrough-client-uiftikhar-uiftikhars-projects.vercel.app",
-      "https://65fc-2-201-41-78.ngrok-free.app",
     ], // Add your client origins
     credentials: true,
   },

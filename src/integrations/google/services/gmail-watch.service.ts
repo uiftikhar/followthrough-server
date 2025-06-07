@@ -40,7 +40,7 @@ export class GmailWatchService {
   ) {
     this.topicName =
       this.configService.get<string>("GMAIL_PUBSUB_TOPIC") ||
-      "gmail-notifications";
+      "gmail-triage";
   }
 
   /**

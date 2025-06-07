@@ -854,7 +854,7 @@ export class GmailClientController {
         await this.pubSubService.getSubscriptionHealth();
 
       // Check webhook endpoint accessibility
-      const webhookUrl = `${process.env.WEBHOOK_BASE_URL || "https://65fc-2-201-41-78.ngrok-free.app"}/api/gmail/webhooks/push`;
+      const webhookUrl = `${process.env.WEBHOOK_BASE_URL || "https://followthrough-server-production.up.railway.app"}/api/gmail/webhooks/api/gmail/webhooks/push`;
 
       const diagnosis = {
         pubsub: {
@@ -894,16 +894,16 @@ export class GmailClientController {
             ? "✅ Set"
             : "❌ Missing",
           topic:
-            process.env.GMAIL_PUBSUB_TOPIC || "gmail-notifications (default)",
+            process.env.GMAIL_PUBSUB_TOPIC || "gmail-triage",
           credentials: process.env.GOOGLE_APPLICATION_CREDENTIALS
             ? "✅ Set"
             : "❌ Missing",
           pushSubscription:
             process.env.GMAIL_PUSH_SUBSCRIPTION ||
-            "gmail-push-notification-subscription (default)",
+            "gmail-push-notification-subscription",
           pullSubscription:
             process.env.GMAIL_PULL_SUBSCRIPTION ||
-            "gmail-pull-notification-subscription (default)",
+            "gmail-pull-notification-subscription",
         },
       };
 
@@ -991,14 +991,13 @@ export class GmailClientController {
         webhookUrl,
         mockPayload,
         instructions: [
-          `Use curl or Postman to POST this payload to: ${process.env.WEBHOOK_BASE_URL || "https://65fc-2-201-41-78.ngrok-free.app"}/api/gmail/webhooks/push`,
+          `Use curl or Postman to POST this payload to: ${process.env.WEBHOOK_BASE_URL || "https://followthrough-server-production.up.railway.app"}/api/gmail/webhooks/push`,
           "Check server logs for webhook processing messages",
           "Verify WebSocket clients receive notifications",
         ],
         curlCommand: `curl -X POST \\
-  ${process.env.WEBHOOK_BASE_URL || "https://65fc-2-201-41-78.ngrok-free.app"}/api/gmail/webhooks/push \\
+  ${process.env.WEBHOOK_BASE_URL || "https://followthrough-server-production.up.railway.app"}/api/gmail/webhooks/push \\
   -H "Content-Type: application/json" \\
-  -H "ngrok-skip-browser-warning: any-value" \\
   -d '${JSON.stringify(mockPayload)}'`,
       };
     } catch (error) {

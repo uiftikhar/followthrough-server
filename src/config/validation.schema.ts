@@ -74,7 +74,7 @@ export const configValidationSchema = Joi.object({
   GOOGLE_CLIENT_ID: Joi.string().required(),
   GOOGLE_CLIENT_SECRET: Joi.string().required(),
   GOOGLE_CLOUD_PROJECT_ID: Joi.string().required(),
-  GMAIL_PUBSUB_TOPIC: Joi.string().default("gmail-notifications"),
+  GMAIL_PUBSUB_TOPIC: Joi.string().default("gmail-triage"),
   GOOGLE_REMOVE_ACTIVE_WATCHERS: Joi.boolean().default(false),
 
   // Google Service Account Credentials (either file path or JSON content)
