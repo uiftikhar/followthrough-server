@@ -16,7 +16,7 @@ import { OnEvent } from "@nestjs/event-emitter";
  * Provides real-time WebSocket notifications for Gmail push notifications and email triage results
  */
 @WebSocketGateway({
-  namespace: "/gmail-notifications",
+  namespace: "/gmail-triage",
   cors: {
     origin: [
       "http://localhost:8080",
