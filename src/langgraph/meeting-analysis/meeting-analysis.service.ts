@@ -897,9 +897,51 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       });
 
       this.logger.log(`Results saved for session ${sessionId}`);
+
+      // 🚀 NEW: Emit meeting analysis completion event for post-meeting orchestration
+      this.emitMeetingAnalysisCompletedEvent(sessionId, result);
+
     } catch (error) {
       this.logger.error(`Error saving results: ${error.message}`, error.stack);
       throw error;
+    }
+  }
+
+  /**
+   * 🚀 NEW: Emit meeting analysis completion event
+   */
+  private emitMeetingAnalysisCompletedEvent(sessionId: string, result: any): void {
+    try {
+      // Create structured meeting analysis result for post-meeting orchestration
+      const meetingAnalysisResult = {
+        sessionId,
+        meetingTitle: result.summary?.meetingTitle || 'Meeting Analysis Result',
+        summary: result.summary?.summary || '',
+        keyDecisions: result.summary?.keyDecisions || [],
+        participants: result.summary?.participants || [],
+        nextSteps: result.summary?.nextSteps || [],
+        topics: result.topics || [],
+        actionItems: result.actionItems || [],
+        sentiment: result.sentiment,
+        metadata: {
+          completedAt: new Date().toISOString(),
+          context: result.context,
+          sessionId
+        }
+      };
+
+      // Emit event for post-meeting orchestration
+      this.eventEmitter.emit('meeting_analysis.completed', {
+        sessionId,
+        result: meetingAnalysisResult,
+        timestamp: new Date().toISOString()
+      });
+
+      this.logger.log(`Emitted meeting_analysis.completed event for session ${sessionId}`);
+
+    } catch (error) {
+      this.logger.error(`Error emitting completion event: ${error.message}`, error.stack);
+      // Don't throw - this is a supplementary feature
     }
   }
 }

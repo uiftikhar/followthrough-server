@@ -8,6 +8,7 @@ Your job is to analyze the input and determine which team should handle it based
 Available teams:
 1. Meeting Analysis Team - For processing meeting transcripts, extracting insights, and generating summaries
 2. Email Triage Team - For processing incoming emails, classifying them, and generating appropriate responses
+3. Calendar Workflow Team - For calendar synchronization, meeting preparation, and meeting brief generation
 
 Make your routing decisions based solely on the content and metadata of the input. Be precise and consistent.`;
 
@@ -46,7 +47,7 @@ export class MasterSupervisorAgent extends BaseAgent {
       ${inputDescription}
       
       Return a JSON object with:
-      - team: The team that should handle this input (meeting_analysis, email_triage, or unknown)
+      - team: The team that should handle this input (meeting_analysis, email_triage, calendar_workflow, or unknown)
       - reason: A brief explanation of why you chose this team
       - priority: The priority level for this request (high, medium, or low)
       `),
@@ -101,6 +102,14 @@ export class MasterSupervisorAgent extends BaseAgent {
         Participants: ${input.participants?.join(", ") || "Unknown"}
         Metadata: ${JSON.stringify(input.metadata || {})}
       `;
+    } else if (input.type === "calendar_sync" || input.type === "meeting_brief" || input.type === "meeting_prep" || input.action === "sync" || input.calendarEvent || input.eventId) {
+      return `
+        Type: Calendar Workflow
+        Action: ${input.type || input.action || "Unknown"}
+        Event ID: ${input.eventId || "None"}
+        User ID: ${input.userId || "Unknown"}
+        Metadata: ${JSON.stringify(input.metadata || {})}
+      `;
     } else {
       return `
         Type: Unknown
@@ -119,6 +128,8 @@ export class MasterSupervisorAgent extends BaseAgent {
       return "email_triage";
     } else if (input.type === "meeting_transcript" || input.transcript) {
       return "meeting_analysis";
+    } else if (input.type === "calendar_sync" || input.type === "meeting_brief" || input.type === "meeting_prep" || input.action === "sync" || input.calendarEvent || input.eventId) {
+      return "calendar_workflow";
     }
     return "unknown";
   }

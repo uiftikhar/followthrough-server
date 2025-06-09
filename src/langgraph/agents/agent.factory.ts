@@ -10,7 +10,8 @@ import { ContextIntegrationAgent } from "./context-integration.agent";
 import { MasterSupervisorAgent } from "./master-supervisor.agent";
 
 /**
- * Factory for creating different types of agents
+ * Factory for creating shared/core agents
+ * Domain-specific agents (calendar, email) are handled by their own modules
  */
 @Injectable()
 export class AgentFactory {
@@ -82,7 +83,7 @@ export class AgentFactory {
   }
 
   /**
-   * Get all analysis agents
+   * Get all analysis agents (shared core agents only)
    */
   getAllAnalysisAgents(): BaseAgent[] {
     return [
