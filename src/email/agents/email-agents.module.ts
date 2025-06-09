@@ -21,6 +21,9 @@ import { EmailSnoozeAgent } from "./email-snooze.agent";
 // Phase 2: Pattern storage service for RAG learning
 import { EmailPatternStorageService } from "./email-pattern-storage.service";
 
+// Email agent factory
+import { EmailAgentFactory } from './email-agent.factory';
+
 // Configuration tokens
 import {
   EMAIL_CLASSIFICATION_CONFIG,
@@ -74,6 +77,9 @@ import {
 
     // Phase 2: Pattern storage service for RAG learning
     EmailPatternStorageService,
+
+    // Email agent factory
+    EmailAgentFactory,
 
     // Agent configurations
     {
@@ -186,6 +192,9 @@ import {
 
     // Phase 2: Export pattern storage service for RAG learning
     EmailPatternStorageService,
+
+    // Export email agent factory for easy access
+    EmailAgentFactory,
   ],
 })
 export class EmailAgentsModule {}

@@ -1,28 +1,17 @@
 import { Injectable } from "@nestjs/common";
 import { LlmService } from "../llm/llm.service";
 import { BaseAgent, AgentConfig } from "./base-agent";
-import { TopicExtractionAgent } from "./topic-extraction.agent";
-import { ActionItemAgent } from "./action-item.agent";
-import { SentimentAnalysisAgent } from "./sentiment-analysis.agent";
-import { SummaryAgent } from "./summary.agent";
-import { ParticipationAgent } from "./participation.agent";
-import { ContextIntegrationAgent } from "./context-integration.agent";
 import { MasterSupervisorAgent } from "./master-supervisor.agent";
 
 /**
  * Factory for creating shared/core agents
- * Domain-specific agents (calendar, email) are handled by their own modules
+ * Domain-specific agents (calendar, email, meeting analysis) are handled by their own factories
  */
 @Injectable()
 export class AgentFactory {
   constructor(
     private readonly llmService: LlmService,
-    private readonly topicExtractionAgent: TopicExtractionAgent,
-    private readonly actionItemAgent: ActionItemAgent,
-    private readonly sentimentAnalysisAgent: SentimentAnalysisAgent,
-    private readonly summaryAgent: SummaryAgent,
-    private readonly participationAgent: ParticipationAgent,
-    private readonly contextIntegrationAgent: ContextIntegrationAgent,
+    // Only truly shared agents
     private readonly masterSupervisorAgent: MasterSupervisorAgent,
   ) {}
 
@@ -41,60 +30,11 @@ export class AgentFactory {
   }
 
   /**
-   * Get the topic extraction agent
+   * Note: Domain-specific agent getters have been moved to their respective factories:
+   * - MeetingAnalysisAgentFactory for meeting analysis agents (topic extraction, action items, sentiment, summary, etc.)
+   * - CalendarAgentFactory for calendar agents (meeting context, brief, follow-up orchestration)
+   * - EmailAgentFactory for email agents (classification, summarization, reply drafts, etc.)
    */
-  getTopicExtractionAgent(): TopicExtractionAgent {
-    return this.topicExtractionAgent;
-  }
-
-  /**
-   * Get the action item agent
-   */
-  getActionItemAgent(): ActionItemAgent {
-    return this.actionItemAgent;
-  }
-
-  /**
-   * Get the sentiment analysis agent
-   */
-  getSentimentAnalysisAgent(): SentimentAnalysisAgent {
-    return this.sentimentAnalysisAgent;
-  }
-
-  /**
-   * Get the summary agent
-   */
-  getSummaryAgent(): SummaryAgent {
-    return this.summaryAgent;
-  }
-
-  /**
-   * Get the participation agent
-   */
-  getParticipationAgent(): ParticipationAgent {
-    return this.participationAgent;
-  }
-
-  /**
-   * Get the context integration agent
-   */
-  getContextIntegrationAgent(): ContextIntegrationAgent {
-    return this.contextIntegrationAgent;
-  }
-
-  /**
-   * Get all analysis agents (shared core agents only)
-   */
-  getAllAnalysisAgents(): BaseAgent[] {
-    return [
-      this.topicExtractionAgent,
-      this.actionItemAgent,
-      this.sentimentAnalysisAgent,
-      this.summaryAgent,
-      this.participationAgent,
-      this.contextIntegrationAgent,
-    ];
-  }
 
   /**
    * Create a specialized agent for topic extraction

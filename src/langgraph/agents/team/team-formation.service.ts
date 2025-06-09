@@ -36,22 +36,32 @@ export class TeamFormationService {
 
         switch (member) {
           case "topic_extraction":
-            agent = this.agentFactory.getTopicExtractionAgent();
+            agent = this.agentFactory.createTopicExtractionAgent();
             break;
           case "action_item":
-            agent = this.agentFactory.getActionItemAgent();
+            agent = this.agentFactory.createActionItemAgent();
             break;
           case "sentiment_analysis":
-            agent = this.agentFactory.getSentimentAnalysisAgent();
+            agent = this.agentFactory.createSentimentAnalysisAgent();
             break;
           case "summary":
-            agent = this.agentFactory.getSummaryAgent();
+            agent = this.agentFactory.createSummaryAgent();
             break;
           case "participation":
-            agent = this.agentFactory.getParticipationAgent();
+            // Create a basic agent for participation analysis
+            agent = this.agentFactory.createBaseAgent({
+              name: "ParticipationAgent",
+              systemPrompt: "You are a specialized agent for analyzing participant engagement and contributions in meetings.",
+              llmOptions: { temperature: 0.3, model: "gpt-4o" }
+            });
             break;
           case "context_integration":
-            agent = this.agentFactory.getContextIntegrationAgent();
+            // Create a basic agent for context integration
+            agent = this.agentFactory.createBaseAgent({
+              name: "ContextIntegrationAgent", 
+              systemPrompt: "You are a specialized agent for integrating context from multiple sources to enhance meeting analysis.",
+              llmOptions: { temperature: 0.3, model: "gpt-4o" }
+            });
             break;
           default:
             this.logger.warn(`Unknown agent type: ${member}`);

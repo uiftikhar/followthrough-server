@@ -17,6 +17,9 @@ import { TOPIC_EXTRACTION_SYSTEM_PROMPT } from 'src/instruction-promtps/meeting-
 import { AgentExpertise } from 'src/rag/agents/rag-enhanced-agent';
 import { SENTIMENT_ANALYSIS_PROMPT } from 'src/instruction-promtps/meeting-analysis/sentiment-analysis.prompt';
 
+// Meeting analysis agent factory
+import { MeetingAnalysisAgentFactory } from './meeting-analysis-agent.factory';
+
 /**
  * MeetingAnalysisAgentsModule
  * 
@@ -40,6 +43,9 @@ import { SENTIMENT_ANALYSIS_PROMPT } from 'src/instruction-promtps/meeting-analy
     RagMeetingAnalysisAgent,
     RagTopicExtractionAgent,
     RagSentimentAnalysisAgent,
+    
+    // Export meeting analysis agent factory for easy access
+    MeetingAnalysisAgentFactory,
     {
       provide: RAG_MEETING_ANALYSIS_CONFIG,
       useFactory: (): RagMeetingAnalysisConfig => ({
@@ -113,6 +119,9 @@ import { SENTIMENT_ANALYSIS_PROMPT } from 'src/instruction-promtps/meeting-analy
     RagMeetingAnalysisAgent,
     RagTopicExtractionAgent,
     RagSentimentAnalysisAgent,
+    
+    // Export the meeting analysis agent factory
+    MeetingAnalysisAgentFactory,
   ],
 })
 export class MeetingAnalysisAgentsModule {} 

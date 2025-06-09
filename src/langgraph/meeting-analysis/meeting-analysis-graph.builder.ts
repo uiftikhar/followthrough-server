@@ -1,11 +1,7 @@
-import { Injectable, Optional } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { BaseGraphBuilder } from "../core/base-graph-builder";
 import { MeetingAnalysisState } from "./interfaces/meeting-analysis-state.interface";
-import { RagMeetingAnalysisAgent } from "../agents/rag-agents/rag-meeting-agent";
-import { RagTopicExtractionAgent } from "../agents/rag-agents/rag-topic-extraction-agent";
-import { SentimentAnalysisAgent } from "../agents/sentiment-analysis.agent";
-import { ActionItemAgent } from "../agents/action-item.agent";
-import { RagSentimentAnalysisAgent } from "../agents/rag-agents/rag-sentiment-analysis-agent";
+import { MeetingAnalysisAgentFactory } from "./meeting-analysis-agent.factory";
 
 /**
  * Graph builder for meeting analysis
@@ -24,15 +20,7 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
   };
 
   constructor(
-    @Optional()
-    private readonly ragMeetingAnalysisAgent?: RagMeetingAnalysisAgent,
-    @Optional()
-    private readonly ragTopicExtractionAgent?: RagTopicExtractionAgent,
-    @Optional()
-    private readonly ragSentimentAnalysisAgent?: RagSentimentAnalysisAgent,
-    @Optional()
-    private readonly sentimentAnalysisAgent?: SentimentAnalysisAgent,
-    @Optional() private readonly actionItemAgent?: ActionItemAgent,
+    private readonly meetingAnalysisAgentFactory: MeetingAnalysisAgentFactory,
   ) {
     super();
   }
@@ -140,7 +128,8 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
         `Processing transcript of length: ${transcript.length} characters for topic extraction`,
       );
 
-      if (!this.ragTopicExtractionAgent) {
+      const ragTopicExtractionAgent = this.meetingAnalysisAgentFactory.getRagTopicExtractionAgent();
+      if (!ragTopicExtractionAgent) {
         this.logger.warn(
           " ----------------------: RAG topic extraction agent not available, using fallback",
         );
@@ -172,7 +161,7 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
       }
 
       // Use the RAG topic extraction agent with validated transcript
-      const topics = await this.ragTopicExtractionAgent.extractTopics(
+      const topics = await ragTopicExtractionAgent.extractTopics(
         transcript,
         {
           meetingId: state.meetingId,
@@ -270,7 +259,8 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
         `Processing transcript of length: ${transcript.length} characters`,
       );
 
-      if (!this.actionItemAgent) {
+      const actionItemAgent = this.meetingAnalysisAgentFactory.getActionItemAgent();
+      if (!actionItemAgent) {
         this.logger.warn(
           "ActionItemAgent not available, using fallback",
         );
@@ -282,7 +272,7 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
       }
 
       // FIXED: Use proper ActionItemAgent interface with structured input
-      const actionItemResult = await this.actionItemAgent.processState({
+      const actionItemResult = await actionItemAgent.processState({
         transcript,
         meetingId: state.meetingId,
         // Pass additional context if available
@@ -346,8 +336,11 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
   ): Promise<MeetingAnalysisState> {
     try {
       this.logger.log(`Analyzing sentiment for meeting ${state.meetingId}`);
+      const ragSentimentAnalysisAgent = this.meetingAnalysisAgentFactory.getRagSentimentAnalysisAgent();
+      const sentimentAnalysisAgent = this.meetingAnalysisAgentFactory.getSentimentAnalysisAgent();
+      
       this.logger.log(
-        `Available agents: RAG=${!!this.ragSentimentAnalysisAgent}, Regular=${!!this.sentimentAnalysisAgent}`,
+        `Available agents: RAG=${!!ragSentimentAnalysisAgent}, Regular=${!!sentimentAnalysisAgent}`,
       );
 
       // FIXED: Check transcript existence and format for sentiment analysis
@@ -388,10 +381,10 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
       );
 
       // Prefer RAG-enhanced agent if available
-      if (this.ragSentimentAnalysisAgent) {
+      if (ragSentimentAnalysisAgent) {
         this.logger.log("Using RAG-enhanced sentiment analysis agent");
 
-        const sentiment = await this.ragSentimentAnalysisAgent.analyzeSentiment(
+        const sentiment = await ragSentimentAnalysisAgent.analyzeSentiment(
           transcript,
           {
             meetingId: state.meetingId,
@@ -423,7 +416,8 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
       }
 
       // Fallback to regular sentiment agent
-      if (!this.sentimentAnalysisAgent) {
+      // const sentimentAnalysisAgent = this.meetingAnalysisAgentFactory.getSentimentAnalysisAgent();
+      if (!sentimentAnalysisAgent) {
         this.logger.warn(
           "No sentiment analysis agent available, using fallback",
         );
@@ -440,7 +434,7 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
       this.logger.log("Using regular sentiment analysis agent");
 
       // Use the SentimentAnalysisAgent to analyze sentiment with validated transcript
-      const result = await this.sentimentAnalysisAgent.processState({
+      const result = await sentimentAnalysisAgent.processState({
         transcript: transcript,
         meetingId: state.meetingId,
       });
@@ -489,7 +483,8 @@ export class MeetingAnalysisGraphBuilder extends BaseGraphBuilder<MeetingAnalysi
     try {
       this.logger.log(`Generating summary for meeting ${state.meetingId}`);
 
-      if (!this.ragMeetingAnalysisAgent) {
+      const ragMeetingAnalysisAgent = this.meetingAnalysisAgentFactory.getRagMeetingAnalysisAgent();
+      if (!ragMeetingAnalysisAgent) {
         this.logger.warn(
           "RAG meeting analysis agent not available, using fallback",
         );
@@ -530,7 +525,7 @@ ${state.transcript}
 
       // Use the RAG meeting analysis agent with SUMMARY_GENERATION expertise
       const summaryResult =
-        await this.ragMeetingAnalysisAgent.generateMeetingSummary(
+        await ragMeetingAnalysisAgent.generateMeetingSummary(
           enrichedTranscript,
           {
             meetingId: state.meetingId,
