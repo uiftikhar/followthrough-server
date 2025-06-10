@@ -86,8 +86,9 @@ export class SupervisorGraphBuilder extends BaseGraphBuilder<SupervisorState> {
           case "email":
             team = "email_triage";
             break;
-          case "customer_inquiry":
-            team = "customer_support";
+          case "calendar":
+          case "calendar_workflow":
+            team = "calendar_workflow";
             break;
           default:
             // This should not happen given the check above
@@ -112,7 +113,8 @@ export class SupervisorGraphBuilder extends BaseGraphBuilder<SupervisorState> {
         Choose from one of the following types:
         - meeting_transcript: A transcript of a meeting with multiple participants
         - email: An email or similar written communication
-        - customer_inquiry: A customer question or support request
+        - calendar: Calendar-related data, events, or scheduling information
+        - calendar_workflow: Calendar workflow processing requests
         - other: None of the above
         
         For your selection, provide a confidence score between 0.0 and 1.0, where 1.0 is completely certain.
@@ -155,8 +157,9 @@ export class SupervisorGraphBuilder extends BaseGraphBuilder<SupervisorState> {
           case "email":
             team = "email_triage";
             break;
-          case "customer_inquiry":
-            team = "customer_support";
+          case "calendar":
+          case "calendar_workflow":
+            team = "calendar_workflow";
             break;
           default:
             team = "unknown";

@@ -61,7 +61,7 @@ interface GmailEmailData {
   };
 }
 
-@Controller("api/gmail/webhooks")
+@Controller("api/webhook/google/mail")
 export class GmailWebhookController {
   private readonly logger = new Logger(GmailWebhookController.name);
   private readonly webhookSecret: string;

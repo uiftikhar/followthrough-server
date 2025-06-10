@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { TeamHandlerRegistry } from "./team-handler-registry.service";
+import { SupervisorGraphBuilder } from "../supervisor/supervisor-graph.builder";
 
 /**
  * Enhanced Graph Service that incorporates functionality from the old GraphService
@@ -24,16 +25,9 @@ export class EnhancedGraphService implements OnModuleInit {
     END: "__end__",
   };
 
-  // Node names for master supervisor graph
-  private readonly masterNodeNames = {
-    START: "__start__",
-    SUPERVISOR: "supervisor",
-    MEETING_ANALYSIS_TEAM: "meeting_analysis_team",
-    EMAIL_TRIAGE_TEAM: "email_triage_team",
-    END: "__end__",
-  };
-
-  constructor(private readonly teamHandlerRegistry: TeamHandlerRegistry) {
+  constructor(
+    private readonly supervisorGraphBuilder: SupervisorGraphBuilder,
+  ) {
     this.logger.log("EnhancedGraphService initialized");
   }
 
@@ -42,7 +36,7 @@ export class EnhancedGraphService implements OnModuleInit {
    */
   async onModuleInit() {
     this.logger.log("Building supervisor graph during initialization");
-    this.supervisorGraph = await this.buildMasterSupervisorGraph();
+    this.supervisorGraph = await this.supervisorGraphBuilder.buildGraph();
     this.logger.log("Supervisor graph built and ready for use");
   }
 
@@ -174,346 +168,51 @@ export class EnhancedGraphService implements OnModuleInit {
   }
 
   /**
-   * Build a master supervisor graph for routing between different teams
-   * This is called during initialization and stored for reuse
-   */
-  async buildMasterSupervisorGraph(): Promise<any> {
-    this.logger.log("Building master supervisor graph");
-
-    const graph = this.createGraph();
-
-    // Create supervisor node
-    const supervisorNode = async (state: any) => {
-      this.logger.log("Executing supervisor node");
-
-      // Determine the input type
-      let inputType = "unknown";
-      if (state.input?.type) {
-        inputType = state.input.type;
-      } else if (state.transcript) {
-        inputType = "meeting_transcript";
-      } else if (state.input?.emailData) {
-        inputType = "email_triage";
-      }
-
-      // Route based on input type
-      this.logger.log(`Input type: ${inputType}`);
-      if (inputType === "meeting_transcript") {
-        return {
-          ...state,
-          routing: {
-            team: "meeting_analysis",
-            reason: "Input contains a meeting transcript",
-          },
-          resultType: "meeting_analysis",
-        };
-      } else if (inputType === "email_triage" || inputType === "email") {
-        return {
-          ...state,
-          routing: {
-            team: "email_triage",
-            reason: "Input contains email content for triage",
-          },
-          resultType: "email_triage",
-        };
-      }
-
-      // Default fallback
-      return {
-        ...state,
-        routing: {
-          team: "meeting_analysis", // Default fallback
-          reason: "No specific routing determined, using default",
-        },
-        resultType: "meeting_analysis",
-      };
-    };
-
-    // Create team nodes (use team handlers from registry)
-    const meetingAnalysisTeamNode = async (state: any) => {
-      this.logger.log("Routing to meeting analysis team", JSON.stringify(state));
-
-      // Get the meeting analysis team handler from registry
-      const teamHandler =
-        this.teamHandlerRegistry.getHandler("meeting_analysis");
-
-      if (!teamHandler) {
-        this.logger.error("No handler found for meeting_analysis team");
-        return {
-          ...state,
-          error: {
-            message: "No handler found for meeting_analysis team",
-            timestamp: new Date().toISOString(),
-          },
-          result: {
-            transcript: state.input?.content || state.transcript || "",
-            topics: [],
-            actionItems: [],
-            summary: "",
-            errors: [
-              {
-                step: "meeting_analysis_team",
-                error: "No handler registered for team",
-                timestamp: new Date().toISOString(),
-              },
-            ],
-          },
-        };
-      }
-
-      try {
-        // Process with the actual team handler
-        // FIXED: Properly extract transcript from input structure
-        const result = await teamHandler.process({
-          content: state.input?.content || state.input?.transcript || state.transcript || "",
-          metadata: state.input?.metadata || {},
-        });
-
-        this.logger.log("Meeting analysis completed by team handler");
-
-        return {
-          ...state,
-          result: result,
-        };
-      } catch (error) {
-        this.logger.error(
-          `Error in meeting analysis: ${error.message}`,
-          error.stack,
-        );
-        return {
-          ...state,
-          error: {
-            message: error.message,
-            timestamp: new Date().toISOString(),
-          },
-          result: {
-            transcript: state.input?.content || state.transcript || "",
-            topics: [],
-            actionItems: [],
-            summary: "",
-            errors: [
-              {
-                step: "meeting_analysis_team",
-                error: error.message,
-                timestamp: new Date().toISOString(),
-              },
-            ],
-          },
-        };
-      }
-    };
-
-    const emailTriageTeamNode = async (state: any) => {
-      this.logger.log("Routing to email triage team");
-
-      // Get the email triage team handler from registry
-      const teamHandler = this.teamHandlerRegistry.getHandler("email_triage");
-
-      if (!teamHandler) {
-        this.logger.error("No handler found for email_triage team");
-        return {
-          ...state,
-          error: {
-            message: "No handler found for email_triage team",
-            timestamp: new Date().toISOString(),
-          },
-          result: {
-            email: state.input?.content || "",
-            categories: [],
-            priority: "medium",
-            summary: "",
-            errors: [
-              {
-                step: "email_triage_team",
-                error: "No handler registered for team",
-                timestamp: new Date().toISOString(),
-              },
-            ],
-          },
-        };
-      }
-
-      try {
-        // Process with the actual team handler
-        // EmailTriageService expects input with emailData and sessionId
-        // FIXED: Properly extract email content from input structure
-        const result = await teamHandler.process({
-          emailData: state.input?.emailData || {
-            id: state.input?.id || `email-${Date.now()}`,
-            body: state.input?.content || state.input?.body || state.input?.transcript || "",
-            metadata: state.input?.metadata || {},
-          },
-          sessionId: state.sessionId || `session-${Date.now()}`,
-        });
-
-        this.logger.log("Email triage completed by team handler");
-
-        return {
-          ...state,
-          result: result,
-        };
-      } catch (error) {
-        this.logger.error(
-          `Error in email triage: ${error.message}`,
-          error.stack,
-        );
-        return {
-          ...state,
-          error: {
-            message: error.message,
-            timestamp: new Date().toISOString(),
-          },
-          result: {
-            email: state.input?.content || "",
-            categories: [],
-            priority: "medium",
-            summary: "",
-            errors: [
-              {
-                step: "email_triage_team",
-                error: error.message,
-                timestamp: new Date().toISOString(),
-              },
-            ],
-          },
-        };
-      }
-    };
-
-    // Add nodes to the graph
-    graph.addNode(this.masterNodeNames.SUPERVISOR, supervisorNode);
-    graph.addNode(
-      this.masterNodeNames.MEETING_ANALYSIS_TEAM,
-      meetingAnalysisTeamNode,
-    );
-    graph.addNode(this.masterNodeNames.EMAIL_TRIAGE_TEAM, emailTriageTeamNode);
-
-    // Add standard edges
-    graph.addEdge(this.masterNodeNames.START, this.masterNodeNames.SUPERVISOR);
-
-    // Add conditional edge from supervisor to appropriate team
-    graph.addConditionalEdge(this.masterNodeNames.SUPERVISOR, (state: any) => {
-      if (state.routing?.team === "meeting_analysis") {
-        return this.masterNodeNames.MEETING_ANALYSIS_TEAM;
-      } else if (state.routing?.team === "email_triage") {
-        return this.masterNodeNames.EMAIL_TRIAGE_TEAM;
-      }
-      // Default to meeting analysis as fallback
-      return this.masterNodeNames.MEETING_ANALYSIS_TEAM;
-    });
-
-    // Add edges from teams to end
-    graph.addEdge(
-      this.masterNodeNames.MEETING_ANALYSIS_TEAM,
-      this.masterNodeNames.END,
-    );
-    graph.addEdge(
-      this.masterNodeNames.EMAIL_TRIAGE_TEAM,
-      this.masterNodeNames.END,
-    );
-
-    return graph;
-  }
-
-  /**
-   * Analyze a meeting transcript
-   */
-  // async analyzeMeeting(transcript: string): Promise<any> {
-  //   this.logger.log('Analyzing meeting transcript');
-
-  //   const initialState = {
-  //     transcript,
-  //     startTime: new Date().toISOString(),
-  //     stage: 'initialization',
-  //     topics: [],
-  //     actionItems: [],
-  //     sentiment: undefined,
-  //     summary: undefined,
-  //     errors: [],
-  //   };
-
-  //   // Use the pre-built supervisor graph instead of building it for each request
-  //   if (!this.supervisorGraph) {
-  //     this.logger.warn('Supervisor graph not initialized, building it now');
-  //     this.supervisorGraph = await this.buildMasterSupervisorGraph();
-  //   }
-
-  //   const finalState = await this.supervisorGraph.execute(initialState);
-
-  //   // Ensure we return a properly formatted MeetingAnalysisResult
-  //   if (finalState.result) {
-  //     // Make sure result has the correct structure and types
-  //     return {
-  //       transcript: finalState.result.transcript || transcript,
-  //       topics: finalState.result.topics || [],
-  //       actionItems: finalState.result.actionItems || [],
-  //       sentiment: finalState.result.sentiment,
-  //       summary: finalState.result.summary,
-  //       stage: 'completed',
-  //       errors: finalState.result.errors || [],
-  //     };
-  //   }
-
-  //   return {
-  //     transcript,
-  //     topics: [],
-  //     actionItems: [],
-  //     sentiment: undefined,
-  //     summary: undefined,
-  //     stage: 'failed',
-  //     errors: [{
-  //       step: 'analysis',
-  //       error: 'No result produced by the graph',
-  //       timestamp: new Date().toISOString(),
-  //     }],
-  //   };
-  // }
-
-  /**
    * Process input through the master supervisor graph
    */
   async processMasterSupervisorInput(input: any): Promise<any> {
     this.logger.log("Processing input through master supervisor");
 
-    // Prepare initial state for the master supervisor graph
-    const initialState = {
-      input: input,
-      startTime: new Date().toISOString(),
-      routing: undefined,
-      result: undefined,
-      error: undefined,
+    // Create a proper SupervisorState for the SupervisorGraphBuilder
+    const supervisorState = {
+      sessionId: input.sessionId || `session-${Date.now()}`,
+      input: {
+        type: input.type || "other",
+        content: input.content || input.transcript || JSON.stringify(input),
+        metadata: input.metadata || {},
+      },
+      status: "pending" as const,
     };
 
-    // Use the pre-built supervisor graph
+    // Use the pre-built supervisor graph from SupervisorGraphBuilder
     if (!this.supervisorGraph) {
       this.logger.warn("Supervisor graph not initialized, building it now");
-      this.supervisorGraph = await this.buildMasterSupervisorGraph();
+      this.supervisorGraph = await this.supervisorGraphBuilder.buildGraph();
     }
 
     try {
-      const finalState = await this.supervisorGraph.execute(initialState);
+      const finalState = await this.supervisorGraph.execute(supervisorState);
 
       // Return the result with proper typing based on the routing
-      if (finalState.result) {
+      if (finalState.results) {
         return {
-          ...finalState.result,
-          resultType:
-            finalState.routing?.team === "email_triage"
-              ? "email_triage"
-              : "meeting_analysis",
+          ...finalState.results,
+          resultType: finalState.routing?.team || "unknown",
+          sessionId: finalState.sessionId,
         };
       }
 
       // Handle error case
       return {
         resultType: "error",
+        sessionId: finalState.sessionId,
         error: finalState.error || {
-          message: "No result produced by the master supervisor",
+          message: "No result produced by the supervisor",
           timestamp: new Date().toISOString(),
         },
         errors: [
           {
-            step: "master_supervisor",
+            step: "supervisor",
             error: "No result produced",
             timestamp: new Date().toISOString(),
           },
@@ -521,18 +220,19 @@ export class EnhancedGraphService implements OnModuleInit {
       };
     } catch (error) {
       this.logger.error(
-        `Error in master supervisor processing: ${error.message}`,
+        `Error in supervisor processing: ${error.message}`,
         error.stack,
       );
       return {
         resultType: "error",
+        sessionId: supervisorState.sessionId,
         error: {
           message: error.message,
           timestamp: new Date().toISOString(),
         },
         errors: [
           {
-            step: "master_supervisor",
+            step: "supervisor",
             error: error.message,
             timestamp: new Date().toISOString(),
           },
@@ -540,4 +240,4 @@ export class EnhancedGraphService implements OnModuleInit {
       };
     }
   }
-}
+} 

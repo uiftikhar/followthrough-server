@@ -14,6 +14,8 @@ import { TeamHandlerRegistry } from '../langgraph/core/team-handler-registry.ser
 import { UnifiedWorkflowService } from '../langgraph/unified-workflow.service';
 import { BriefDeliveryService } from './services/brief-delivery.service';
 import { PostMeetingOrchestrationService } from './services/post-meeting-orchestration.service';
+import { CalendarEventDetectionService } from './services/calendar-event-detection.service';
+import { CalendarWebhookController } from './controllers/calendar-webhook.controller';
 
 @Module({
   imports: [
@@ -27,17 +29,23 @@ import { PostMeetingOrchestrationService } from './services/post-meeting-orchest
     CalendarWorkflowService,
     CalendarSyncService,
     GoogleCalendarService,
-        CalendarWebhookService,
+    CalendarWebhookService,
+    CalendarEventDetectionService,
     CalendarWorkflowGraphBuilder,
     UnifiedWorkflowService,
     BriefDeliveryService,
     PostMeetingOrchestrationService
   ],
-  controllers: [CalendarWorkflowController],
+  controllers: [
+    CalendarWorkflowController,
+    CalendarWebhookController,
+  ],
   exports: [
     CalendarWorkflowService,
     CalendarSyncService,
     GoogleCalendarService,
+    CalendarWebhookService,
+    CalendarEventDetectionService,
   ],
 })
 export class CalendarModule implements OnModuleInit {

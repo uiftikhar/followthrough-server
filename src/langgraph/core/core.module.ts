@@ -6,8 +6,10 @@ import { StateService } from "../state/state.service";
 import { STATE_SERVICE } from "../state/constants/injection-tokens";
 import { DatabaseModule } from "../../database/database.module";
 import { ConfigModule } from "@nestjs/config";
-import { EnhancedGraphService } from "./enhanced-graph.service";
 import { LangGraphPersistenceModule } from "../persistence/persistence.module";
+import { EnhancedGraphService } from "./enhanced-graph.service";
+import { SupervisorGraphBuilder } from "../supervisor/supervisor-graph.builder";
+import { OpenAIService } from "src/embedding/openai.service";
 
 /**
  * Core module providing the infrastructure services for agent graphs
@@ -34,6 +36,8 @@ import { LangGraphPersistenceModule } from "../persistence/persistence.module";
       provide: STATE_SERVICE,
       useExisting: StateService,
     },
+    OpenAIService,
+    SupervisorGraphBuilder,
   ],
   exports: [
     GraphExecutionService,

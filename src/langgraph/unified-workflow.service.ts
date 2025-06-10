@@ -27,7 +27,6 @@ export class UnifiedWorkflowService {
   private readonly progressMap: Map<string, number> = new Map();
 
   constructor(
-    private readonly stateService: StateService,
     private readonly eventEmitter: EventEmitter2,
     private readonly sessionRepository: SessionRepository,
     private readonly enhancedGraphService: EnhancedGraphService,
