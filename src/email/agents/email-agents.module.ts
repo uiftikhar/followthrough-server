@@ -22,7 +22,7 @@ import { EmailSnoozeAgent } from "./email-snooze.agent";
 import { EmailPatternStorageService } from "./email-pattern-storage.service";
 
 // Email agent factory
-import { EmailAgentFactory } from './email-agent.factory';
+import { EmailAgentFactory } from "./email-agent.factory";
 
 // Configuration tokens
 import {
@@ -43,14 +43,14 @@ import {
 
 /**
  * EmailAgentsModule - Domain Services Layer
- * 
+ *
  * Contains all agents specifically used for email triage workflows:
  * - Email classification and prioritization
  * - Email summarization and RAG-enhanced summarization
  * - Reply draft generation with tone learning
  * - Pattern recognition and delegation
  * - Snooze recommendations
- * 
+ *
  * This module is self-contained and has no circular dependencies.
  */
 @Module({

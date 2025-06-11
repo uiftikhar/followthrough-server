@@ -263,20 +263,22 @@ ${stateWithFormat.formatInstructions}`;
   private processTopicsResult(result: any): Topic[] {
     try {
       this.logger.log("Processing topics result from LLM");
-      this.logger.log(`Result type: ${typeof result}, preview: ${JSON.stringify(result).substring(0, 100)}...`);
+      this.logger.log(
+        `Result type: ${typeof result}, preview: ${JSON.stringify(result).substring(0, 100)}...`,
+      );
 
       let parsed = result;
 
       // Handle string responses
       if (typeof result === "string") {
         this.logger.log("Result is string, cleaning and parsing");
-        
+
         // FIXED: Enhanced JSON extraction and cleaning
-        let cleaned = result
+        const cleaned = result
           .replace(/```json\s*/gi, "")
           .replace(/```\s*/g, "")
-          .replace(/^\s*[\[\{]/, match => match.trim())
-          .replace(/[\]\}]\s*$/, match => match.trim())
+          .replace(/^\s*[\[\{]/, (match) => match.trim())
+          .replace(/[\]\}]\s*$/, (match) => match.trim())
           .trim();
 
         // Try multiple parsing strategies
@@ -285,13 +287,18 @@ ${stateWithFormat.formatInstructions}`;
           this.logger.log("Successfully parsed cleaned JSON string");
         } catch (parseError) {
           // FIXED: Try extracting JSON from within text
-          const jsonMatch = cleaned.match(/\[[\s\S]*\]/) || cleaned.match(/\{[\s\S]*\}/);
+          const jsonMatch =
+            cleaned.match(/\[[\s\S]*\]/) || cleaned.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             try {
               parsed = JSON.parse(jsonMatch[0]);
-              this.logger.log("Successfully extracted and parsed JSON from text");
+              this.logger.log(
+                "Successfully extracted and parsed JSON from text",
+              );
             } catch (extractError) {
-              this.logger.warn("JSON extraction failed, trying alternative parsing");
+              this.logger.warn(
+                "JSON extraction failed, trying alternative parsing",
+              );
               // FIXED: Try parsing as individual topic objects
               parsed = this.parseTopicsFromText(cleaned);
             }
@@ -307,7 +314,7 @@ ${stateWithFormat.formatInstructions}`;
         this.logger.log("Result is array, validating topics");
         return parsed
           .map((item: any) => this.convertToTopic(item))
-          .filter((topic: Topic | null) => topic !== null) as Topic[];
+          .filter((topic: Topic | null) => topic !== null);
       }
 
       // Handle single topic object
@@ -325,7 +332,9 @@ ${stateWithFormat.formatInstructions}`;
       }
 
       // FIXED: Enhanced fallback with context analysis
-      this.logger.warn("All parsing attempts failed, creating enhanced fallback topics");
+      this.logger.warn(
+        "All parsing attempts failed, creating enhanced fallback topics",
+      );
       return this.createFallbackTopics(result);
     } catch (error) {
       this.logger.error(`Error processing topics result: ${error.message}`);
@@ -339,7 +348,7 @@ ${stateWithFormat.formatInstructions}`;
   private parseTopicsFromText(text: string): any[] {
     try {
       const topics: any[] = [];
-      
+
       // Look for topic patterns in text
       const topicPatterns = [
         /(?:topic|subject|theme):\s*([^\n\r;,]+)/gi,
@@ -374,24 +383,25 @@ ${stateWithFormat.formatInstructions}`;
    */
   private createFallbackTopics(originalResult: any): Topic[] {
     this.logger.log("Creating enhanced fallback topics with context analysis");
-    
+
     try {
       // Try to extract some context from the original result
-      const resultText = typeof originalResult === 'string' 
-        ? originalResult 
-        : JSON.stringify(originalResult);
-      
+      const resultText =
+        typeof originalResult === "string"
+          ? originalResult
+          : JSON.stringify(originalResult);
+
       // FIXED: Create multiple fallback topics based on common meeting patterns (no description for interface compatibility)
       const fallbackTopics: Topic[] = [
         {
           name: "General Discussion",
           relevance: 3,
           keywords: ["discussion", "meeting", "general"],
-        }
+        },
       ];
 
       // FIXED: Try to identify additional topics from text patterns
-      if (resultText.toLowerCase().includes('project')) {
+      if (resultText.toLowerCase().includes("project")) {
         fallbackTopics.push({
           name: "Project Updates",
           relevance: 4,
@@ -399,7 +409,10 @@ ${stateWithFormat.formatInstructions}`;
         });
       }
 
-      if (resultText.toLowerCase().includes('budget') || resultText.toLowerCase().includes('cost')) {
+      if (
+        resultText.toLowerCase().includes("budget") ||
+        resultText.toLowerCase().includes("cost")
+      ) {
         fallbackTopics.push({
           name: "Budget and Costs",
           relevance: 4,
@@ -407,7 +420,10 @@ ${stateWithFormat.formatInstructions}`;
         });
       }
 
-      if (resultText.toLowerCase().includes('timeline') || resultText.toLowerCase().includes('schedule')) {
+      if (
+        resultText.toLowerCase().includes("timeline") ||
+        resultText.toLowerCase().includes("schedule")
+      ) {
         fallbackTopics.push({
           name: "Timeline and Scheduling",
           relevance: 4,
@@ -418,11 +434,13 @@ ${stateWithFormat.formatInstructions}`;
       return fallbackTopics;
     } catch (error) {
       this.logger.error(`Error creating fallback topics: ${error.message}`);
-      return [{
-        name: "Meeting Discussion",
-        relevance: 2,
-        keywords: ["meeting", "discussion"],
-      }];
+      return [
+        {
+          name: "Meeting Discussion",
+          relevance: 2,
+          keywords: ["meeting", "discussion"],
+        },
+      ];
     }
   }
 
@@ -444,7 +462,9 @@ ${stateWithFormat.formatInstructions}`;
       topic.description = item.description || item.summary;
     }
 
-    const relevance = this.validateRelevance(item.relevance || item.importance || item.score);
+    const relevance = this.validateRelevance(
+      item.relevance || item.importance || item.score,
+    );
     if (relevance !== undefined) {
       topic.relevance = relevance;
     }
@@ -453,7 +473,7 @@ ${stateWithFormat.formatInstructions}`;
       topic.keywords = item.keywords;
     } else if (Array.isArray(item.tags)) {
       topic.keywords = item.tags;
-    } else if (item.keywords && typeof item.keywords === 'string') {
+    } else if (item.keywords && typeof item.keywords === "string") {
       topic.keywords = [item.keywords];
     }
 
@@ -465,12 +485,16 @@ ${stateWithFormat.formatInstructions}`;
       topic.participants = item.participants;
     }
 
-    if (typeof item.duration === 'number' && item.duration > 0) {
+    if (typeof item.duration === "number" && item.duration > 0) {
       topic.duration = item.duration;
     }
 
     // FIXED: Validate that we have at least a meaningful name
-    if (!topic.name || topic.name.trim().length < 2 || topic.name === "Unknown Topic") {
+    if (
+      !topic.name ||
+      topic.name.trim().length < 2 ||
+      topic.name === "Unknown Topic"
+    ) {
       return null;
     }
 
@@ -481,17 +505,17 @@ ${stateWithFormat.formatInstructions}`;
    * FIXED: Validate relevance score
    */
   private validateRelevance(relevance: any): number | undefined {
-    if (typeof relevance === 'number') {
+    if (typeof relevance === "number") {
       return Math.max(1, Math.min(10, Math.round(relevance)));
     }
-    
-    if (typeof relevance === 'string') {
+
+    if (typeof relevance === "string") {
       const parsed = parseInt(relevance, 10);
       if (!isNaN(parsed)) {
         return Math.max(1, Math.min(10, parsed));
       }
     }
-    
+
     return undefined;
   }
 

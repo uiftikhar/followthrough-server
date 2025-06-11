@@ -692,7 +692,7 @@ export class GmailWebhookController {
 
               const emailData = await this.transformGmailMessage(
                 gmail,
-                messageAdded.message!,
+                messageAdded.message,
                 emailAddress,
                 userId,
               );

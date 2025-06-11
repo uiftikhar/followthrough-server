@@ -1,11 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { CalendarEvent } from '../interfaces/calendar-event.interface';
-import { CalendarWebhookService, CalendarEventTrigger } from './calendar-webhook.service';
-import { GoogleCalendarService } from './google-calendar.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { CalendarEvent } from "../interfaces/calendar-event.interface";
+import {
+  CalendarWebhookService,
+  CalendarEventTrigger,
+} from "./calendar-webhook.service";
+import { GoogleCalendarService } from "./google-calendar.service";
 
 export interface EventChange {
-  type: 'created' | 'updated' | 'deleted' | 'started' | 'ended';
+  type: "created" | "updated" | "deleted" | "started" | "ended";
   event: CalendarEvent;
   timestamp: string;
   metadata?: Record<string, any>;
@@ -21,12 +24,15 @@ export interface MeetingTimeWindow {
 @Injectable()
 export class CalendarEventDetectionService {
   private readonly logger = new Logger(CalendarEventDetectionService.name);
-  
+
   // Track processed events to avoid duplicate processing
   private readonly processedEvents = new Map<string, string>(); // eventId -> lastProcessedTime
-  
+
   // Track meeting states
-  private readonly meetingStates = new Map<string, 'scheduled' | 'starting' | 'active' | 'ended'>();
+  private readonly meetingStates = new Map<
+    string,
+    "scheduled" | "starting" | "active" | "ended"
+  >();
 
   constructor(
     private readonly eventEmitter: EventEmitter2,
@@ -40,8 +46,13 @@ export class CalendarEventDetectionService {
   /**
    * 🚀 Process calendar event changes from webhook notifications
    */
-  async processEventChanges(userId: string, events: CalendarEvent[]): Promise<void> {
-    this.logger.log(`🔍 Processing ${events.length} event changes for user ${userId}`);
+  async processEventChanges(
+    userId: string,
+    events: CalendarEvent[],
+  ): Promise<void> {
+    this.logger.log(
+      `🔍 Processing ${events.length} event changes for user ${userId}`,
+    );
 
     try {
       const eventChanges: EventChange[] = [];
@@ -53,7 +64,9 @@ export class CalendarEventDetectionService {
         }
       }
 
-      this.logger.log(`📊 Detected ${eventChanges.length} significant event changes`);
+      this.logger.log(
+        `📊 Detected ${eventChanges.length} significant event changes`,
+      );
 
       // Process each change type
       for (const change of eventChanges) {
@@ -62,16 +75,21 @@ export class CalendarEventDetectionService {
 
       // Check for meetings starting/ending soon based on the current time
       await this.checkMeetingTimings(userId, events);
-
     } catch (error) {
-      this.logger.error(`❌ Error processing event changes for user ${userId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `❌ Error processing event changes for user ${userId}: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
   /**
    * 🚀 Detect what type of change occurred for an event
    */
-  private async detectEventChange(userId: string, event: CalendarEvent): Promise<EventChange | null> {
+  private async detectEventChange(
+    userId: string,
+    event: CalendarEvent,
+  ): Promise<EventChange | null> {
     const eventKey = `${userId}-${event.id}`;
     const lastProcessed = this.processedEvents.get(eventKey);
     const currentTime = new Date().toISOString();
@@ -80,10 +98,10 @@ export class CalendarEventDetectionService {
     if (!lastProcessed) {
       this.processedEvents.set(eventKey, currentTime);
       return {
-        type: 'created',
+        type: "created",
         event,
         timestamp: currentTime,
-        metadata: { isNew: true }
+        metadata: { isNew: true },
       };
     }
 
@@ -94,13 +112,13 @@ export class CalendarEventDetectionService {
     if (eventUpdatedTime > lastProcessedTime) {
       this.processedEvents.set(eventKey, currentTime);
       return {
-        type: 'updated',
+        type: "updated",
         event,
         timestamp: currentTime,
-        metadata: { 
+        metadata: {
           lastProcessed: lastProcessed,
-          timeDiff: eventUpdatedTime.getTime() - lastProcessedTime.getTime()
-        }
+          timeDiff: eventUpdatedTime.getTime() - lastProcessedTime.getTime(),
+        },
       };
     }
 
@@ -110,23 +128,28 @@ export class CalendarEventDetectionService {
   /**
    * 🚀 Process individual event change
    */
-  private async processEventChange(userId: string, change: EventChange): Promise<void> {
-    this.logger.log(`🎯 Processing ${change.type} event: ${change.event.title} (${change.event.id})`);
+  private async processEventChange(
+    userId: string,
+    change: EventChange,
+  ): Promise<void> {
+    this.logger.log(
+      `🎯 Processing ${change.type} event: ${change.event.title} (${change.event.id})`,
+    );
 
     switch (change.type) {
-      case 'created':
+      case "created":
         await this.handleEventCreated(userId, change.event);
         break;
-      case 'updated':
+      case "updated":
         await this.handleEventUpdated(userId, change.event);
         break;
-      case 'deleted':
+      case "deleted":
         await this.handleEventDeleted(userId, change.event);
         break;
-      case 'started':
+      case "started":
         await this.handleMeetingStarted(userId, change.event);
         break;
-      case 'ended':
+      case "ended":
         await this.handleMeetingEnded(userId, change.event);
         break;
     }
@@ -135,37 +158,60 @@ export class CalendarEventDetectionService {
   /**
    * 🚀 Check meeting timings to detect starts/ends
    */
-  private async checkMeetingTimings(userId: string, events: CalendarEvent[]): Promise<void> {
+  private async checkMeetingTimings(
+    userId: string,
+    events: CalendarEvent[],
+  ): Promise<void> {
     const now = new Date();
-    
+
     for (const event of events) {
       const startTime = new Date(event.startTime);
       const endTime = new Date(event.endTime);
       const eventKey = `${userId}-${event.id}`;
-      
-      const minutesToStart = Math.floor((startTime.getTime() - now.getTime()) / (1000 * 60));
-      const minutesSinceEnd = Math.floor((now.getTime() - endTime.getTime()) / (1000 * 60));
-      
-      const currentState = this.meetingStates.get(eventKey) || 'scheduled';
+
+      const minutesToStart = Math.floor(
+        (startTime.getTime() - now.getTime()) / (1000 * 60),
+      );
+      const minutesSinceEnd = Math.floor(
+        (now.getTime() - endTime.getTime()) / (1000 * 60),
+      );
+
+      const currentState = this.meetingStates.get(eventKey) || "scheduled";
 
       // Meeting starting soon (within 5 minutes)
-      if (minutesToStart <= 5 && minutesToStart > 0 && currentState === 'scheduled') {
-        this.logger.log(`🚀 Meeting starting soon: ${event.title} (in ${minutesToStart} minutes)`);
-        this.meetingStates.set(eventKey, 'starting');
+      if (
+        minutesToStart <= 5 &&
+        minutesToStart > 0 &&
+        currentState === "scheduled"
+      ) {
+        this.logger.log(
+          `🚀 Meeting starting soon: ${event.title} (in ${minutesToStart} minutes)`,
+        );
+        this.meetingStates.set(eventKey, "starting");
         await this.handleMeetingStartingSoon(userId, event, minutesToStart);
       }
 
       // Meeting just started (within 2 minutes of start time)
-      if (minutesToStart <= 0 && minutesToStart >= -2 && currentState === 'starting') {
+      if (
+        minutesToStart <= 0 &&
+        minutesToStart >= -2 &&
+        currentState === "starting"
+      ) {
         this.logger.log(`▶️ Meeting started: ${event.title}`);
-        this.meetingStates.set(eventKey, 'active');
+        this.meetingStates.set(eventKey, "active");
         await this.handleMeetingStarted(userId, event);
       }
 
       // Meeting just ended (within 5 minutes of end time)
-      if (minutesSinceEnd <= 5 && minutesSinceEnd > 0 && currentState === 'active') {
-        this.logger.log(`🏁 Meeting ended: ${event.title} (${minutesSinceEnd} minutes ago)`);
-        this.meetingStates.set(eventKey, 'ended');
+      if (
+        minutesSinceEnd <= 5 &&
+        minutesSinceEnd > 0 &&
+        currentState === "active"
+      ) {
+        this.logger.log(
+          `🏁 Meeting ended: ${event.title} (${minutesSinceEnd} minutes ago)`,
+        );
+        this.meetingStates.set(eventKey, "ended");
         await this.handleMeetingEnded(userId, event);
       }
     }
@@ -174,38 +220,44 @@ export class CalendarEventDetectionService {
   /**
    * 🚀 Handle new event creation
    */
-  private async handleEventCreated(userId: string, event: CalendarEvent): Promise<void> {
+  private async handleEventCreated(
+    userId: string,
+    event: CalendarEvent,
+  ): Promise<void> {
     this.logger.log(`📅 New event created: ${event.title}`);
-    
+
     // Check if we need to schedule a pre-meeting brief
     const startTime = new Date(event.startTime);
     const now = new Date();
-    
+
     // Only schedule briefs for meetings more than 30 minutes in the future
     if (startTime.getTime() - now.getTime() > 30 * 60 * 1000) {
       await this.calendarWebhookService.schedulePreMeetingBrief(event, userId);
     }
 
     // Emit event for other services
-    this.eventEmitter.emit('calendar.event_created', {
-      eventType: 'meeting_created',
+    this.eventEmitter.emit("calendar.event_created", {
+      eventType: "meeting_created",
       calendarEvent: event,
       userId,
       provider: event.provider,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     } as CalendarEventTrigger);
   }
 
   /**
    * 🚀 Handle event updates
    */
-  private async handleEventUpdated(userId: string, event: CalendarEvent): Promise<void> {
+  private async handleEventUpdated(
+    userId: string,
+    event: CalendarEvent,
+  ): Promise<void> {
     this.logger.log(`📝 Event updated: ${event.title}`);
-    
+
     // If timing changed, reschedule brief if needed
     const startTime = new Date(event.startTime);
     const now = new Date();
-    
+
     if (startTime.getTime() - now.getTime() > 30 * 60 * 1000) {
       // Cancel existing brief and reschedule
       await this.calendarWebhookService.cancelScheduledBrief(event.id);
@@ -213,24 +265,27 @@ export class CalendarEventDetectionService {
     }
 
     // Emit event for other services
-    this.eventEmitter.emit('calendar.event_updated', {
-      eventType: 'meeting_updated',
+    this.eventEmitter.emit("calendar.event_updated", {
+      eventType: "meeting_updated",
       calendarEvent: event,
       userId,
       provider: event.provider,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     } as CalendarEventTrigger);
   }
 
   /**
    * 🚀 Handle event deletion
    */
-  private async handleEventDeleted(userId: string, event: CalendarEvent): Promise<void> {
+  private async handleEventDeleted(
+    userId: string,
+    event: CalendarEvent,
+  ): Promise<void> {
     this.logger.log(`🗑️ Event deleted: ${event.title}`);
-    
+
     // Cancel any scheduled brief
     await this.calendarWebhookService.cancelScheduledBrief(event.id);
-    
+
     // Clean up tracking data
     const eventKey = `${userId}-${event.id}`;
     this.processedEvents.delete(eventKey);
@@ -240,9 +295,15 @@ export class CalendarEventDetectionService {
   /**
    * 🚀 Handle meeting starting soon
    */
-  private async handleMeetingStartingSoon(userId: string, event: CalendarEvent, minutesToStart: number): Promise<void> {
-    this.logger.log(`⏰ Meeting starting soon: ${event.title} (${minutesToStart} minutes)`);
-    
+  private async handleMeetingStartingSoon(
+    userId: string,
+    event: CalendarEvent,
+    minutesToStart: number,
+  ): Promise<void> {
+    this.logger.log(
+      `⏰ Meeting starting soon: ${event.title} (${minutesToStart} minutes)`,
+    );
+
     // If no brief was sent yet, send it now
     const scheduledBriefs = this.calendarWebhookService.getScheduledBriefs();
     if (!scheduledBriefs.includes(event.id)) {
@@ -254,18 +315,24 @@ export class CalendarEventDetectionService {
   /**
    * 🚀 Handle meeting started
    */
-  private async handleMeetingStarted(userId: string, event: CalendarEvent): Promise<void> {
+  private async handleMeetingStarted(
+    userId: string,
+    event: CalendarEvent,
+  ): Promise<void> {
     this.logger.log(`▶️ Meeting started: ${event.title}`);
-    
+
     await this.calendarWebhookService.handleMeetingStarted(event, userId);
   }
 
   /**
    * 🚀 Handle meeting ended
    */
-  private async handleMeetingEnded(userId: string, event: CalendarEvent): Promise<void> {
+  private async handleMeetingEnded(
+    userId: string,
+    event: CalendarEvent,
+  ): Promise<void> {
     this.logger.log(`🏁 Meeting ended: ${event.title}`);
-    
+
     await this.calendarWebhookService.handleMeetingEnded(event, userId);
   }
 
@@ -273,13 +340,18 @@ export class CalendarEventDetectionService {
    * 🚀 Start periodic meeting detection (checks every minute)
    */
   private startPeriodicMeetingDetection(): void {
-    this.logger.log('🕒 Starting periodic meeting detection (every 60 seconds)');
-    
+    this.logger.log(
+      "🕒 Starting periodic meeting detection (every 60 seconds)",
+    );
+
     setInterval(async () => {
       try {
         await this.performPeriodicMeetingCheck();
       } catch (error) {
-        this.logger.error(`❌ Error in periodic meeting detection: ${error.message}`, error.stack);
+        this.logger.error(
+          `❌ Error in periodic meeting detection: ${error.message}`,
+          error.stack,
+        );
       }
     }, 60 * 1000); // Check every minute
   }
@@ -288,28 +360,32 @@ export class CalendarEventDetectionService {
    * 🚀 Perform periodic check for meetings starting/ending soon
    */
   private async performPeriodicMeetingCheck(): Promise<void> {
-    this.logger.debug('🔍 Performing periodic meeting timing check');
-    
+    this.logger.debug("🔍 Performing periodic meeting timing check");
+
     try {
       // Get all active channels to check their users
       const activeChannels = this.googleCalendarService.getActiveChannels();
-      
+
       for (const [userId, channel] of activeChannels) {
         // Check for meetings starting soon
-        const startingSoon = await this.googleCalendarService.getEventsStartingSoon(userId, 10);
-        
+        const startingSoon =
+          await this.googleCalendarService.getEventsStartingSoon(userId, 10);
+
         // Check for meetings that ended recently
-        const endedRecently = await this.googleCalendarService.getEventsEndedRecently(userId, 10);
-        
+        const endedRecently =
+          await this.googleCalendarService.getEventsEndedRecently(userId, 10);
+
         // Process both sets of events
         const allEvents = [...startingSoon, ...endedRecently];
         if (allEvents.length > 0) {
           await this.checkMeetingTimings(userId, allEvents);
         }
       }
-      
     } catch (error) {
-      this.logger.error(`❌ Error in periodic meeting check: ${error.message}`, error.stack);
+      this.logger.error(
+        `❌ Error in periodic meeting check: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
@@ -329,10 +405,13 @@ export class CalendarEventDetectionService {
     activeStates: Record<string, number>;
   } {
     const states = Array.from(this.meetingStates.values());
-    const stateCount = states.reduce((acc, state) => {
-      acc[state] = (acc[state] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const stateCount = states.reduce(
+      (acc, state) => {
+        acc[state] = (acc[state] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     return {
       processedEvents: this.processedEvents.size,
@@ -340,4 +419,4 @@ export class CalendarEventDetectionService {
       activeStates: stateCount,
     };
   }
-} 
+}

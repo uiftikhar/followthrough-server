@@ -1,38 +1,40 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { GoogleCalendarService } from './google-calendar.service';
-import { CalendarEvent, CalendarSyncStatus } from '../interfaces/calendar-event.interface';
+import { Injectable, Logger } from "@nestjs/common";
+import { GoogleCalendarService } from "./google-calendar.service";
+import {
+  CalendarEvent,
+  CalendarSyncStatus,
+} from "../interfaces/calendar-event.interface";
 
 @Injectable()
 export class CalendarSyncService {
   private readonly logger = new Logger(CalendarSyncService.name);
   private readonly syncStatuses = new Map<string, CalendarSyncStatus>();
 
-  constructor(
-    private readonly googleCalendarService: GoogleCalendarService,
-  ) {}
+  constructor(private readonly googleCalendarService: GoogleCalendarService) {}
 
   /**
    * Sync calendar events for a user
    */
   async syncUserCalendar(userId: string): Promise<CalendarEvent[]> {
     this.logger.log(`Starting calendar sync for user ${userId}`);
-    
+
     try {
       // Update sync status to in progress
-      this.updateSyncStatus(userId, 'active');
-      
+      this.updateSyncStatus(userId, "active");
+
       // Get upcoming events from Google Calendar
       const events = await this.googleCalendarService.getUpcomingEvents(userId);
-      
+
       // Update last sync time
-      this.updateSyncStatus(userId, 'active', undefined, new Date());
-      
+      this.updateSyncStatus(userId, "active", undefined, new Date());
+
       this.logger.log(`Synced ${events.length} events for user ${userId}`);
       return events;
-      
     } catch (error) {
-      this.logger.error(`Error syncing calendar for user ${userId}: ${error.message}`);
-      this.updateSyncStatus(userId, 'error', error.message);
+      this.logger.error(
+        `Error syncing calendar for user ${userId}: ${error.message}`,
+      );
+      this.updateSyncStatus(userId, "error", error.message);
       throw error;
     }
   }
@@ -48,15 +50,15 @@ export class CalendarSyncService {
    * Update sync status for a user
    */
   private updateSyncStatus(
-    userId: string, 
-    status: 'active' | 'paused' | 'error', 
+    userId: string,
+    status: "active" | "paused" | "error",
     errorMessage?: string,
-    lastSyncAt?: Date
+    lastSyncAt?: Date,
   ): void {
     const currentStatus = this.syncStatuses.get(userId) || {
       userId,
-      provider: 'google',
-      status: 'paused',
+      provider: "google",
+      status: "paused",
     };
 
     this.syncStatuses.set(userId, {
@@ -72,7 +74,7 @@ export class CalendarSyncService {
    */
   isCalendarSynced(userId: string): boolean {
     const status = this.getSyncStatus(userId);
-    if (!status || status.status === 'error') {
+    if (!status || status.status === "error") {
       return false;
     }
 
@@ -106,7 +108,7 @@ export class CalendarSyncService {
     const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000);
     const now = new Date();
 
-    return events.filter(event => {
+    return events.filter((event) => {
       const eventStart = new Date(event.startTime);
       return eventStart >= now && eventStart <= twoHoursFromNow;
     });
@@ -120,9 +122,12 @@ export class CalendarSyncService {
     const now = new Date();
 
     const upcomingEvents = events
-      .filter(event => new Date(event.startTime) > now)
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      .filter((event) => new Date(event.startTime) > now)
+      .sort(
+        (a, b) =>
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+      );
 
     return upcomingEvents.length > 0 ? upcomingEvents[0] : null;
   }
-} 
+}

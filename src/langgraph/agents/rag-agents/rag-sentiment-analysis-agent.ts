@@ -41,7 +41,7 @@ export interface SentimentAnalysis {
 
 /**
  * RAG-Enhanced Sentiment Analysis Agent
- * 
+ *
  * Specialized agent for analyzing sentiment in meeting transcripts
  * with enhanced context from previous sentiment analyses
  */
@@ -100,33 +100,36 @@ export class RagSentimentAnalysisAgent extends RagEnhancedAgent {
         participantNames: options?.participantNames || [],
       };
 
-             // Enhance with RAG context using similar sentiment analyses
-       const query = `Sentiment analysis for meeting: ${transcript.substring(0, 200)}...`;
-       
-       // Prepare retrieval options
-       const retrievalOptions = {
-         indexName: "meeting-analysis",
-         namespace: "sentiment-analysis",
-         topK: options?.retrievalOptions?.topK || 3,
-         minScore: options?.retrievalOptions?.minScore || 0.7,
-       };
-       
-       const enhancedState = await this.ragService.enhanceStateWithContext(
-         state,
-         query,
-         retrievalOptions,
-       );
+      // Enhance with RAG context using similar sentiment analyses
+      const query = `Sentiment analysis for meeting: ${transcript.substring(0, 200)}...`;
 
-       // Generate prompt for sentiment analysis
-       const prompt = `${SENTIMENT_ANALYSIS_PROMPT}
+      // Prepare retrieval options
+      const retrievalOptions = {
+        indexName: "meeting-analysis",
+        namespace: "sentiment-analysis",
+        topK: options?.retrievalOptions?.topK || 3,
+        minScore: options?.retrievalOptions?.minScore || 0.7,
+      };
+
+      const enhancedState = await this.ragService.enhanceStateWithContext(
+        state,
+        query,
+        retrievalOptions,
+      );
+
+      // Generate prompt for sentiment analysis
+      const prompt = `${SENTIMENT_ANALYSIS_PROMPT}
 
 Meeting Transcript:
 ${transcript}
 
 Please analyze the sentiment of this meeting transcript and provide a comprehensive sentiment analysis in the specified JSON format.`;
 
-       // Execute LLM request with enhanced context
-       const result = await this.executeSentimentLlmRequest(prompt, enhancedState);
+      // Execute LLM request with enhanced context
+      const result = await this.executeSentimentLlmRequest(
+        prompt,
+        enhancedState,
+      );
 
       // Process and validate the result
       return this.processSentimentResult(result);
@@ -149,7 +152,10 @@ Please analyze the sentiment of this meeting transcript and provide a comprehens
   /**
    * Execute LLM request for sentiment analysis
    */
-  private async executeSentimentLlmRequest(prompt: string, state: any): Promise<any> {
+  private async executeSentimentLlmRequest(
+    prompt: string,
+    state: any,
+  ): Promise<any> {
     try {
       this.logger.log("Executing LLM request for sentiment analysis");
 
@@ -226,22 +232,26 @@ Please analyze the sentiment of this meeting transcript and provide a comprehens
         }
       }
 
-      this.logger.log(`Attempting to parse JSON: ${JSON.stringify(parsed).substring(0, 200)}...`);
+      this.logger.log(
+        `Attempting to parse JSON: ${JSON.stringify(parsed).substring(0, 200)}...`,
+      );
 
       // Enhanced sentiment object validation and construction
       const sentiment: SentimentAnalysis = {
-        overall: this.normalizeOverallSentiment(parsed.overall || parsed.sentiment || "neutral"),
+        overall: this.normalizeOverallSentiment(
+          parsed.overall || parsed.sentiment || "neutral",
+        ),
         score: this.normalizeScore(parsed.score || 0),
         segments: this.processSegments(parsed.segments || []),
-        keyEmotions: Array.isArray(parsed.keyEmotions) 
-          ? parsed.keyEmotions 
-          : Array.isArray(parsed.emotions) 
-            ? parsed.emotions 
+        keyEmotions: Array.isArray(parsed.keyEmotions)
+          ? parsed.keyEmotions
+          : Array.isArray(parsed.emotions)
+            ? parsed.emotions
             : [],
-        toneShifts: Array.isArray(parsed.toneShifts) 
-          ? parsed.toneShifts 
-          : Array.isArray(parsed.shifts) 
-            ? parsed.shifts 
+        toneShifts: Array.isArray(parsed.toneShifts)
+          ? parsed.toneShifts
+          : Array.isArray(parsed.shifts)
+            ? parsed.shifts
             : [],
       };
 
@@ -262,7 +272,7 @@ Please analyze the sentiment of this meeting transcript and provide a comprehens
    */
   private extractSentimentFromText(text: string): any {
     this.logger.log("Extracting sentiment from plain text");
-    
+
     const sentiment: any = {
       overall: "neutral",
       score: 0,
@@ -272,13 +282,13 @@ Please analyze the sentiment of this meeting transcript and provide a comprehens
     };
 
     // Extract overall sentiment
-    if (text.toLowerCase().includes('positive')) {
+    if (text.toLowerCase().includes("positive")) {
       sentiment.overall = "positive";
       sentiment.score = 0.5;
-    } else if (text.toLowerCase().includes('negative')) {
-      sentiment.overall = "negative"; 
+    } else if (text.toLowerCase().includes("negative")) {
+      sentiment.overall = "negative";
       sentiment.score = -0.5;
-    } else if (text.toLowerCase().includes('mixed')) {
+    } else if (text.toLowerCase().includes("mixed")) {
       sentiment.overall = "mixed";
       sentiment.score = 0.1;
     }
@@ -322,7 +332,9 @@ Please analyze the sentiment of this meeting transcript and provide a comprehens
       .filter((segment: any) => segment && (segment.text || segment.content))
       .map((segment: any) => ({
         text: segment.text || segment.content || "",
-        sentiment: this.normalizeSegmentSentiment(segment.sentiment || "neutral"),
+        sentiment: this.normalizeSegmentSentiment(
+          segment.sentiment || "neutral",
+        ),
         score: this.normalizeScore(segment.score || 0),
         speaker: this.extractSpeakerFromSegment(segment),
         timestamp: segment.timestamp || undefined,
@@ -337,21 +349,21 @@ Please analyze the sentiment of this meeting transcript and provide a comprehens
     if (!segment) return undefined;
 
     // Check direct speaker properties
-    if (segment.speaker && typeof segment.speaker === 'string') {
+    if (segment.speaker && typeof segment.speaker === "string") {
       return segment.speaker.trim();
     }
 
-    if (segment.author && typeof segment.author === 'string') {
+    if (segment.author && typeof segment.author === "string") {
       return segment.author.trim();
     }
 
-    if (segment.name && typeof segment.name === 'string') {
+    if (segment.name && typeof segment.name === "string") {
       return segment.name.trim();
     }
 
     // Try to extract speaker from text using common patterns
     const text = segment.text || segment.content || "";
-    if (typeof text !== 'string') return undefined;
+    if (typeof text !== "string") return undefined;
 
     const speakerPatterns = [
       /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*):/, // "John Smith:"
@@ -365,7 +377,11 @@ Please analyze the sentiment of this meeting transcript and provide a comprehens
       if (match && match[1]) {
         const speaker = match[1].trim();
         // Validate speaker name (basic check)
-        if (speaker.length > 1 && speaker.length < 50 && /^[A-Za-z\s]+$/.test(speaker)) {
+        if (
+          speaker.length > 1 &&
+          speaker.length < 50 &&
+          /^[A-Za-z\s]+$/.test(speaker)
+        ) {
           return speaker;
         }
       }
@@ -377,16 +393,18 @@ Please analyze the sentiment of this meeting transcript and provide a comprehens
   /**
    * Normalize overall sentiment value
    */
-  private normalizeOverallSentiment(overall: any): "positive" | "negative" | "neutral" | "mixed" {
-    if (typeof overall === 'string') {
+  private normalizeOverallSentiment(
+    overall: any,
+  ): "positive" | "negative" | "neutral" | "mixed" {
+    if (typeof overall === "string") {
       const normalized = overall.toLowerCase().trim();
-      if (['positive', 'pos', 'good', 'happy'].includes(normalized)) {
+      if (["positive", "pos", "good", "happy"].includes(normalized)) {
         return "positive";
       }
-      if (['negative', 'neg', 'bad', 'sad', 'angry'].includes(normalized)) {
+      if (["negative", "neg", "bad", "sad", "angry"].includes(normalized)) {
         return "negative";
       }
-      if (['mixed', 'varied', 'complex'].includes(normalized)) {
+      if (["mixed", "varied", "complex"].includes(normalized)) {
         return "mixed";
       }
     }
@@ -396,13 +414,15 @@ Please analyze the sentiment of this meeting transcript and provide a comprehens
   /**
    * Normalize segment sentiment value (no mixed for segments)
    */
-  private normalizeSegmentSentiment(sentiment: any): "positive" | "negative" | "neutral" {
-    if (typeof sentiment === 'string') {
+  private normalizeSegmentSentiment(
+    sentiment: any,
+  ): "positive" | "negative" | "neutral" {
+    if (typeof sentiment === "string") {
       const normalized = sentiment.toLowerCase().trim();
-      if (['positive', 'pos', 'good', 'happy'].includes(normalized)) {
+      if (["positive", "pos", "good", "happy"].includes(normalized)) {
         return "positive";
       }
-      if (['negative', 'neg', 'bad', 'sad', 'angry'].includes(normalized)) {
+      if (["negative", "neg", "bad", "sad", "angry"].includes(normalized)) {
         return "negative";
       }
     }
@@ -413,17 +433,17 @@ Please analyze the sentiment of this meeting transcript and provide a comprehens
    * Normalize sentiment score to -1 to 1 range
    */
   private normalizeScore(score: any): number {
-    if (typeof score === 'number') {
+    if (typeof score === "number") {
       return Math.max(-1, Math.min(1, score));
     }
-    
-    if (typeof score === 'string') {
+
+    if (typeof score === "string") {
       const parsed = parseFloat(score);
       if (!isNaN(parsed)) {
         return Math.max(-1, Math.min(1, parsed));
       }
     }
-    
+
     return 0;
   }
 
@@ -496,4 +516,4 @@ ${context.documents
 Use the above context to inform your sentiment analysis, but focus on the current meeting content.
 `;
   }
-} 
+}

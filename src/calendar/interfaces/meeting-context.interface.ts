@@ -7,7 +7,7 @@ export interface ParticipantHistory {
     title: string;
     date: string;
     duration: number;
-    role: 'organizer' | 'attendee';
+    role: "organizer" | "attendee";
   }>;
   commonTopics: string[];
   preferredMeetingTimes: Array<{
@@ -21,9 +21,9 @@ export interface ParticipantHistory {
     lastInteraction: string;
   };
   meetingBehavior: {
-    punctuality: 'early' | 'ontime' | 'late' | 'unknown';
-    participation: 'high' | 'medium' | 'low' | 'unknown';
-    preparedness: 'well-prepared' | 'average' | 'unprepared' | 'unknown';
+    punctuality: "early" | "ontime" | "late" | "unknown";
+    participation: "high" | "medium" | "low" | "unknown";
+    preparedness: "well-prepared" | "average" | "unprepared" | "unknown";
   };
 }
 
@@ -37,7 +37,7 @@ export interface PreviousMeetingContext {
   actionItems?: Array<{
     task: string;
     assignee: string;
-    status: 'open' | 'in_progress' | 'completed';
+    status: "open" | "in_progress" | "completed";
     dueDate?: string;
   }>;
   topics: string[];
@@ -52,13 +52,17 @@ export interface TopicPrediction {
   confidence: number; // 0-1
   reasoning: string;
   basedOn: Array<{
-    type: 'participant_history' | 'meeting_pattern' | 'agenda_keywords' | 'project_context';
+    type:
+      | "participant_history"
+      | "meeting_pattern"
+      | "agenda_keywords"
+      | "project_context";
     source: string;
     relevance: number;
   }>;
   suggestedMaterials?: Array<{
     title: string;
-    type: 'document' | 'previous_meeting' | 'reference';
+    type: "document" | "previous_meeting" | "reference";
     url?: string;
     description: string;
   }>;
@@ -92,8 +96,8 @@ export interface MeetingContext {
     };
   };
   recommendations: Array<{
-    type: 'preparation' | 'agenda' | 'follow_up' | 'scheduling';
-    priority: 'high' | 'medium' | 'low';
+    type: "preparation" | "agenda" | "follow_up" | "scheduling";
+    priority: "high" | "medium" | "low";
     message: string;
     actionable: boolean;
   }>;
@@ -113,4 +117,4 @@ export interface MeetingContextOptions {
   includeTopicPredictions?: boolean; // Generate topic predictions (default: true)
   includeRecommendations?: boolean; // Generate meeting recommendations (default: true)
   useRAG?: boolean; // Use RAG for enhanced context (default: true)
-} 
+}

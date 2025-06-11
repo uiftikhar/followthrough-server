@@ -6,14 +6,13 @@ import { OutlookConnector } from "./connectors/outlook.connector";
 import { EmailConnectorFactory } from "./connectors/email-connector.factory";
 import { MCPModule } from "../mcp/mcp.module";
 import { EmailWorkflowModule } from "./workflow/email-workflow.module";
-import { EmailTriageController } from "./email-triage.controller";
 import { EmailActionController } from "./email-action.controller";
 
 /**
  * EmailModule - Application Layer
- * Provides email triage controllers and integrates with workflow modules
+ * Provides email action controllers and integrates with workflow modules
  * Part of Phase 2-6 of email triage implementation
- * Updated to include user action handlers for Phase 6
+ * Updated to use unified workflow service approach through EmailWorkflowModule
  */
 @Module({
   imports: [
@@ -22,8 +21,7 @@ import { EmailActionController } from "./email-action.controller";
     EmailWorkflowModule, // Provides workflow services and UnifiedWorkflowService
   ],
   controllers: [
-    EmailTriageController,
-    EmailActionController, // NEW - Phase 6 user action handlers
+    EmailActionController, // User action handlers for email workflow results
   ],
   providers: [
     EmailService,

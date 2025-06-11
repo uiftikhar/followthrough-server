@@ -14,7 +14,13 @@ export interface SupervisorState {
     /**
      * Type of input being processed
      */
-    type: "meeting_transcript" | "email" | "calendar" | "calendar_workflow" | "customer_inquiry" | "other";
+    type:
+      | "meeting_transcript"
+      | "email"
+      | "calendar"
+      | "calendar_workflow"
+      | "customer_inquiry"
+      | "other";
 
     /**
      * Content of the input

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 
 // Email-specific agents (implement these when needed)
 // import { EmailClassificationAgent } from './email-classification.agent';
@@ -10,18 +10,18 @@ import { Injectable } from '@nestjs/common';
 // import { ToneAnalysisAgent } from './tone-analysis.agent';
 
 // Import the existing email agents from the email module
-import { EmailClassificationAgent } from './email-classification.agent';
-import { EmailSummarizationAgent } from './email-summarization.agent';
-import { EmailReplyDraftAgent } from './email-reply-draft.agent';
-import { EmailToneAnalysisAgent } from './email-tone-analysis.agent';
-import { EmailDelegationAgent } from './email-delegation.agent';
-import { EmailSnoozeAgent } from './email-snooze.agent';
-import { RagEmailReplyDraftAgent } from './rag-email-reply-draft.agent';
-import { EmailRagSummarizationAgent } from './email-rag-summarization.agent';
+import { EmailClassificationAgent } from "./email-classification.agent";
+import { EmailSummarizationAgent } from "./email-summarization.agent";
+import { EmailReplyDraftAgent } from "./email-reply-draft.agent";
+import { EmailToneAnalysisAgent } from "./email-tone-analysis.agent";
+import { EmailDelegationAgent } from "./email-delegation.agent";
+import { EmailSnoozeAgent } from "./email-snooze.agent";
+import { RagEmailReplyDraftAgent } from "./rag-email-reply-draft.agent";
+import { EmailRagSummarizationAgent } from "./email-rag-summarization.agent";
 
 /**
  * EmailAgentFactory
- * 
+ *
  * Factory for email triage workflow specific agents.
  * This provides access to all agents used in email triage workflows
  * without circular dependencies.
@@ -36,7 +36,7 @@ export class EmailAgentFactory {
     private readonly emailToneAnalysisAgent: EmailToneAnalysisAgent,
     private readonly emailDelegationAgent: EmailDelegationAgent,
     private readonly emailSnoozeAgent: EmailSnoozeAgent,
-    
+
     // RAG-enhanced email agents
     private readonly ragEmailReplyDraftAgent: RagEmailReplyDraftAgent,
     private readonly emailRagSummarizationAgent: EmailRagSummarizationAgent,
@@ -177,7 +177,7 @@ export class EmailAgentFactory {
       },
       rag: {
         ragSummarization: this.emailRagSummarizationAgent,
-      }
+      },
     };
   }
-} 
+}

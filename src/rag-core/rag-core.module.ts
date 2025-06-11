@@ -22,7 +22,10 @@ import {
   RETRIEVAL_SERVICE,
   ADAPTIVE_RAG_SERVICE,
 } from "../rag/constants/injection-tokens";
-import { RAG_MEETING_ANALYSIS_CONFIG, RagMeetingAnalysisConfig } from "src/langgraph/agents/rag-agents/rag-meeting-agent";
+import {
+  RAG_MEETING_ANALYSIS_CONFIG,
+  RagMeetingAnalysisConfig,
+} from "src/langgraph/agents/rag-agents/rag-meeting-agent";
 
 /**
  * RagCoreModule - Platform Services Layer

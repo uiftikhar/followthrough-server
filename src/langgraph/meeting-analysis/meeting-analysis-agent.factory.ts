@@ -1,18 +1,18 @@
-import { Injectable } from '@nestjs/common';
-import { TopicExtractionAgent } from '../agents/topic-extraction.agent';
-import { ActionItemAgent } from '../agents/action-item.agent';
-import { SentimentAnalysisAgent } from '../agents/sentiment-analysis.agent';
-import { SummaryAgent } from '../agents/summary.agent';
-import { ParticipationAgent } from '../agents/participation.agent';
-import { ContextIntegrationAgent } from '../agents/context-integration.agent';
+import { Injectable } from "@nestjs/common";
+import { TopicExtractionAgent } from "../agents/topic-extraction.agent";
+import { ActionItemAgent } from "../agents/action-item.agent";
+import { SentimentAnalysisAgent } from "../agents/sentiment-analysis.agent";
+import { SummaryAgent } from "../agents/summary.agent";
+import { ParticipationAgent } from "../agents/participation.agent";
+import { ContextIntegrationAgent } from "../agents/context-integration.agent";
 // RAG agents for meeting analysis
-import { RagMeetingAnalysisAgent } from '../agents/rag-agents/rag-meeting-agent';
-import { RagTopicExtractionAgent } from '../agents/rag-agents/rag-topic-extraction-agent';
-import { RagSentimentAnalysisAgent } from '../agents/rag-agents/rag-sentiment-analysis-agent';
+import { RagMeetingAnalysisAgent } from "../agents/rag-agents/rag-meeting-agent";
+import { RagTopicExtractionAgent } from "../agents/rag-agents/rag-topic-extraction-agent";
+import { RagSentimentAnalysisAgent } from "../agents/rag-agents/rag-sentiment-analysis-agent";
 
 /**
  * MeetingAnalysisAgentFactory
- * 
+ *
  * Factory for meeting analysis workflow specific agents.
  * This provides access to all agents used in meeting analysis workflows
  * without circular dependencies.
@@ -27,7 +27,7 @@ export class MeetingAnalysisAgentFactory {
     private readonly summaryAgent: SummaryAgent,
     private readonly participationAgent: ParticipationAgent,
     private readonly contextIntegrationAgent: ContextIntegrationAgent,
-    
+
     // RAG-enhanced meeting analysis agents
     private readonly ragMeetingAnalysisAgent: RagMeetingAnalysisAgent,
     private readonly ragTopicExtractionAgent: RagTopicExtractionAgent,
@@ -131,4 +131,4 @@ export class MeetingAnalysisAgentFactory {
       ...this.getAllRagAgents(),
     };
   }
-} 
+}

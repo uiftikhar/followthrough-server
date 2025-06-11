@@ -1,28 +1,40 @@
-import { Module } from '@nestjs/common';
-import { SharedCoreModule } from '../../shared/shared-core.module';
+import { Module } from "@nestjs/common";
+import { SharedCoreModule } from "../../shared/shared-core.module";
 
 // Meeting Analysis Specific Agents
-import { TopicExtractionAgent } from '../agents/topic-extraction.agent';
-import { ActionItemAgent } from '../agents/action-item.agent';
-import { SentimentAnalysisAgent } from '../agents/sentiment-analysis.agent';
-import { SummaryAgent } from '../agents/summary.agent';
-import { ParticipationAgent } from '../agents/participation.agent';
-import { ContextIntegrationAgent } from '../agents/context-integration.agent';
+import { TopicExtractionAgent } from "../agents/topic-extraction.agent";
+import { ActionItemAgent } from "../agents/action-item.agent";
+import { SentimentAnalysisAgent } from "../agents/sentiment-analysis.agent";
+import { SummaryAgent } from "../agents/summary.agent";
+import { ParticipationAgent } from "../agents/participation.agent";
+import { ContextIntegrationAgent } from "../agents/context-integration.agent";
 
 // RAG-Enhanced Meeting Agents
-import { RAG_MEETING_ANALYSIS_CONFIG, RagMeetingAnalysisAgent, RagMeetingAnalysisConfig } from '../agents/rag-agents/rag-meeting-agent';
-import { RAG_TOPIC_EXTRACTION_CONFIG, RagTopicExtractionAgent, RagTopicExtractionConfig } from '../agents/rag-agents/rag-topic-extraction-agent';
-import { RAG_SENTIMENT_ANALYSIS_CONFIG, RagSentimentAnalysisAgent, RagSentimentAnalysisConfig } from '../agents/rag-agents/rag-sentiment-analysis-agent';
-import { TOPIC_EXTRACTION_SYSTEM_PROMPT } from 'src/instruction-promtps/meeting-analysis/topic-extraction-prompt';
-import { AgentExpertise } from 'src/rag/agents/rag-enhanced-agent';
-import { SENTIMENT_ANALYSIS_PROMPT } from 'src/instruction-promtps/meeting-analysis/sentiment-analysis.prompt';
+import {
+  RAG_MEETING_ANALYSIS_CONFIG,
+  RagMeetingAnalysisAgent,
+  RagMeetingAnalysisConfig,
+} from "../agents/rag-agents/rag-meeting-agent";
+import {
+  RAG_TOPIC_EXTRACTION_CONFIG,
+  RagTopicExtractionAgent,
+  RagTopicExtractionConfig,
+} from "../agents/rag-agents/rag-topic-extraction-agent";
+import {
+  RAG_SENTIMENT_ANALYSIS_CONFIG,
+  RagSentimentAnalysisAgent,
+  RagSentimentAnalysisConfig,
+} from "../agents/rag-agents/rag-sentiment-analysis-agent";
+import { TOPIC_EXTRACTION_SYSTEM_PROMPT } from "src/instruction-promtps/meeting-analysis/topic-extraction-prompt";
+import { AgentExpertise } from "src/rag/agents/rag-enhanced-agent";
+import { SENTIMENT_ANALYSIS_PROMPT } from "src/instruction-promtps/meeting-analysis/sentiment-analysis.prompt";
 
 // Meeting analysis agent factory
-import { MeetingAnalysisAgentFactory } from './meeting-analysis-agent.factory';
+import { MeetingAnalysisAgentFactory } from "./meeting-analysis-agent.factory";
 
 /**
  * MeetingAnalysisAgentsModule
- * 
+ *
  * Contains all agents specifically used for meeting analysis workflows.
  * This module is self-contained and has no circular dependencies.
  */
@@ -38,12 +50,12 @@ import { MeetingAnalysisAgentFactory } from './meeting-analysis-agent.factory';
     SummaryAgent,
     ParticipationAgent,
     ContextIntegrationAgent,
-    
+
     // RAG-enhanced meeting agents
     RagMeetingAnalysisAgent,
     RagTopicExtractionAgent,
     RagSentimentAnalysisAgent,
-    
+
     // Export meeting analysis agent factory for easy access
     MeetingAnalysisAgentFactory,
     {
@@ -119,9 +131,9 @@ import { MeetingAnalysisAgentFactory } from './meeting-analysis-agent.factory';
     RagMeetingAnalysisAgent,
     RagTopicExtractionAgent,
     RagSentimentAnalysisAgent,
-    
+
     // Export the meeting analysis agent factory
     MeetingAnalysisAgentFactory,
   ],
 })
-export class MeetingAnalysisAgentsModule {} 
+export class MeetingAnalysisAgentsModule {}

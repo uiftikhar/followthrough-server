@@ -1,71 +1,58 @@
-import { Module, OnModuleInit } from '@nestjs/common';
-import { SharedCoreModule } from '../shared/shared-core.module';
-import { LanggraphCoreModule } from '../langgraph/core/core.module';
-import { InfrastructureModule } from '../infrastructure/infrastructure.module';
-import { GoogleOAuthModule } from '../integrations/google/google-oauth.module';
-import { CalendarAgentsModule } from './agents/calendar-agents.module';
-import { CalendarWorkflowService } from './services/calendar-workflow.service';
-import { CalendarWorkflowController } from './controllers/calendar-workflow.controller';
-import { CalendarSyncService } from './services/calendar-sync.service';
-import { GoogleCalendarService } from './services/google-calendar.service';
-import { CalendarWebhookService } from './services/calendar-webhook.service';
-import { CalendarWorkflowGraphBuilder } from './builders/calendar-workflow-graph.builder';
-import { TeamHandlerRegistry } from '../langgraph/core/team-handler-registry.service';
-import { UnifiedWorkflowService } from '../langgraph/unified-workflow.service';
-import { BriefDeliveryService } from './services/brief-delivery.service';
-import { PostMeetingOrchestrationService } from './services/post-meeting-orchestration.service';
-import { CalendarEventDetectionService } from './services/calendar-event-detection.service';
-import { CalendarWebhookController } from './controllers/calendar-webhook.controller';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { CalendarAgentFactory } from "./agents/calendar-agent.factory";
+import { CalendarWorkflowService } from "./services/calendar-workflow.service";
+import { CalendarSyncService } from "./services/calendar-sync.service";
+import { CalendarWebhookService } from "./services/calendar-webhook.service";
+import { BriefDeliveryService } from "./services/brief-delivery.service";
+import { PostMeetingOrchestrationService } from "./services/post-meeting-orchestration.service";
+import { CalendarEventDetectionService } from "./services/calendar-event-detection.service";
+import { GoogleCalendarService } from "./services/google-calendar.service";
 
+// Controllers
+import { CalendarWebhookController } from "./controllers/calendar-webhook.controller";
+import { CalendarWorkflowController } from "./controllers/calendar-workflow.controller";
+import { CalendarAgentsModule } from "./agents/calendar-agents.module";
+import { SharedCoreModule } from "src/shared/shared-core.module";
+import { UnifiedWorkflowService } from "src/langgraph/unified-workflow.service";
+import { TeamHandlerRegistry } from "src/langgraph/core/team-handler-registry.service";
+import { GoogleOAuthService } from "src/integrations/google/services/google-oauth.service";
+import { UserGoogleTokensRepository } from "src/database/repositories/user-google-tokens.repository";
+import { TokenEncryptionService } from "src/integrations/google/services/token-encryption.service";
+import { GoogleOAuthModule } from "src/integrations/google/google-oauth.module";
 @Module({
-  imports: [
-    SharedCoreModule,
-    LanggraphCoreModule,
-    InfrastructureModule,
-    GoogleOAuthModule,
-    CalendarAgentsModule, // Provides calendar-specific agents
+  imports: [ConfigModule, CalendarAgentsModule, GoogleOAuthModule, SharedCoreModule],
+  controllers: [
+    CalendarWebhookController,
+    CalendarWorkflowController,
   ],
   providers: [
+    TeamHandlerRegistry,
+    UnifiedWorkflowService, 
+    // GoogleOAuthService,
+    // UserGoogleTokensRepository,
+    // TokenEncryptionService,
+    // UserGoogleTokensRepository,
+    // Core services that exist
+    CalendarAgentFactory,
     CalendarWorkflowService,
     CalendarSyncService,
-    GoogleCalendarService,
     CalendarWebhookService,
-    CalendarEventDetectionService,
-    CalendarWorkflowGraphBuilder,
-    UnifiedWorkflowService,
     BriefDeliveryService,
-    PostMeetingOrchestrationService
-  ],
-  controllers: [
-    CalendarWorkflowController,
-    CalendarWebhookController,
+    PostMeetingOrchestrationService,
+    CalendarEventDetectionService,
+    GoogleCalendarService,
   ],
   exports: [
+    CalendarAgentFactory,
     CalendarWorkflowService,
     CalendarSyncService,
-    GoogleCalendarService,
     CalendarWebhookService,
+    BriefDeliveryService,
+    PostMeetingOrchestrationService,
     CalendarEventDetectionService,
+    GoogleCalendarService,
+    CalendarAgentsModule
   ],
 })
-export class CalendarModule implements OnModuleInit {
-  constructor(
-    private readonly teamHandlerRegistry: TeamHandlerRegistry,
-    private readonly calendarWorkflowService: CalendarWorkflowService,
-    private readonly postMeetingOrchestrationService: PostMeetingOrchestrationService,
-  ) {}
-
-  async onModuleInit() {
-    // Register calendar workflow as a team handler
-    this.teamHandlerRegistry.registerHandler(
-      'calendar_workflow',
-      this.calendarWorkflowService,
-    );
-
-    // Register post-meeting orchestration as a team handler
-    this.teamHandlerRegistry.registerHandler(
-      'post_meeting_orchestration',
-      this.postMeetingOrchestrationService,
-    );
-  }
-} 
+export class CalendarModule {}

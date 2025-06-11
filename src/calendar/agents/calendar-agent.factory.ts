@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { MeetingContextAgent } from './meeting-context.agent';
-import { MeetingBriefAgent } from './meeting-brief.agent';
-import { FollowUpOrchestrationAgent } from './follow-up-orchestration.agent';
+import { Injectable } from "@nestjs/common";
+import { MeetingContextAgent } from "./meeting-context.agent";
+import { MeetingBriefAgent } from "./meeting-brief.agent";
+import { FollowUpOrchestrationAgent } from "./follow-up-orchestration.agent";
 
 /**
  * CalendarAgentFactory
- * 
+ *
  * Factory for calendar workflow specific agents.
  * This provides access to calendar domain agents without circular dependencies.
  */
@@ -41,11 +41,13 @@ export class CalendarAgentFactory {
   /**
    * Get all calendar agents
    */
-  getAllCalendarAgents(): Array<MeetingContextAgent | MeetingBriefAgent | FollowUpOrchestrationAgent> {
+  getAllCalendarAgents(): Array<
+    MeetingContextAgent | MeetingBriefAgent | FollowUpOrchestrationAgent
+  > {
     return [
       this.meetingContextAgent,
       this.meetingBriefAgent,
       this.followUpOrchestrationAgent,
     ];
   }
-} 
+}

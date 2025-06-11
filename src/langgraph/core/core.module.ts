@@ -1,50 +1,26 @@
 import { Module } from "@nestjs/common";
-import { EventEmitterModule } from "@nestjs/event-emitter";
-import { GraphExecutionService } from "./graph-execution.service";
 import { TeamHandlerRegistry } from "./team-handler-registry.service";
-import { StateService } from "../state/state.service";
-import { STATE_SERVICE } from "../state/constants/injection-tokens";
-import { DatabaseModule } from "../../database/database.module";
-import { ConfigModule } from "@nestjs/config";
-import { LangGraphPersistenceModule } from "../persistence/persistence.module";
-import { EnhancedGraphService } from "./enhanced-graph.service";
-import { SupervisorGraphBuilder } from "../supervisor/supervisor-graph.builder";
-import { OpenAIService } from "src/embedding/openai.service";
+import { GraphExecutionService } from "./graph-execution.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 /**
- * Core module providing the infrastructure services for agent graphs
+ * Core module for LangGraph functionality and team coordination
  */
 @Module({
-  imports: [
-    DatabaseModule,
-    ConfigModule,
-    LangGraphPersistenceModule,
-    EventEmitterModule.forRoot({
-      // Configure event emitter for progress tracking
-      wildcard: true,
-      delimiter: ".",
-      maxListeners: 100,
-      verboseMemoryLeak: true,
-    }),
-  ],
   providers: [
-    GraphExecutionService,
+    // Core Services for Team Coordination
     TeamHandlerRegistry,
-    EnhancedGraphService,
-    StateService,
+    GraphExecutionService,
+    
+    // Event Emitter for Progress Tracking
     {
-      provide: STATE_SERVICE,
-      useExisting: StateService,
+      provide: "EVENT_EMITTER",
+      useClass: EventEmitter2,
     },
-    OpenAIService,
-    SupervisorGraphBuilder,
   ],
   exports: [
-    GraphExecutionService,
     TeamHandlerRegistry,
-    EnhancedGraphService,
-    StateService,
-    STATE_SERVICE,
+    GraphExecutionService,
   ],
 })
 export class LanggraphCoreModule {}

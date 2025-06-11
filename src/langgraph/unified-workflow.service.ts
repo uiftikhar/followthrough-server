@@ -1,10 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { StateService } from "./state/state.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { v4 as uuidv4 } from "uuid";
 import { SessionRepository } from "../database/repositories/session.repository";
 import { Session } from "../database/schemas/session.schema";
-import { EnhancedGraphService } from "./core/enhanced-graph.service";
+import { StateService } from "./state/state.service";
+import { TeamHandlerRegistry } from "./core/team-handler-registry.service";
+import { StateGraph, START, END } from "@langchain/langgraph";
 
 /**
  * Event type for workflow progress updates
@@ -25,13 +26,142 @@ export interface WorkflowProgressEvent {
 export class UnifiedWorkflowService {
   private readonly logger = new Logger(UnifiedWorkflowService.name);
   private readonly progressMap: Map<string, number> = new Map();
+  private masterSupervisorGraph: any;
 
   constructor(
+    private readonly stateService: StateService,
+    private readonly teamHandlerRegistry: TeamHandlerRegistry,
     private readonly eventEmitter: EventEmitter2,
     private readonly sessionRepository: SessionRepository,
-    private readonly enhancedGraphService: EnhancedGraphService,
   ) {
+    this.initializeMasterSupervisorGraph();
     this.logger.log("UnifiedWorkflowService initialized");
+  }
+
+  private initializeMasterSupervisorGraph(): void {
+    try {
+      // Create the master supervisor graph using the proper supervisor state annotation
+      const stateAnnotation = this.stateService.createSupervisorState();
+      
+      this.masterSupervisorGraph = new StateGraph(stateAnnotation)
+        .addNode("supervisor", this.supervisorNode.bind(this))
+        .addNode("meetingTeam", this.meetingTeamNode.bind(this))
+        .addNode("emailTeam", this.emailTeamNode.bind(this))
+        .addNode("calendarTeam", this.calendarTeamNode.bind(this))
+        .addEdge(START, "supervisor")
+        .addConditionalEdges(
+          "supervisor",
+          this.routeToTeam.bind(this),
+          {
+            "meeting_analysis": "meetingTeam",
+            "email_triage": "emailTeam",
+            "calendar_workflow": "calendarTeam",
+            "__end__": END
+          }
+        )
+        .addEdge("meetingTeam", END)
+        .addEdge("emailTeam", END)
+        .addEdge("calendarTeam", END)
+        .compile();
+
+      this.logger.log("Master supervisor graph initialized successfully with proper supervisor state");
+    } catch (error) {
+      this.logger.error(`Error initializing master supervisor graph: ${error.message}`);
+    }
+  }
+
+  private async supervisorNode(state: any): Promise<any> {
+    this.logger.log("Processing supervisor node");
+    
+    const input = state.input;
+    let routing = { team: "__end__", confidence: 0, reasoning: "Unknown input type" };
+
+    // Email routing logic
+    if (input.type === "email" || input.emailData || input.subject || input.from) {
+      routing = {
+        team: "email_triage",
+        confidence: 0.98,
+        reasoning: "Input contains email data structure"
+      };
+    }
+    // Meeting routing logic  
+    else if (input.type === "meeting" || input.transcript || input.meetingId) {
+      routing = {
+        team: "meeting_analysis", 
+        confidence: 0.98,
+        reasoning: "Input contains meeting/transcript data"
+      };
+    }
+    // Calendar routing logic
+    else if (input.type === "calendar" || input.calendarEvent || input.eventId) {
+      routing = {
+        team: "calendar_workflow",
+        confidence: 0.98,
+        reasoning: "Input contains calendar/event data"
+      };
+    }
+
+    return {
+      ...state,
+      routing,
+      status: "routing"
+    };
+  }
+
+  private routeToTeam(state: any): string {
+    const routing = state.routing;
+    if (routing && routing.team) {
+      return routing.team;
+    }
+    return "__end__";
+  }
+
+  private async meetingTeamNode(state: any): Promise<any> {
+    this.logger.log("Processing meeting team node");
+    
+    const meetingHandler = this.teamHandlerRegistry.getHandler("meeting_analysis");
+    if (!meetingHandler) {
+      throw new Error("Meeting analysis handler not found");
+    }
+
+    const result = await meetingHandler.process(state.input);
+    
+    return {
+      ...state,
+      result
+    };
+  }
+
+  private async emailTeamNode(state: any): Promise<any> {
+    this.logger.log("Processing email team node");
+    
+    const emailHandler = this.teamHandlerRegistry.getHandler("email_triage");
+    if (!emailHandler) {
+      throw new Error("Email triage handler not found");
+    }
+
+    const result = await emailHandler.process(state.input);
+    
+    return {
+      ...state,
+      result
+    };
+  }
+
+  private async calendarTeamNode(state: any): Promise<any> {
+    this.logger.log("Processing calendar team node");
+    
+    const calendarHandler = this.teamHandlerRegistry.getHandler("calendar_workflow");
+    if (!calendarHandler) {
+      throw new Error("Calendar workflow handler not found");
+    }
+
+    const result = await calendarHandler.process(state.input);
+    
+    return {
+      ...state,
+      result
+    };
   }
 
   /**
@@ -39,190 +169,71 @@ export class UnifiedWorkflowService {
    */
   async processInput(
     input: any,
-    metadata?: Record<string, any>,
+    metadata?: any,
     userId?: string,
-  ): Promise<{
-    sessionId: string;
-    status: string;
-  }> {
-    // Generate session ID
-    const sessionId = uuidv4();
-    const actualUserId = userId || "system";
+  ): Promise<any> {
+    // Create session
+    const session = await this.createSession(input, metadata, userId);
+    const sessionId = session.sessionId || `session-${Date.now()}`;
 
-    this.logger.log(
-      `Created new workflow session: ${sessionId} for user: ${actualUserId}`,
+    this.publishProgressUpdate(
+      sessionId,
+      "initialization",
+      5,
+      "in_progress",
+      "Starting workflow processing",
     );
 
     try {
-      // Create initial session object for MongoDB
-      const sessionData: Partial<Session> = {
-        sessionId,
-        userId: actualUserId,
-        status: "pending",
-        startTime: new Date(),
-        metadata: metadata || {},
+      const initialState = {
+        input: input,
+        startTime: new Date().toISOString(),
+        routing: undefined,
+        result: undefined,
+        error: undefined,
       };
 
-      // Add transcript or input data to session
-      if (input.transcript) {
-        sessionData.transcript = input.transcript;
-      } else if (typeof input === "string") {
-        sessionData.transcript = input;
-      } else if (input.emailData) {
-        // Store email data in session metadata
-        sessionData.metadata = {
-          ...sessionData.metadata,
-          emailData: input.emailData,
-          inputType: input.type || "email_triage",
-        };
-      }
+      // Process through master supervisor graph
+      const finalState = await this.masterSupervisorGraph.invoke(initialState);
 
-      this.logger.log(`Session data: ${JSON.stringify(sessionData)}`);
+      // Update session with results
+      await this.updateSession(sessionId, {
+        status: "completed",
+        results: finalState.result,
+        completedAt: new Date(),
+      });
 
-      // Store the session in MongoDB
-      await this.sessionRepository.createSession(sessionData);
-      this.logger.log(
-        `Session ${sessionId} stored in MongoDB for user ${actualUserId}`,
-      );
-
-      // Initialize progress
-      this.initProgress(sessionId);
-
-      // Publish initial progress update
       this.publishProgressUpdate(
         sessionId,
-        "initialization",
-        0,
-        "pending",
-        "Starting workflow",
-      );
-
-      // Use master supervisor routing instead of directly calling analyzeMeeting
-      this.logger.log(
-        "Using enhanced graph service with master supervisor routing", JSON.stringify(input)
-      );
-      this.runMasterSupervisorWorkflow(
-        sessionId,
-        input,
-        metadata,
-        actualUserId,
+        "completion",
+        100,
+        "completed",
+        "Workflow processing completed",
       );
 
       return {
         sessionId,
-        status: "pending",
-      };
-    } catch (error) {
-      this.logger.error(
-        `Error initiating workflow: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * Run workflow using master supervisor routing
-   */
-  private async runMasterSupervisorWorkflow(
-    sessionId: string,
-    input: any,
-    metadata?: Record<string, any>,
-    userId?: string,
-  ): Promise<void> {
-    try {
-      this.logger.log(
-        `Executing master supervisor workflow for session ${sessionId}`,
-      );
-
-      // Update session status to in_progress
-      await this.sessionRepository.updateSession(sessionId, {
-        status: "in_progress",
-      });
-
-      // Publish progress update - starting analysis
-      this.publishProgressUpdate(
-        sessionId,
-        "initialization",
-        10,
-        "in_progress",
-        "Starting master supervisor routing",
-      );
-
-      // Use the enhanced graph service's master supervisor for routing
-      // This will properly route based on input.type to the correct team
-      const result =
-        await this.enhancedGraphService.processMasterSupervisorInput(input);
-
-      this.logger.log(`Analysis completed for session ${sessionId}`);
-
-      // Update session with results based on result type
-      const updates: any = {
         status: "completed",
-        endTime: new Date(),
-        metadata: {
-          ...metadata,
-          results: result,
-        },
+        results: finalState.result,
       };
-
-      // Handle different result types
-      if (result.resultType === "meeting_analysis") {
-        updates.transcript =
-          input.transcript || (typeof input === "string" ? input : "");
-        updates.topics = result.topics || [];
-        updates.actionItems = result.actionItems || [];
-        updates.sentiment = result.sentiment;
-        updates.summary = result.summary;
-      } else if (result.resultType === "email_triage") {
-        updates.emailData = input.emailData;
-        updates.classification = result.classification;
-        updates.summary = result.summary;
-        updates.replyDraft = result.replyDraft;
-      }
-
-      // Add errors if any
-      if (result.errors && result.errors.length > 0) {
-        updates.errors = result.errors;
-      }
-
-      await this.sessionRepository.updateSession(sessionId, updates);
-
-      // Final progress update
-      this.publishProgressUpdate(
-        sessionId,
-        "completed",
-        100,
-        "completed",
-        "Analysis completed successfully",
-      );
     } catch (error) {
-      this.logger.error(
-        `Error executing master supervisor workflow: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error processing input: ${error.message}`);
 
-      // Update session with error
-      await this.sessionRepository.updateSession(sessionId, {
+      await this.updateSession(sessionId, {
         status: "failed",
-        endTime: new Date(),
-        errors: [
-          {
-            step: "master_supervisor_workflow",
-            error: error.message,
-            timestamp: new Date().toISOString(),
-          },
-        ],
+        error: error.message,
+        completedAt: new Date(),
       });
 
-      // Final error progress update
       this.publishProgressUpdate(
         sessionId,
+        "error",
+        0,
         "failed",
-        100,
-        "failed",
-        error.message,
+        `Error: ${error.message}`,
       );
+
+      throw error;
     }
   }
 
@@ -372,5 +383,50 @@ export class UnifiedWorkflowService {
     this.logger.log(
       `Emitted workflow.progress event for session ${sessionId}: ${progress}%`,
     );
+  }
+
+  /**
+   * Create a new session for tracking workflow progress
+   */
+  private async createSession(input: any, metadata?: any, userId?: string): Promise<any> {
+    this.logger.log(`Creating new session for input type: ${input.type || "unknown"}`);
+    
+    try {
+      const sessionData = {
+        sessionId: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        userId: userId || "default",
+        status: "pending",
+        startTime: new Date(),
+        transcript: input.transcript || input.content || "",
+        metadata: {
+          ...metadata,
+          inputType: input.type,
+          originalInput: input
+        }
+      };
+
+      const session = await this.sessionRepository.createSession(sessionData);
+      this.logger.log(`Created session: ${session.sessionId || sessionData.sessionId}`);
+      
+      return session;
+    } catch (error) {
+      this.logger.error(`Failed to create session: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Update an existing session with new data
+   */
+  private async updateSession(sessionId: string, updateData: any): Promise<void> {
+    this.logger.log(`Updating session: ${sessionId}`);
+    
+    try {
+      await this.sessionRepository.updateSession(sessionId, updateData);
+      this.logger.log(`Successfully updated session: ${sessionId}`);
+    } catch (error) {
+      this.logger.error(`Failed to update session ${sessionId}: ${error.message}`);
+      throw error;
+    }
   }
 }

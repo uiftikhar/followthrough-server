@@ -3,11 +3,11 @@ export interface AgendaItem {
   title: string;
   description?: string;
   duration: number; // minutes
-  priority: 'high' | 'medium' | 'low';
+  priority: "high" | "medium" | "low";
   presenter?: string;
   materials?: Array<{
     title: string;
-    type: 'document' | 'presentation' | 'reference' | 'previous_meeting';
+    type: "document" | "presentation" | "reference" | "previous_meeting";
     url?: string;
     description: string;
   }>;
@@ -19,10 +19,10 @@ export interface AgendaItem {
 export interface ParticipantPreparation {
   participantEmail: string;
   participantName: string;
-  role: 'organizer' | 'presenter' | 'attendee' | 'optional';
+  role: "organizer" | "presenter" | "attendee" | "optional";
   preparationTasks: Array<{
     task: string;
-    priority: 'high' | 'medium' | 'low';
+    priority: "high" | "medium" | "low";
     estimatedTime: number; // minutes
     dueBy?: string; // ISO date string
     materials?: string[];
@@ -50,7 +50,7 @@ export interface MeetingObjectives {
   expectedDecisions: string[];
   potentialRisks: Array<{
     risk: string;
-    impact: 'high' | 'medium' | 'low';
+    impact: "high" | "medium" | "low";
     mitigation: string;
   }>;
 }
@@ -93,7 +93,7 @@ export interface MeetingBrief {
     keyOutcomes: string[];
     preparation: string;
     duration: number;
-    complexity: 'low' | 'medium' | 'high';
+    complexity: "low" | "medium" | "high";
   };
   objectives: MeetingObjectives;
   enhancedAgenda: AgendaItem[];
@@ -110,8 +110,8 @@ export interface MeetingBrief {
     decisionDependencies: string[];
   };
   recommendations: Array<{
-    category: 'preparation' | 'agenda' | 'facilitation' | 'follow_up';
-    priority: 'high' | 'medium' | 'low';
+    category: "preparation" | "agenda" | "facilitation" | "follow_up";
+    priority: "high" | "medium" | "low";
     recommendation: string;
     rationale: string;
     implementationTime: number; // minutes
@@ -151,9 +151,11 @@ export interface BriefGenerationOptions {
   includeTimeManagement?: boolean; // Add time management suggestions (default: true)
   includeDeliveryFormats?: boolean; // Generate delivery formats (default: true)
   customizeForOrganizer?: boolean; // Customize brief for meeting organizer (default: true)
-  complexity?: 'basic' | 'standard' | 'comprehensive'; // Brief complexity level (default: standard)
-  focusAreas?: Array<'agenda' | 'preparation' | 'objectives' | 'context' | 'logistics'>; // Areas to emphasize
-  deliveryFormat?: Array<'email' | 'slack' | 'calendar' | 'dashboard'>; // Preferred delivery methods
+  complexity?: "basic" | "standard" | "comprehensive"; // Brief complexity level (default: standard)
+  focusAreas?: Array<
+    "agenda" | "preparation" | "objectives" | "context" | "logistics"
+  >; // Areas to emphasize
+  deliveryFormat?: Array<"email" | "slack" | "calendar" | "dashboard">; // Preferred delivery methods
   useRAG?: boolean; // Use RAG for enhanced context (default: true)
   maxBriefLength?: number; // Maximum length in words (default: 2000)
   prioritizeActionItems?: boolean; // Focus on action items and decisions (default: true)
@@ -161,8 +163,8 @@ export interface BriefGenerationOptions {
 
 export interface BriefDeliveryResult {
   briefId: string;
-  deliveryMethod: 'email' | 'slack' | 'calendar' | 'dashboard';
-  status: 'sent' | 'scheduled' | 'failed';
+  deliveryMethod: "email" | "slack" | "calendar" | "dashboard";
+  status: "sent" | "scheduled" | "failed";
   deliveredAt?: string;
   recipients: string[];
   deliveryDetails: {
@@ -182,7 +184,14 @@ export interface BriefTemplate {
   id: string;
   name: string;
   description: string;
-  applicableFor: Array<'recurring' | 'one_time' | 'project_review' | 'standup' | 'planning' | 'retrospective'>;
+  applicableFor: Array<
+    | "recurring"
+    | "one_time"
+    | "project_review"
+    | "standup"
+    | "planning"
+    | "retrospective"
+  >;
   agendaStructure: Array<{
     section: string;
     defaultDuration: number;
@@ -190,7 +199,7 @@ export interface BriefTemplate {
     suggestions: string[];
   }>;
   preparationGuidelines: Array<{
-    role: 'organizer' | 'presenter' | 'attendee';
+    role: "organizer" | "presenter" | "attendee";
     tasks: string[];
     timeRequirement: number;
   }>;
@@ -199,4 +208,4 @@ export interface BriefTemplate {
     agendaEnhancement: string;
     preparationSuggestions: string;
   };
-} 
+}

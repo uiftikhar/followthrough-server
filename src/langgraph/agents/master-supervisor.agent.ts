@@ -102,7 +102,14 @@ export class MasterSupervisorAgent extends BaseAgent {
         Participants: ${input.participants?.join(", ") || "Unknown"}
         Metadata: ${JSON.stringify(input.metadata || {})}
       `;
-    } else if (input.type === "calendar_sync" || input.type === "meeting_brief" || input.type === "meeting_prep" || input.action === "sync" || input.calendarEvent || input.eventId) {
+    } else if (
+      input.type === "calendar_sync" ||
+      input.type === "meeting_brief" ||
+      input.type === "meeting_prep" ||
+      input.action === "sync" ||
+      input.calendarEvent ||
+      input.eventId
+    ) {
       return `
         Type: Calendar Workflow
         Action: ${input.type || input.action || "Unknown"}
@@ -128,7 +135,14 @@ export class MasterSupervisorAgent extends BaseAgent {
       return "email_triage";
     } else if (input.type === "meeting_transcript" || input.transcript) {
       return "meeting_analysis";
-    } else if (input.type === "calendar_sync" || input.type === "meeting_brief" || input.type === "meeting_prep" || input.action === "sync" || input.calendarEvent || input.eventId) {
+    } else if (
+      input.type === "calendar_sync" ||
+      input.type === "meeting_brief" ||
+      input.type === "meeting_prep" ||
+      input.action === "sync" ||
+      input.calendarEvent ||
+      input.eventId
+    ) {
       return "calendar_workflow";
     }
     return "unknown";

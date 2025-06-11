@@ -63,7 +63,7 @@
 //     process.env.OPENAI_API_KEY = 'test-key';
 //     process.env.PINECONE_API_KEY = 'test-key';
 //     process.env.RAG_ENABLED = 'true';
-    
+
 //     module = await Test.createTestingModule({
 //       imports: [
 //         ConfigModule.forRoot({
@@ -79,7 +79,7 @@
 //     calendarWorkflowService = module.get<CalendarWorkflowService>(CalendarWorkflowService);
 //     agentFactory = module.get<AgentFactory>(AgentFactory);
 //     briefDeliveryService = module.get<BriefDeliveryService>(BriefDeliveryService);
-    
+
 //     console.log('🧪 Calendar Workflow Phase 2 tests initialized with MSW mocking');
 //   });
 
@@ -90,7 +90,7 @@
 //   describe('Phase 2 Milestone 2.1: Meeting Context Agent', () => {
 //     it('should gather comprehensive meeting context', async () => {
 //       const contextAgent = agentFactory.getMeetingContextAgent();
-      
+
 //       const context = await contextAgent.gatherMeetingContext(mockCalendarEvent, {
 //         lookbackDays: 90,
 //         maxPreviousMeetings: 10,
@@ -125,7 +125,7 @@
 
 //       // Verify topic predictions
 //       expect(Array.isArray(context.topicPredictions)).toBe(true);
-      
+
 //       // Verify context summary
 //       expect(context.contextSummary).toBeDefined();
 //       expect(context.contextSummary.totalRelevantMeetings).toBeGreaterThanOrEqual(0);
@@ -149,7 +149,7 @@
 
 //     it('should handle missing participant history gracefully', async () => {
 //       const contextAgent = agentFactory.getMeetingContextAgent();
-      
+
 //       const eventWithUnknownParticipants: CalendarEvent = {
 //         ...mockCalendarEvent,
 //         id: 'test-event-unknown',
@@ -170,7 +170,7 @@
 //       expect(context).toBeDefined();
 //       expect(context.participantHistories).toBeDefined();
 //       expect(context.participantHistories.length).toBe(1);
-      
+
 //       const unknownParticipant = context.participantHistories[0];
 //       expect(unknownParticipant.email).toBe('unknown@external.com');
 //       expect(unknownParticipant.totalMeetings).toBe(0);
@@ -181,14 +181,14 @@
 
 //     it('should use RAG to enhance context with historical data', async () => {
 //       const contextAgent = agentFactory.getMeetingContextAgent();
-      
+
 //       const context = await contextAgent.gatherMeetingContext(mockCalendarEvent, {
 //         useRAG: true,
 //         includeTopicPredictions: true
 //       });
 
 //       expect(context).toBeDefined();
-      
+
 //       // Check if RAG enhanced the context
 //       if (context.retrievalMetadata.sources.length > 0) {
 //         expect(context.retrievalMetadata.sources[0]).toHaveProperty('id');
@@ -216,7 +216,7 @@
 
 //     it('should generate comprehensive meeting brief', async () => {
 //       const briefAgent = agentFactory.getMeetingBriefAgent();
-      
+
 //       const brief = await briefAgent.generateMeetingBrief(mockCalendarEvent, meetingContext, {
 //         includeDetailedAgenda: true,
 //         includeParticipantPrep: true,
@@ -237,7 +237,7 @@
 //       expect(brief.enhancedAgenda).toBeDefined();
 //       expect(Array.isArray(brief.enhancedAgenda)).toBe(true);
 //       expect(brief.enhancedAgenda.length).toBeGreaterThan(0);
-      
+
 //       brief.enhancedAgenda.forEach(item => {
 //         expect(item.title).toBeDefined();
 //         expect(item.duration).toBeGreaterThan(0);
@@ -250,7 +250,7 @@
 //       expect(brief.participantPreparations).toBeDefined();
 //       expect(Array.isArray(brief.participantPreparations)).toBe(true);
 //       expect(brief.participantPreparations.length).toBe(3); // One for each attendee
-      
+
 //       brief.participantPreparations.forEach(prep => {
 //         expect(prep.participantEmail).toBeDefined();
 //         expect(prep.participantName).toBeDefined();
@@ -282,7 +282,7 @@
 
 //     it('should generate personalized preparation for each participant', async () => {
 //       const briefAgent = agentFactory.getMeetingBriefAgent();
-      
+
 //       const brief = await briefAgent.generateMeetingBrief(mockCalendarEvent, meetingContext, {
 //         includeParticipantPrep: true,
 //         complexity: 'comprehensive'
@@ -315,13 +315,13 @@
 
 //     it('should include time management and scheduling recommendations', async () => {
 //       const briefAgent = agentFactory.getMeetingBriefAgent();
-      
+
 //       const brief = await briefAgent.generateMeetingBrief(mockCalendarEvent, meetingContext, {
 //         includeTimeManagement: true
 //       });
 
 //       expect(brief.timeManagement).toBeDefined();
-      
+
 //       // Verify timing details
 //       expect(brief.timeManagement.totalDuration).toBeGreaterThan(0);
 //       expect(Array.isArray(brief.timeManagement.criticalTimings)).toBe(true);
@@ -355,7 +355,7 @@
 //       // Generate a brief for delivery testing
 //       const contextAgent = agentFactory.getMeetingContextAgent();
 //       const briefAgent = agentFactory.getMeetingBriefAgent();
-      
+
 //       const context = await contextAgent.gatherMeetingContext(mockCalendarEvent);
 //       meetingBrief = await briefAgent.generateMeetingBrief(mockCalendarEvent, context);
 //     });
@@ -368,7 +368,7 @@
 //       expect(deliveryResults).toBeDefined();
 //       expect(Array.isArray(deliveryResults)).toBe(true);
 //       expect(deliveryResults.length).toBe(1);
-      
+
 //       const emailResult = deliveryResults[0];
 //       expect(emailResult.deliveryMethod).toBe('email');
 //       expect(emailResult.status).toBe('sent');
@@ -539,7 +539,7 @@
 //     it('should validate brief quality metrics', async () => {
 //       const contextAgent = agentFactory.getMeetingContextAgent();
 //       const briefAgent = agentFactory.getMeetingBriefAgent();
-      
+
 //       const context = await contextAgent.gatherMeetingContext(mockCalendarEvent);
 //       const brief = await briefAgent.generateMeetingBrief(mockCalendarEvent, context);
 
@@ -558,4 +558,4 @@
 //       console.log(`   - Quality score: ${Math.round((agendaItems + participantPreps + primaryObjectives + scheduleItems) / 4 * 10)}/10`);
 //     }, 30000);
 //   });
-// }); 
+// });

@@ -1,12 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
-import { TeamHandler } from '../../langgraph/core/interfaces/team-handler.interface';
-import { FollowUpOrchestrationAgent } from '../agents/follow-up-orchestration.agent';
-import { CalendarAgentFactory } from '../agents/calendar-agent.factory';
+import { Injectable, Logger } from "@nestjs/common";
+import { OnEvent } from "@nestjs/event-emitter";
+import { TeamHandler } from "../../langgraph/core/interfaces/team-handler.interface";
+import { FollowUpOrchestrationAgent } from "../agents/follow-up-orchestration.agent";
+import { CalendarAgentFactory } from "../agents/calendar-agent.factory";
 
 export interface PostMeetingOrchestrationState {
   sessionId: string;
-  type: 'post_meeting_orchestration';
+  type: "post_meeting_orchestration";
   meetingAnalysisResult?: any;
   followUpPlan?: any;
   routingResults?: any[];
@@ -17,32 +17,32 @@ export interface PostMeetingOrchestrationState {
 }
 
 @Injectable()
-export class PostMeetingOrchestrationService implements TeamHandler<any, PostMeetingOrchestrationState> {
+export class PostMeetingOrchestrationService
+  implements TeamHandler<any, PostMeetingOrchestrationState>
+{
   private readonly logger = new Logger(PostMeetingOrchestrationService.name);
 
-  constructor(
-    private readonly calendarAgentFactory: CalendarAgentFactory,
-  ) {}
+  constructor(private readonly calendarAgentFactory: CalendarAgentFactory) {}
 
   /**
    * Get team name for handler registry
    */
   getTeamName(): string {
-    return 'post_meeting_orchestration';
+    return "post_meeting_orchestration";
   }
 
   /**
    * Process post-meeting orchestration workflow
    */
   async process(input: any): Promise<PostMeetingOrchestrationState> {
-    this.logger.log('Starting post-meeting orchestration workflow');
+    this.logger.log("Starting post-meeting orchestration workflow");
 
     const sessionId = input.sessionId || `orchestration-${Date.now()}`;
-    
+
     const initialState: PostMeetingOrchestrationState = {
       sessionId,
-      type: 'post_meeting_orchestration',
-      stage: 'initialized'
+      type: "post_meeting_orchestration",
+      stage: "initialized",
     };
 
     try {
@@ -51,16 +51,21 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
       if (!meetingAnalysisResult) {
         return {
           ...initialState,
-          stage: 'failed',
-          error: 'No meeting analysis result provided for orchestration'
+          stage: "failed",
+          error: "No meeting analysis result provided for orchestration",
         };
       }
 
-      this.logger.log(`Processing orchestration for meeting: ${meetingAnalysisResult.meetingTitle}`);
+      this.logger.log(
+        `Processing orchestration for meeting: ${meetingAnalysisResult.meetingTitle}`,
+      );
 
       // Step 2: Generate follow-up plan
-      const followUpAgent = this.calendarAgentFactory.getFollowUpOrchestrationAgent();
-      const followUpPlan = await followUpAgent.orchestrateFollowUp(meetingAnalysisResult);
+      const followUpAgent =
+        this.calendarAgentFactory.getFollowUpOrchestrationAgent();
+      const followUpPlan = await followUpAgent.orchestrateFollowUp(
+        meetingAnalysisResult,
+      );
 
       // Step 3: Route action items to appropriate workflows
       const routingResults = await this.routeFollowUpActions(followUpPlan);
@@ -69,28 +74,32 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
       const emailDrafts = await this.generateEmailDrafts(followUpPlan);
 
       // Step 5: Generate scheduling requests for Calendar workflow
-      const schedulingResults = await this.generateSchedulingRequests(followUpPlan);
+      const schedulingResults =
+        await this.generateSchedulingRequests(followUpPlan);
 
       const finalState: PostMeetingOrchestrationState = {
         sessionId,
-        type: 'post_meeting_orchestration',
+        type: "post_meeting_orchestration",
         meetingAnalysisResult,
         followUpPlan,
         routingResults,
         emailDrafts,
         schedulingResults,
-        stage: 'completed'
+        stage: "completed",
       };
 
-      this.logger.log(`Successfully completed post-meeting orchestration for session ${sessionId}`);
+      this.logger.log(
+        `Successfully completed post-meeting orchestration for session ${sessionId}`,
+      );
       return finalState;
-
     } catch (error) {
-      this.logger.error(`Error in post-meeting orchestration: ${error.message}`);
+      this.logger.error(
+        `Error in post-meeting orchestration: ${error.message}`,
+      );
       return {
         ...initialState,
-        stage: 'failed',
-        error: error.message
+        stage: "failed",
+        error: error.message,
       };
     }
   }
@@ -124,7 +133,9 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
    * Route follow-up actions to appropriate workflows
    */
   private async routeFollowUpActions(followUpPlan: any): Promise<any[]> {
-    this.logger.log(`Routing ${followUpPlan.routingDecisions.length} follow-up actions`);
+    this.logger.log(
+      `Routing ${followUpPlan.routingDecisions.length} follow-up actions`,
+    );
 
     const routingResults: any[] = [];
 
@@ -134,16 +145,18 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
         routingResults.push({
           decisionId: decision.id,
           targetWorkflow: decision.target,
-          status: 'routed',
-          result
+          status: "routed",
+          result,
         });
       } catch (error) {
-        this.logger.warn(`Failed to route decision ${decision.id}: ${error.message}`);
+        this.logger.warn(
+          `Failed to route decision ${decision.id}: ${error.message}`,
+        );
         routingResults.push({
           decisionId: decision.id,
           targetWorkflow: decision.target,
-          status: 'failed',
-          error: error.message
+          status: "failed",
+          error: error.message,
         });
       }
     }
@@ -156,15 +169,15 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
    */
   private async routeToWorkflow(decision: any): Promise<any> {
     switch (decision.type) {
-      case 'email_triage':
+      case "email_triage":
         return this.routeToEmailTriage(decision);
-      
-      case 'calendar_scheduling':
+
+      case "calendar_scheduling":
         return this.routeToCalendarWorkflow(decision);
-      
-      case 'task_management':
+
+      case "task_management":
         return this.routeToTaskManagement(decision);
-      
+
       default:
         throw new Error(`Unknown routing target: ${decision.type}`);
     }
@@ -182,22 +195,22 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
     // 3. Track the routing status
 
     const emailTriagePayload = {
-      type: 'follow_up_email',
+      type: "follow_up_email",
       emailDraft: decision.payload.emailDraft,
       originatingMeeting: decision.payload.originatingMeeting,
       priority: decision.payload.priority,
       metadata: {
         routingDecisionId: decision.id,
-        source: 'post_meeting_orchestration'
-      }
+        source: "post_meeting_orchestration",
+      },
     };
 
     // Simulate successful routing
     return {
       routedAt: new Date().toISOString(),
-      targetTeam: 'email_triage_team',
+      targetTeam: "email_triage_team",
       payload: emailTriagePayload,
-      status: 'pending_processing'
+      status: "pending_processing",
     };
   }
 
@@ -205,7 +218,9 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
    * Route calendar actions to Calendar workflow
    */
   private async routeToCalendarWorkflow(decision: any): Promise<any> {
-    this.logger.log(`Routing calendar action to Calendar Workflow: ${decision.id}`);
+    this.logger.log(
+      `Routing calendar action to Calendar Workflow: ${decision.id}`,
+    );
 
     // In a real implementation, this would:
     // 1. Format the meeting request for Calendar workflow
@@ -213,22 +228,22 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
     // 3. Handle scheduling conflicts and participant availability
 
     const calendarPayload = {
-      type: 'follow_up_meeting',
+      type: "follow_up_meeting",
       meetingRequest: decision.payload.meetingRequest,
       originatingMeeting: decision.payload.originatingMeeting,
       priority: decision.payload.priority,
       metadata: {
         routingDecisionId: decision.id,
-        source: 'post_meeting_orchestration'
-      }
+        source: "post_meeting_orchestration",
+      },
     };
 
     // Simulate successful routing
     return {
       routedAt: new Date().toISOString(),
-      targetTeam: 'calendar_workflow',
+      targetTeam: "calendar_workflow",
       payload: calendarPayload,
-      status: 'pending_scheduling'
+      status: "pending_scheduling",
     };
   }
 
@@ -244,22 +259,22 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
     // 3. Set up tracking and notifications
 
     const taskPayload = {
-      type: 'follow_up_task',
+      type: "follow_up_task",
       taskDefinition: decision.payload.taskDefinition,
       originatingMeeting: decision.payload.originatingMeeting,
       priority: decision.payload.priority,
       metadata: {
         routingDecisionId: decision.id,
-        source: 'post_meeting_orchestration'
-      }
+        source: "post_meeting_orchestration",
+      },
     };
 
     // Simulate successful routing
     return {
       routedAt: new Date().toISOString(),
-      targetSystem: 'task_management_system',
+      targetSystem: "task_management_system",
       payload: taskPayload,
-      status: 'pending_creation'
+      status: "pending_creation",
     };
   }
 
@@ -267,7 +282,9 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
    * Generate email drafts for Email Triage workflow
    */
   private async generateEmailDrafts(followUpPlan: any): Promise<any[]> {
-    this.logger.log(`Generating ${followUpPlan.emailFollowUps.length} email drafts`);
+    this.logger.log(
+      `Generating ${followUpPlan.emailFollowUps.length} email drafts`,
+    );
 
     const emailDrafts: any[] = [];
 
@@ -276,11 +293,13 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
         const draft = await this.createEmailDraft(emailFollowUp, followUpPlan);
         emailDrafts.push(draft);
       } catch (error) {
-        this.logger.warn(`Failed to create email draft for ${emailFollowUp.id}: ${error.message}`);
+        this.logger.warn(
+          `Failed to create email draft for ${emailFollowUp.id}: ${error.message}`,
+        );
         emailDrafts.push({
           id: emailFollowUp.id,
-          status: 'failed',
-          error: error.message
+          status: "failed",
+          error: error.message,
         });
       }
     }
@@ -291,7 +310,10 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
   /**
    * Create individual email draft
    */
-  private async createEmailDraft(emailFollowUp: any, followUpPlan: any): Promise<any> {
+  private async createEmailDraft(
+    emailFollowUp: any,
+    followUpPlan: any,
+  ): Promise<any> {
     return {
       id: `draft-${emailFollowUp.id}`,
       type: emailFollowUp.type,
@@ -302,14 +324,14 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
       scheduledDelivery: emailFollowUp.scheduledDelivery,
       tracking: {
         requiresResponse: emailFollowUp.trackingRequired,
-        followUpRequired: true
+        followUpRequired: true,
       },
       metadata: {
         originatingMeeting: followUpPlan.meetingId,
         relatedActionItems: emailFollowUp.relatedActionItems,
-        source: 'post_meeting_orchestration'
+        source: "post_meeting_orchestration",
       },
-      status: 'draft_ready'
+      status: "draft_ready",
     };
   }
 
@@ -317,20 +339,27 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
    * Generate scheduling requests for Calendar workflow
    */
   private async generateSchedulingRequests(followUpPlan: any): Promise<any[]> {
-    this.logger.log(`Generating ${followUpPlan.meetingFollowUps.length} scheduling requests`);
+    this.logger.log(
+      `Generating ${followUpPlan.meetingFollowUps.length} scheduling requests`,
+    );
 
     const schedulingRequests: any[] = [];
 
     for (const meetingFollowUp of followUpPlan.meetingFollowUps) {
       try {
-        const request = await this.createSchedulingRequest(meetingFollowUp, followUpPlan);
+        const request = await this.createSchedulingRequest(
+          meetingFollowUp,
+          followUpPlan,
+        );
         schedulingRequests.push(request);
       } catch (error) {
-        this.logger.warn(`Failed to create scheduling request for ${meetingFollowUp.id}: ${error.message}`);
+        this.logger.warn(
+          `Failed to create scheduling request for ${meetingFollowUp.id}: ${error.message}`,
+        );
         schedulingRequests.push({
           id: meetingFollowUp.id,
-          status: 'failed',
-          error: error.message
+          status: "failed",
+          error: error.message,
         });
       }
     }
@@ -341,7 +370,10 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
   /**
    * Create individual scheduling request
    */
-  private async createSchedulingRequest(meetingFollowUp: any, followUpPlan: any): Promise<any> {
+  private async createSchedulingRequest(
+    meetingFollowUp: any,
+    followUpPlan: any,
+  ): Promise<any> {
     return {
       id: `schedule-${meetingFollowUp.id}`,
       type: meetingFollowUp.type,
@@ -355,10 +387,10 @@ export class PostMeetingOrchestrationService implements TeamHandler<any, PostMee
       relatedDecisions: meetingFollowUp.relatedDecisions,
       relatedActionItems: meetingFollowUp.relatedActionItems,
       metadata: {
-        source: 'post_meeting_orchestration',
-        orchestrationPlan: followUpPlan.planId
+        source: "post_meeting_orchestration",
+        orchestrationPlan: followUpPlan.planId,
       },
-      status: 'scheduling_requested'
+      status: "scheduling_requested",
     };
   }
 
@@ -385,21 +417,24 @@ Generated on: ${new Date().toLocaleDateString()}`;
 
     return {
       sessionId,
-      status: 'in_progress',
+      status: "in_progress",
       progress: {
         followUpPlanGenerated: true,
         routingCompleted: true,
         emailDraftsCreated: true,
-        schedulingRequestsCreated: true
+        schedulingRequestsCreated: true,
       },
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
     };
   }
 
   /**
    * Handle workflow completion notifications
    */
-  async handleWorkflowCompletion(workflowType: string, result: any): Promise<void> {
+  async handleWorkflowCompletion(
+    workflowType: string,
+    result: any,
+  ): Promise<void> {
     this.logger.log(`Received completion notification from ${workflowType}`);
 
     // In a real implementation, this would:
@@ -409,18 +444,18 @@ Generated on: ${new Date().toLocaleDateString()}`;
     // 4. Update analytics and metrics
 
     switch (workflowType) {
-      case 'email_triage':
-        this.logger.log('Email triage workflow completed');
+      case "email_triage":
+        this.logger.log("Email triage workflow completed");
         break;
-      
-      case 'calendar_workflow':
-        this.logger.log('Calendar workflow completed');
+
+      case "calendar_workflow":
+        this.logger.log("Calendar workflow completed");
         break;
-      
-      case 'task_management':
-        this.logger.log('Task management workflow completed');
+
+      case "task_management":
+        this.logger.log("Task management workflow completed");
         break;
-      
+
       default:
         this.logger.warn(`Unknown workflow type: ${workflowType}`);
     }
@@ -429,42 +464,56 @@ Generated on: ${new Date().toLocaleDateString()}`;
   /**
    * 🚀 NEW: Auto-trigger post-meeting orchestration when meeting analysis completes
    */
-  @OnEvent('meeting_analysis.completed')
+  @OnEvent("meeting_analysis.completed")
   async handleMeetingAnalysisCompleted(event: {
     sessionId: string;
     result: any;
     timestamp: string;
   }): Promise<void> {
-    this.logger.log(`🎯 Auto-triggering post-meeting orchestration for session ${event.sessionId}`);
+    this.logger.log(
+      `🎯 Auto-triggering post-meeting orchestration for session ${event.sessionId}`,
+    );
 
     try {
       // Process the orchestration workflow automatically
       const orchestrationInput = {
-        type: 'post_meeting_orchestration',
+        type: "post_meeting_orchestration",
         sessionId: `orchestration-${event.sessionId}`,
         meetingAnalysisResult: event.result,
         metadata: {
-          triggeredBy: 'meeting_analysis_completion',
+          triggeredBy: "meeting_analysis_completion",
           originalSessionId: event.sessionId,
           triggeredAt: event.timestamp,
-          autoTriggered: true
-        }
+          autoTriggered: true,
+        },
       };
 
       // Execute the orchestration workflow
       const orchestrationResult = await this.process(orchestrationInput);
 
-      this.logger.log(`✅ Completed automated post-meeting orchestration for session ${event.sessionId}`);
-      this.logger.log(`   - Follow-up plan generated: ${!!orchestrationResult.followUpPlan}`);
-      this.logger.log(`   - Email drafts created: ${orchestrationResult.emailDrafts?.length || 0}`);
-      this.logger.log(`   - Scheduling requests: ${orchestrationResult.schedulingResults?.length || 0}`);
-
+      this.logger.log(
+        `✅ Completed automated post-meeting orchestration for session ${event.sessionId}`,
+      );
+      this.logger.log(
+        `   - Follow-up plan generated: ${!!orchestrationResult.followUpPlan}`,
+      );
+      this.logger.log(
+        `   - Email drafts created: ${orchestrationResult.emailDrafts?.length || 0}`,
+      );
+      this.logger.log(
+        `   - Scheduling requests: ${orchestrationResult.schedulingResults?.length || 0}`,
+      );
     } catch (error) {
-      this.logger.error(`❌ Error in automated post-meeting orchestration for session ${event.sessionId}: ${error.message}`, error.stack);
-      
+      this.logger.error(
+        `❌ Error in automated post-meeting orchestration for session ${event.sessionId}: ${error.message}`,
+        error.stack,
+      );
+
       // Don't throw - we don't want to break the main meeting analysis workflow
       // Instead, we could store this error for retry or manual intervention
-      this.logger.warn(`Post-meeting orchestration will need to be triggered manually for session ${event.sessionId}`);
+      this.logger.warn(
+        `Post-meeting orchestration will need to be triggered manually for session ${event.sessionId}`,
+      );
     }
   }
-} 
+}
