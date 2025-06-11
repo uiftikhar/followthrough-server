@@ -72,6 +72,9 @@ export interface MeetingAnalysisState {
    */
   stage?:
     | "initialization"
+    | "context_retrieval"
+    | "context_retrieved" 
+    | "context_retrieval_failed"
     | "topic_extraction"
     | "action_item_extraction"
     | "sentiment_analysis"

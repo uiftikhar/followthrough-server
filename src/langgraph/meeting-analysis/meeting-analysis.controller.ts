@@ -20,11 +20,9 @@ import {
   ApiBearerAuth,
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
-import { MeetingAnalysisService } from "./meeting-analysis.service";
 import { AnalyzeTranscriptDto } from "./dto/analyze-transcript.dto";
 import { AnalysisResultDto } from "./dto/analysis-result.dto";
 import { UnifiedWorkflowService } from "../unified-workflow.service";
-import { SessionRepository } from "../../database/repositories/session.repository";
 
 /**
  * Controller for meeting analysis endpoints
@@ -36,9 +34,7 @@ export class MeetingAnalysisController {
   private readonly logger = new Logger(MeetingAnalysisController.name);
 
   constructor(
-    private readonly meetingAnalysisService: MeetingAnalysisService,
     private readonly unifiedWorkflowService: UnifiedWorkflowService,
-    private readonly sessionRepository: SessionRepository,
   ) {}
 
   /**
@@ -138,9 +134,7 @@ export class MeetingAnalysisController {
       this.logger.warn(
         `Error retrieving results from unified workflow service: ${error.message}`,
       );
-
-      // Fall back to the old service for backward compatibility
-      return this.meetingAnalysisService.getAnalysisResults(sessionId, userId);
+      throw error;
     }
   }
 }

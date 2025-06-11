@@ -6,7 +6,9 @@ import {
 } from "@nestjs/common";
 import { TeamHandlerRegistry } from "../../langgraph/core/team-handler-registry.service";
 import { TeamHandler } from "../../langgraph/core/interfaces/team-handler.interface";
-import { EmailTriageGraphBuilder } from "./email-triage-graph.builder";
+import { StateGraph, START, END } from "@langchain/langgraph";
+import { StateService } from "../../langgraph/state/state.service";
+import { AgentFactory } from "../../langgraph/agents/agent.factory";
 import { EmailTriageState } from "../dtos/email-triage.dto";
 import { v4 as uuidv4 } from "uuid";
 import { EventEmitter2 } from "@nestjs/event-emitter";
@@ -15,7 +17,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
  * EmailTriageService - Team Handler for Email Domain
  * Implements TeamHandler interface to integrate with Master Supervisor
  * Registers as 'email_triage' team to handle email processing tasks
- * UPDATED: Now uses EmailTriageGraphBuilder for Phase 5/6 RAG enhancements
+ * UPDATED: Now uses pure LangGraph StateGraph implementation
  */
 @Injectable()
 export class EmailTriageService
@@ -23,16 +25,16 @@ export class EmailTriageService
 {
   private readonly logger = new Logger(EmailTriageService.name);
   private readonly teamName = "email_triage";
+  private emailTriageGraph: any;
 
   constructor(
     private readonly teamHandlerRegistry: TeamHandlerRegistry,
-    private readonly emailTriageGraphBuilder: EmailTriageGraphBuilder,
+    private readonly stateService: StateService,
+    private readonly agentFactory: AgentFactory,
     private readonly eventEmitter: EventEmitter2,
   ) {
-    // Log constructor call
-    this.logger.log(
-      "EmailTriageService constructor called - using EmailTriageGraphBuilder",
-    );
+    this.logger.log("EmailTriageService constructor called - using LangGraph StateGraph");
+    this.initializeEmailTriageGraph();
   }
 
   async onModuleInit() {
@@ -120,11 +122,11 @@ export class EmailTriageService
   /**
    * Process email triage tasks - required by TeamHandler interface
    * This is the main entry point for email processing
-   * UPDATED: Now uses EmailTriageGraphBuilder with RAG enhancements
+   * UPDATED: Now uses pure LangGraph StateGraph implementation
    */
   async process(input: any): Promise<any> {
     this.logger.log(
-      `Processing email triage task for email: ${input.emailData?.id} using RAG-enhanced graph`,
+      `Processing email triage task for email: ${input.emailData?.id} using LangGraph StateGraph`,
     );
 
     try {
@@ -133,7 +135,7 @@ export class EmailTriageService
         throw new Error("Invalid input structure: missing emailData");
       }
 
-      // Create EmailTriageState for the enhanced graph builder
+      // Create EmailTriageState for the LangGraph StateGraph
       const sessionId = input.sessionId || uuidv4();
       const initialState: EmailTriageState = {
         sessionId,
@@ -155,7 +157,7 @@ export class EmailTriageService
       };
 
       this.logger.log(
-        `🚀 Starting RAG-enhanced email triage for session: ${sessionId}`,
+        `🚀 Starting email triage for session: ${sessionId}`,
       );
 
       // Emit immediate triage started event
@@ -168,18 +170,17 @@ export class EmailTriageService
         subject: input.emailData.metadata?.subject,
         from: input.emailData.metadata?.from,
         timestamp: new Date().toISOString(),
-        source: "enhanced_graph_service",
+        source: "langgraph_stategraph_service",
       });
 
-      // Execute the RAG-enhanced email triage graph
-      const finalState =
-        await this.emailTriageGraphBuilder.executeGraph(initialState);
+      // Execute the email triage graph
+      const finalState = await this.executeEmailTriageGraph(initialState);
 
       this.logger.log(
-        `✅ RAG-enhanced email triage completed for session: ${sessionId}`,
+        `✅ Email triage completed for session: ${sessionId}`,
       );
 
-      // Emit enhanced completion event with detailed results
+      // Emit completion event with detailed results
       this.eventEmitter.emit("email.triage.completed", {
         sessionId,
         emailId: input.emailData.id,
@@ -194,8 +195,8 @@ export class EmailTriageService
         retrievedContext: finalState.retrievedContext,
         processingMetadata: finalState.processingMetadata,
         timestamp: new Date().toISOString(),
-        source: "enhanced_graph_service",
-        ragEnhanced: true,
+        source: "langgraph_stategraph_service",
+        langGraph: true,
       });
 
       // Return the final result in the expected format
@@ -212,7 +213,7 @@ export class EmailTriageService
       );
     } catch (error) {
       this.logger.error(
-        `Error processing RAG-enhanced email triage task: ${error.message}`,
+        `Error processing email triage task: ${error.message}`,
         error.stack,
       );
 
@@ -224,7 +225,7 @@ export class EmailTriageService
         subject: input.emailData?.metadata?.subject,
         error: error.message,
         timestamp: new Date().toISOString(),
-        source: "enhanced_graph_service",
+        source: "langgraph_stategraph_service",
       });
 
       throw error;
@@ -257,5 +258,178 @@ export class EmailTriageService
       ],
       supportedTaskTypes: ["email_triage"],
     };
+  }
+
+  /**
+   * Initialize the email triage graph using LangGraph StateGraph
+   */
+  private async initializeEmailTriageGraph(): Promise<void> {
+    try {
+      this.logger.log("🏗️ Building email triage LangGraph...");
+      
+      // Create state annotation for email triage
+      const stateAnnotation = this.stateService.createEmailTriageState();
+      
+      this.emailTriageGraph = new StateGraph(stateAnnotation)
+        .addNode("initialize", this.initializeNode.bind(this))
+        .addNode("classify", this.classifyEmailNode.bind(this))
+        .addNode("summarize", this.summarizeEmailNode.bind(this))
+        .addNode("generateReply", this.generateReplyNode.bind(this))
+        .addNode("finalize", this.finalizeNode.bind(this))
+        .addEdge(START, "initialize")
+        .addEdge("initialize", "classify")
+        .addEdge("classify", "summarize")
+        .addEdge("summarize", "generateReply")
+        .addEdge("generateReply", "finalize")
+        .addEdge("finalize", END)
+        .compile();
+
+      this.logger.log("✅ Email triage LangGraph built successfully");
+    } catch (error) {
+      this.logger.error(`❌ Failed to build email triage graph: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // Graph node implementations
+  private async initializeNode(state: any): Promise<any> {
+    this.logger.log(`Initializing email triage for email: ${state.emailData?.id}`);
+    
+    return {
+      ...state,
+      currentStep: "initialization_completed",
+      progress: 10
+    };
+  }
+
+  private async classifyEmailNode(state: any): Promise<any> {
+    this.logger.log("Executing email classification");
+    
+    try {
+      // Create a basic classification agent as fallback
+      const classificationAgent = this.agentFactory.createBaseAgent({
+        name: "EmailClassificationAgent",
+        systemPrompt: "You are an email classification agent. Classify emails by category and priority. Respond with JSON format: {classification: {category: string, priority: string}}",
+        llmOptions: { temperature: 0.3, model: "gpt-4o" }
+      });
+      
+      const classification = await classificationAgent.processState(state);
+      
+      return {
+        ...state,
+        classification: classification.classification || { category: "general", priority: "medium" },
+        currentStep: "classification_completed",
+        progress: 40
+      };
+    } catch (error) {
+      this.logger.warn(`Email classification failed: ${error.message}`);
+      return {
+        ...state,
+        classification: { category: "general", priority: "medium", error: error.message },
+        currentStep: "classification_completed",
+        progress: 40
+      };
+    }
+  }
+
+  private async summarizeEmailNode(state: any): Promise<any> {
+    this.logger.log("Executing email summarization");
+    
+    try {
+      // Create a basic summarization agent as fallback
+      const summarizationAgent = this.agentFactory.createBaseAgent({
+        name: "EmailSummarizationAgent",
+        systemPrompt: "You are an email summarization agent. Create concise summaries of email content. Respond with JSON format: {summary: string}",
+        llmOptions: { temperature: 0.3, model: "gpt-4o" }
+      });
+      
+      const summary = await summarizationAgent.processState(state);
+      
+      return {
+        ...state,
+        summary: summary.summary || "Email summary not available",
+        currentStep: "summarization_completed",
+        progress: 70
+      };
+    } catch (error) {
+      this.logger.warn(`Email summarization failed: ${error.message}`);
+      return {
+        ...state,
+        summary: "Email summary not available",
+        currentStep: "summarization_completed",
+        progress: 70
+      };
+    }
+  }
+
+  private async generateReplyNode(state: any): Promise<any> {
+    this.logger.log("Executing reply draft generation");
+    
+    try {
+      // Create a basic reply agent as fallback
+      const replyAgent = this.agentFactory.createBaseAgent({
+        name: "EmailReplyDraftAgent",
+        systemPrompt: "You are an email reply draft agent. Generate appropriate email replies. Respond with JSON format: {replyDraft: string}",
+        llmOptions: { temperature: 0.4, model: "gpt-4o" }
+      });
+      
+      const replyDraft = await replyAgent.processState(state);
+      
+      return {
+        ...state,
+        replyDraft: replyDraft.replyDraft || "Reply draft not available",
+        currentStep: "reply_generation_completed",
+        progress: 90
+      };
+    } catch (error) {
+      this.logger.warn(`Reply generation failed: ${error.message}`);
+      return {
+        ...state,
+        replyDraft: "Reply draft not available",
+        currentStep: "reply_generation_completed",
+        progress: 90
+      };
+    }
+  }
+
+  private async finalizeNode(state: any): Promise<any> {
+    this.logger.log("Finalizing email triage");
+    
+    return {
+      ...state,
+      currentStep: "completed",
+      progress: 100,
+      result: {
+        classification: state.classification,
+        summary: state.summary,
+        replyDraft: state.replyDraft,
+        sessionId: state.sessionId,
+        completedAt: new Date().toISOString()
+      }
+    };
+  }
+
+  private async executeEmailTriageGraph(state: any): Promise<any> {
+    try {
+      this.logger.log(
+        `🚀 Starting email triage execution for session: ${state.sessionId}`,
+      );
+
+      // Execute the email triage graph using LangGraph's invoke method
+      const finalState = await this.emailTriageGraph.invoke(state);
+
+      this.logger.log(
+        `✅ Email triage execution completed for session: ${state.sessionId}`,
+      );
+
+      return finalState;
+    } catch (error) {
+      this.logger.error(
+        `Error executing email triage graph: ${error.message}`,
+        error.stack,
+      );
+
+      throw error;
+    }
   }
 }

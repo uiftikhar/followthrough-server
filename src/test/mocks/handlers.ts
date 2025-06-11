@@ -190,6 +190,359 @@ const mockSentimentResponse = {
   },
 };
 
+// Mock meeting context response
+const mockMeetingContextResponse = {
+  id: "chatcmpl-context-123",
+  object: "chat.completion",
+  created: Date.now(),
+  model: "gpt-4o",
+  choices: [
+    {
+      index: 0,
+      message: {
+        role: "assistant",
+        content: JSON.stringify({
+          participantHistories: [
+            {
+              email: "alice@company.com",
+              displayName: "Alice Johnson",
+              totalMeetings: 15,
+              recentMeetings: [
+                {
+                  title: "Previous Product Planning",
+                  date: "2024-01-10T10:00:00Z",
+                  duration: 90,
+                  topics: ["product roadmap", "quarterly goals"],
+                },
+              ],
+              commonTopics: ["product management", "planning", "strategy"],
+              responsePatterns: {
+                averageResponseTime: "2 hours",
+                preferredMeetingTimes: ["morning"],
+                engagement: "high",
+              },
+              meetingBehavior: {
+                participationLevel: "active",
+                punctuality: "always_on_time",
+                communicationStyle: "direct",
+              },
+            },
+            {
+              email: "bob@company.com",
+              displayName: "Bob Smith",
+              totalMeetings: 8,
+              recentMeetings: [],
+              commonTopics: ["engineering", "technical planning"],
+              responsePatterns: {
+                averageResponseTime: "4 hours",
+                preferredMeetingTimes: ["afternoon"],
+                engagement: "moderate",
+              },
+              meetingBehavior: {
+                participationLevel: "reserved",
+                punctuality: "usually_on_time",
+                communicationStyle: "technical",
+              },
+            },
+            {
+              email: "charlie@company.com",
+              displayName: "Charlie Brown",
+              totalMeetings: 3,
+              recentMeetings: [],
+              commonTopics: ["design", "user experience"],
+              responsePatterns: {
+                averageResponseTime: "1 hour",
+                preferredMeetingTimes: ["morning", "afternoon"],
+                engagement: "high",
+              },
+              meetingBehavior: {
+                participationLevel: "collaborative",
+                punctuality: "always_early",
+                communicationStyle: "visual",
+              },
+            },
+          ],
+          topicPredictions: [
+            {
+              topic: "Product Roadmap Q2",
+              confidence: 0.95,
+              reasoning: "Based on meeting title and participant history",
+              relatedPastTopics: ["product roadmap", "quarterly planning"],
+            },
+            {
+              topic: "Budget Planning",
+              confidence: 0.75,
+              reasoning: "Common topic for quarterly meetings",
+              relatedPastTopics: ["budget", "resource allocation"],
+            },
+          ],
+          contextSummary: {
+            totalRelevantMeetings: 5,
+            keyParticipants: ["alice@company.com", "bob@company.com"],
+            primaryTopics: ["product planning", "quarterly goals", "roadmap"],
+            meetingPatterns: {
+              averageDuration: 75,
+              commonTimeSlots: ["10:00 AM", "2:00 PM"],
+              recurringAttendees: ["alice@company.com"],
+            },
+          },
+        }),
+      },
+      finish_reason: "stop",
+    },
+  ],
+  usage: {
+    prompt_tokens: 100,
+    completion_tokens: 400,
+    total_tokens: 500,
+  },
+};
+
+// Mock meeting brief response
+const mockMeetingBriefResponse = {
+  id: "chatcmpl-brief-123",
+  object: "chat.completion",
+  created: Date.now(),
+  model: "gpt-4o",
+  choices: [
+    {
+      index: 0,
+      message: {
+        role: "assistant",
+        content: JSON.stringify({
+          enhancedAgenda: [
+            {
+              title: "Q2 Product Roadmap Review",
+              duration: 30,
+              priority: "high",
+              description: "Review and finalize Q2 product roadmap priorities",
+              materials: [
+                "Q1 performance metrics",
+                "customer feedback summary",
+              ],
+              expectedOutcomes: [
+                "Finalized Q2 priorities",
+                "Resource allocation decisions",
+              ],
+              owner: "alice@company.com",
+              order: 1,
+            },
+            {
+              title: "Budget Planning & Resource Allocation",
+              duration: 25,
+              priority: "high",
+              description: "Discuss budget constraints and resource needs",
+              materials: ["Current budget status", "resource requirements"],
+              expectedOutcomes: ["Budget approval", "Team allocation plan"],
+              owner: "bob@company.com",
+              order: 2,
+            },
+            {
+              title: "Design System Updates",
+              duration: 15,
+              priority: "medium",
+              description: "Review design system changes for Q2",
+              materials: ["Design mockups", "user research findings"],
+              expectedOutcomes: ["Design approval", "Implementation timeline"],
+              owner: "charlie@company.com",
+              order: 3,
+            },
+          ],
+          participantPreparations: [
+            {
+              email: "alice@company.com",
+              displayName: "Alice Johnson",
+              preparationTasks: [
+                "Review Q1 performance metrics",
+                "Prepare Q2 priority recommendations",
+              ],
+              keyQuestions: [
+                "What are the top 3 Q2 priorities?",
+                "How do we handle resource constraints?",
+              ],
+              responsibilities: [
+                "Lead roadmap discussion",
+                "Make final priority decisions",
+              ],
+              suggestedReadingTime: 20,
+              personalizedNotes:
+                "Focus on data-driven decisions based on Q1 learnings",
+            },
+            {
+              email: "bob@company.com",
+              displayName: "Bob Smith",
+              preparationTasks: [
+                "Prepare budget analysis",
+                "Review resource requirements",
+              ],
+              keyQuestions: [
+                "What's our budget flexibility?",
+                "Can we hire additional developers?",
+              ],
+              responsibilities: [
+                "Present budget constraints",
+                "Propose resource solutions",
+              ],
+              suggestedReadingTime: 15,
+              personalizedNotes: "Prepare technical feasibility assessment",
+            },
+            {
+              email: "charlie@company.com",
+              displayName: "Charlie Brown",
+              preparationTasks: [
+                "Finalize design mockups",
+                "Prepare user research summary",
+              ],
+              keyQuestions: [
+                "How do designs align with Q2 goals?",
+                "What user feedback should influence decisions?",
+              ],
+              responsibilities: [
+                "Present design updates",
+                "Share user insights",
+              ],
+              suggestedReadingTime: 10,
+              personalizedNotes: "Focus on user-centered design justifications",
+            },
+          ],
+          objectives: {
+            primary: [
+              "Finalize Q2 product roadmap priorities",
+              "Approve budget and resource allocation",
+              "Align on design system updates",
+            ],
+            secondary: [
+              "Identify potential risks and mitigations",
+              "Set timeline for Q2 deliverables",
+            ],
+            successMetrics: [
+              "All participants agree on top 3 Q2 priorities",
+              "Budget approved with resource allocation plan",
+              "Design system updates scheduled",
+            ],
+            risks: [
+              {
+                risk: "Budget constraints may limit scope",
+                impact: "high",
+                mitigation: "Prioritize most critical features first",
+              },
+              {
+                risk: "Timeline pressure for Q2 deliverables",
+                impact: "medium",
+                mitigation: "Build buffer time into estimates",
+              },
+            ],
+          },
+          timeManagement: {
+            recommended: {
+              totalDuration: 70,
+              bufferTime: 20,
+              criticalTopics: ["Q2 roadmap", "budget approval"],
+            },
+            schedule: [
+              {
+                topic: "Opening & Context",
+                startTime: "10:00",
+                duration: 5,
+                type: "opening",
+              },
+              {
+                topic: "Q2 Product Roadmap Review",
+                startTime: "10:05",
+                duration: 30,
+                type: "discussion",
+              },
+              {
+                topic: "Budget Planning",
+                startTime: "10:35",
+                duration: 25,
+                type: "decision",
+              },
+              {
+                topic: "Design System Updates",
+                startTime: "11:00",
+                duration: 15,
+                type: "update",
+              },
+              {
+                topic: "Next Steps & Closing",
+                startTime: "11:15",
+                duration: 10,
+                type: "closing",
+              },
+            ],
+            fallbackPlans: [
+              "If running late, postpone design discussion to follow-up",
+              "Focus on roadmap and budget as critical decisions",
+            ],
+          },
+        }),
+      },
+      finish_reason: "stop",
+    },
+  ],
+  usage: {
+    prompt_tokens: 200,
+    completion_tokens: 600,
+    total_tokens: 800,
+  },
+};
+
+// Mock Google Calendar API responses
+const mockGoogleCalendarEvents = {
+  kind: "calendar#events",
+  etag: '"test-etag"',
+  summary: "Test Calendar",
+  timeZone: "America/New_York",
+  items: [
+    {
+      kind: "calendar#event",
+      etag: '"test-event-etag"',
+      id: "test-event-123",
+      status: "confirmed",
+      summary: "Product Planning Meeting",
+      description: "Quarterly product planning session",
+      location: "Conference Room A",
+      creator: {
+        email: "alice@company.com",
+        displayName: "Alice Johnson",
+      },
+      organizer: {
+        email: "alice@company.com",
+        displayName: "Alice Johnson",
+      },
+      start: {
+        dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        timeZone: "America/New_York",
+      },
+      end: {
+        dateTime: new Date(
+          Date.now() + 24 * 60 * 60 * 1000 + 90 * 60 * 1000,
+        ).toISOString(),
+        timeZone: "America/New_York",
+      },
+      attendees: [
+        {
+          email: "alice@company.com",
+          displayName: "Alice Johnson",
+          responseStatus: "accepted",
+        },
+        {
+          email: "bob@company.com",
+          displayName: "Bob Smith",
+          responseStatus: "tentative",
+        },
+        {
+          email: "charlie@company.com",
+          displayName: "Charlie Brown",
+          responseStatus: "needsAction",
+        },
+      ],
+      hangoutLink: "https://meet.google.com/abc-defg-hij",
+    },
+  ],
+};
+
 // Default chat completion response for other queries
 const mockChatCompletionResponse = {
   id: "chatcmpl-mock-123",
@@ -250,6 +603,18 @@ export const handlers = [
 
       // Select appropriate mock response based on content
       if (
+        content.toLowerCase().includes("meeting context") ||
+        content.toLowerCase().includes("participant") ||
+        content.toLowerCase().includes("previous meetings")
+      ) {
+        return HttpResponse.json(mockMeetingContextResponse);
+      } else if (
+        content.toLowerCase().includes("meeting brief") ||
+        content.toLowerCase().includes("agenda") ||
+        content.toLowerCase().includes("preparation")
+      ) {
+        return HttpResponse.json(mockMeetingBriefResponse);
+      } else if (
         content.toLowerCase().includes("topic") ||
         content.toLowerCase().includes("main discussion points")
       ) {
@@ -271,6 +636,44 @@ export const handlers = [
       }
     },
   ),
+
+  // Mock Google Calendar API - List Events
+  http.get(
+    "https://www.googleapis.com/calendar/v3/calendars/*/events",
+    async () => {
+      return HttpResponse.json(mockGoogleCalendarEvents);
+    },
+  ),
+
+  // Mock Google Calendar API - Get Event
+  http.get(
+    "https://www.googleapis.com/calendar/v3/calendars/*/events/*",
+    async () => {
+      return HttpResponse.json(mockGoogleCalendarEvents.items[0]);
+    },
+  ),
+
+  // Mock Google Calendar API - Create Event
+  http.post(
+    "https://www.googleapis.com/calendar/v3/calendars/*/events",
+    async () => {
+      return HttpResponse.json({
+        ...mockGoogleCalendarEvents.items[0],
+        id: `new-event-${Date.now()}`,
+      });
+    },
+  ),
+
+  // Mock Google OAuth token endpoint
+  http.post("https://oauth2.googleapis.com/token", async () => {
+    return HttpResponse.json({
+      access_token: "mock_access_token",
+      refresh_token: "mock_refresh_token",
+      expires_in: 3600,
+      token_type: "Bearer",
+      scope: "https://www.googleapis.com/auth/calendar",
+    });
+  }),
 
   // Mock Pinecone API for vector storage
   http.post("*/query", async () => {
@@ -297,6 +700,18 @@ export const handlers = [
             date: "2023-06-22",
           },
         },
+        {
+          id: "doc-3",
+          score: 0.84,
+          values: Array(1024).fill(0.15),
+          metadata: {
+            content:
+              "Alice led previous product planning sessions with focus on user feedback.",
+            meetingId: "prev-meeting-003",
+            date: "2023-12-10",
+            participants: ["alice@company.com", "bob@company.com"],
+          },
+        },
       ],
       namespace: "meetings",
     });
@@ -307,5 +722,32 @@ export const handlers = [
     return HttpResponse.json({
       upsertedCount: 10,
     });
+  }),
+
+  // Mock Pinecone index stats
+  http.get("*/describe_index_stats", async () => {
+    return HttpResponse.json({
+      namespaces: {
+        meetings: {
+          vectorCount: 150,
+        },
+        "email-history": {
+          vectorCount: 300,
+        },
+      },
+      dimension: 1024,
+      indexFullness: 0.1,
+      totalVectorCount: 450,
+    });
+  }),
+
+  // Mock email/messaging services
+  http.post("https://hooks.slack.com/services/**", async () => {
+    return HttpResponse.json({ ok: true });
+  }),
+
+  // Mock webhook endpoints (placeholder for future integrations)
+  http.post("*/webhook/**", async () => {
+    return HttpResponse.json({ received: true, status: "processed" });
   }),
 ];

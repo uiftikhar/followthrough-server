@@ -21,6 +21,9 @@ import { EmailSnoozeAgent } from "./email-snooze.agent";
 // Phase 2: Pattern storage service for RAG learning
 import { EmailPatternStorageService } from "./email-pattern-storage.service";
 
+// Email agent factory
+import { EmailAgentFactory } from "./email-agent.factory";
+
 // Configuration tokens
 import {
   EMAIL_CLASSIFICATION_CONFIG,
@@ -40,8 +43,15 @@ import {
 
 /**
  * EmailAgentsModule - Domain Services Layer
- * Provides all email-specific agents (classification, summarization, reply drafts, delegation, snooze)
- * Enhanced with Phase 3 tone learning capabilities
+ *
+ * Contains all agents specifically used for email triage workflows:
+ * - Email classification and prioritization
+ * - Email summarization and RAG-enhanced summarization
+ * - Reply draft generation with tone learning
+ * - Pattern recognition and delegation
+ * - Snooze recommendations
+ *
+ * This module is self-contained and has no circular dependencies.
  */
 @Module({
   imports: [
@@ -51,7 +61,7 @@ import {
     SharedCoreModule, // For RAG capabilities
   ],
   providers: [
-    // Phase 1-3: Email-specific worker agents
+    // Email-specific worker agents
     EmailClassificationAgent,
     EmailSummarizationAgent,
     EmailRagSummarizationAgent,
@@ -67,6 +77,9 @@ import {
 
     // Phase 2: Pattern storage service for RAG learning
     EmailPatternStorageService,
+
+    // Email agent factory
+    EmailAgentFactory,
 
     // Agent configurations
     {
@@ -163,7 +176,7 @@ import {
     },
   ],
   exports: [
-    // Phase 1-3: Export all original agents for use in workflow modules
+    // Export all email agents for use in workflow modules
     EmailClassificationAgent,
     EmailSummarizationAgent,
     EmailRagSummarizationAgent,
@@ -179,6 +192,9 @@ import {
 
     // Phase 2: Export pattern storage service for RAG learning
     EmailPatternStorageService,
+
+    // Export email agent factory for easy access
+    EmailAgentFactory,
   ],
 })
 export class EmailAgentsModule {}

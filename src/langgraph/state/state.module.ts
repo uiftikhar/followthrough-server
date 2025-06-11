@@ -21,6 +21,9 @@ import { STATE_SERVICE } from "./constants/injection-tokens";
 
     // Token-based provider
     STATE_SERVICE,
+
+    // Export workflow state annotations
+    "workflow-state.annotation",
   ],
 })
 export class StateModule {}
