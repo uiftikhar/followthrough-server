@@ -74,7 +74,8 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     private readonly documentProcessorService: DocumentProcessorService,
     private readonly adaptiveRagService: AdaptiveRagService,
   ) {
-    this.ragEnabled = this.configService.get<boolean>("rag.enabled", true);
+    // this.ragEnabled = this.configService.get<boolean>("rag.enabled", true);
+    this.ragEnabled = true;
     this.logger.log(
       "MeetingAnalysisService initialized with enhanced RAG capabilities",
     );
@@ -212,68 +213,65 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
 
       // Step 2: Enhanced RAG context retrieval using adaptive RAG
       let enhancedState = initialState;
-      if (this.ragEnabled) {
-        this.logger.log(
-          `Using enhanced RAG capabilities for meeting analysis ${meetingId}`,
-        );
-        try {
-          // Determine the best retrieval strategy using adaptive RAG
-          const retrievalStrategy =
-            await this.adaptiveRagService.determineRetrievalStrategy(
-              transcript.substring(0, 500), // Use a sample of the transcript for strategy determination
-            );
-
-          this.logger.log(
-            `Adaptive RAG selected strategy: ${retrievalStrategy.strategy}`,
+      this.logger.log(
+        `Using enhanced RAG capabilities for meeting analysis ${meetingId}`,
+      );
+      try {
+        // Determine the best retrieval strategy using adaptive RAG
+        const retrievalStrategy =
+          await this.adaptiveRagService.determineRetrievalStrategy(
+            transcript.substring(0, 500), // Use a sample of the transcript for strategy determination
           );
 
-          // Use the determined strategy for enhanced context retrieval
-          const retrievalOptions = {
-            indexName: "meeting-analysis",
-            namespace: "transcripts",
-            topK: retrievalStrategy.settings.topK || 5,
-            minScore: retrievalStrategy.settings.minScore || 0.7,
-            filter: input.metadata?.filter,
+        this.logger.log(
+          `Adaptive RAG selected strategy: ${retrievalStrategy.strategy}`,
+        );
+
+        // Use the determined strategy for enhanced context retrieval
+        const retrievalOptions = {
+          indexName: "meeting-analysis",
+          namespace: "transcripts",
+          topK: retrievalStrategy.settings.topK || 5,
+          minScore: retrievalStrategy.settings.minScore || 0.7,
+          filter: input.metadata?.filter,
+        };
+
+        // Get context using the standard RAG service with adaptive settings
+        const documents = await this.ragService.getContext(
+          transcript,
+          retrievalOptions,
+        );
+
+        this.logger.log(
+          `Retrieved ${documents.length} relevant documents with adaptive strategy: ${retrievalStrategy.strategy}`,
+        );
+
+        // Add enhanced context to the initial state
+        if (documents.length > 0) {
+          enhancedState = {
+            ...initialState,
+            context: {
+              ...initialState.context,
+              retrievedContext: {
+                documents,
+                contextText: this.formatContextForAnalysis(documents),
+                timestamp: new Date().toISOString(),
+                adaptiveStrategy: retrievalStrategy.strategy,
+                retrievalSettings: retrievalStrategy.settings,
+              },
+            },
           };
 
-          // Get context using the standard RAG service with adaptive settings
-          const documents = await this.ragService.getContext(
-            transcript,
-            retrievalOptions,
-          );
-
           this.logger.log(
-            `Retrieved ${documents.length} relevant documents with adaptive strategy: ${retrievalStrategy.strategy}`,
+            `Enhanced state with adaptive RAG context for meeting ${meetingId}`,
           );
-
-          // Add enhanced context to the initial state
-          if (documents.length > 0) {
-            enhancedState = {
-              ...initialState,
-              context: {
-                ...initialState.context,
-                retrievedContext: {
-                  documents,
-                  contextText: this.formatContextForAnalysis(documents),
-                  timestamp: new Date().toISOString(),
-                  adaptiveStrategy: retrievalStrategy.strategy,
-                  retrievalSettings: retrievalStrategy.settings,
-                },
-              },
-            };
-
-            this.logger.log(
-              `Enhanced state with adaptive RAG context for meeting ${meetingId}`,
-            );
-          }
-        } catch (error) {
-          this.logger.warn(
-            `Error retrieving adaptive RAG context: ${error.message}`,
-          );
-          // Continue with analysis even if RAG retrieval fails
         }
+      } catch (error) {
+        this.logger.warn(
+          `Error retrieving adaptive RAG context: ${error.message}`,
+        );
+        // Continue with analysis even if RAG retrieval fails
       }
-
       // Step 3: Build and execute the LangGraph StateGraph
       const graph = await this.meetingAnalysisGraph;
 
@@ -518,89 +516,6 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     }
   }
 
-  /**
-   * Get analysis results for a session
-   */
-  async getAnalysisResults(
-    sessionId: string,
-    userId?: string,
-  ): Promise<AnalysisResultDto> {
-    this.logger.log(`Retrieving analysis results for session: ${sessionId}`);
-
-    try {
-      let session: Session;
-
-      if (userId) {
-        // Get session with user verification
-        session = await this.sessionRepository.getSessionByIdAndUserId(
-          sessionId,
-          userId,
-        );
-        this.logger.log(
-          `Found session ${sessionId} in MongoDB for user ${userId}`,
-        );
-      } else {
-        // Get session without user verification
-        session = await this.sessionRepository.getSessionById(sessionId);
-        this.logger.log(`Found session ${sessionId} in MongoDB`);
-      }
-
-      // Calculate progress percentage
-      const progress =
-        session.status === "completed"
-          ? 100
-          : session.status === "failed"
-            ? 0  // ✅ Show 0% for failed instead of 100%
-            : session.progress || 0; // Use the progress stored in session
-
-      // Calculate what has been completed so far
-      const completedSteps: string[] = [];
-      if (session.topics && session.topics.length > 0)
-        completedSteps.push("topics");
-      if (session.actionItems && session.actionItems.length > 0)
-        completedSteps.push("action_items");
-      if (session.sentiment) completedSteps.push("sentiment");
-      if (session.summary) completedSteps.push("summary");
-
-      // Convert MongoDB session to AnalysisResultDto
-      const result: AnalysisResultDto = {
-        sessionId: session.sessionId,
-        status: session.status as
-          | "pending"
-          | "in_progress"
-          | "completed"
-          | "failed",
-        progress: progress,
-        completedSteps: completedSteps,
-        createdAt: session.startTime,
-        completedAt: session.endTime,
-        transcript: session.transcript,
-        topics: session.topics || [],
-        actionItems: session.actionItems || [],
-        summary: session.summary || null,
-        sentiment: session.sentiment || null,
-        errors: session.errors || [],
-        // Include context for RAG results if available
-        context: session.metadata?.context || null,
-        ...session.metadata,
-      };
-
-      this.logger.log(
-        `Returning results for session ${sessionId} with status ${result.status} and progress ${progress}%`,
-      );
-
-      return result;
-    } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error; // Re-throw authorization errors
-      }
-      this.logger.error(
-        `Error retrieving analysis results: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
-  }
 
   /**
    * Generate a unique session ID
