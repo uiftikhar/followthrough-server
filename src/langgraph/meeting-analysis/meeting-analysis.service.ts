@@ -1,8 +1,6 @@
 import {
   Injectable,
   Logger,
-  NotFoundException,
-  UnauthorizedException,
   OnModuleInit,
   Inject,
 } from "@nestjs/common";
@@ -19,7 +17,6 @@ import { DocumentProcessorService } from "../../embedding/document-processor.ser
 import { AdaptiveRagService } from "../../rag/adaptive-rag.service";
 import { SessionRepository } from "../../database/repositories/session.repository";
 import { Session } from "../../database/schemas/session.schema";
-import { AnalysisResultDto } from "./dto/analysis-result.dto";
 import { MeetingAnalysisAgentFactory } from "./meeting-analysis-agent.factory";
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { StateService } from "../state/state.service";
@@ -39,12 +36,12 @@ export interface AnalysisProgressEvent {
 /**
  * Service for handling meeting analysis requests
  * Implements TeamHandler to be used by the supervisor
+ * Uses RAG agents by default for enhanced analysis
  */
 @Injectable()
 export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
   private readonly logger = new Logger(MeetingAnalysisService.name);
   private readonly teamName = "meeting_analysis";
-  private readonly ragEnabled: boolean;
   private meetingAnalysisGraph: Promise<any>;
 
   // Node names for graph execution
@@ -74,13 +71,8 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     private readonly documentProcessorService: DocumentProcessorService,
     private readonly adaptiveRagService: AdaptiveRagService,
   ) {
-    // this.ragEnabled = this.configService.get<boolean>("rag.enabled", true);
-    this.ragEnabled = true;
     this.logger.log(
-      "MeetingAnalysisService initialized with enhanced RAG capabilities",
-    );
-    this.logger.log(
-      `RAG capabilities are ${this.ragEnabled ? "enabled" : "disabled"}`,
+      "MeetingAnalysisService initialized with RAG agents by default",
     );
     this.initializeMeetingAnalysisGraph();
   }
@@ -453,11 +445,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     const sessionId = this.generateSessionId();
     this.logger.log(`Created new analysis session: ${sessionId} for user: ${actualUserId}`);
     
-    // Check if this is a RAG-enhanced analysis request
-    const useRAG = metadata?.useRag !== false && this.ragEnabled;
-    if (useRAG) {
-      this.logger.log(`Session ${sessionId} will use RAG capabilities`);
-    }
+    this.logger.log(`Session ${sessionId} will use RAG capabilities by default`);
     
     // Create initial session object for MongoDB
     const sessionData: Partial<Session> = {
@@ -466,10 +454,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       status: 'pending',
       transcript,
       startTime: new Date(),
-      metadata: {
-        ...metadata || {},
-        useRag: useRAG
-      },
+      metadata: metadata || {},
     };
     
     try {
@@ -477,15 +462,13 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       await this.sessionRepository.createSession(sessionData);
       this.logger.log(`Session ${sessionId} stored in MongoDB for user ${actualUserId}`);
       
-      // Store transcript for RAG retrieval (if enabled) - do this first to allow indexing time
-      if (useRAG) {
-        const meetingId = metadata?.meetingId || sessionId;
-        await this.storeMeetingTranscriptForRag(meetingId, transcript, metadata);
-        
-        // Add a small delay to allow Pinecone indexing to complete
-        this.logger.log('Waiting 2 seconds for Pinecone indexing to complete...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
+      // Store transcript for RAG retrieval - do this first to allow indexing time
+      const meetingId = metadata?.meetingId || sessionId;
+      await this.storeMeetingTranscriptForRag(meetingId, transcript, metadata);
+      
+      // Add a small delay to allow Pinecone indexing to complete
+      this.logger.log('Waiting 2 seconds for Pinecone indexing to complete...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Start real analysis process (non-blocking)
       this.runGraphAnalysis(sessionId, transcript, actualUserId, metadata)
@@ -534,10 +517,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     metadata?: Record<string, any>,
   ): Promise<void> {
     try {
-      this.logger.log(`Running graph analysis for session ${sessionId}`);
-
-      // Determine if RAG should be used
-      const useRag = this.ragEnabled && metadata?.useRag !== false;
+      this.logger.log(`Running graph analysis for session ${sessionId} with RAG by default`);
 
       // Prepare the initial state
       let initialState: any = {
@@ -554,52 +534,50 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         errors: [],
       };
 
-      // If RAG is enabled, enhance the state with relevant context
-      if (useRag) {
-        this.logger.log(`Using RAG for session ${sessionId}`);
-        try {
-          // Use the existing RAG service to get context
-          const documents = await this.ragService.getContext(transcript, {
-            indexName: "meeting-analysis",
-            namespace: "transcripts",
-            topK: 3,
-            filter: metadata?.filter,
-            minScore: 0.7,
-          });
+      // Enhance the state with relevant context using RAG
+      this.logger.log(`Using RAG for session ${sessionId}`);
+      try {
+        // Use the existing RAG service to get context
+        const documents = await this.ragService.getContext(transcript, {
+          indexName: "meeting-analysis",
+          namespace: "transcripts",
+          topK: 3,
+          filter: metadata?.filter,
+          minScore: 0.7,
+        });
+
+        this.logger.log(
+          `Retrieved ${documents.length} relevant documents for context`,
+        );
+
+        // Format the context for use in the prompts
+        if (documents.length > 0) {
+          const contextText = documents
+            .map((doc) => {
+              return `--- Previous meeting content (${doc.metadata?.meetingTitle || "Untitled"}) ---\n${doc.content}\n--- End of content ---`;
+            })
+            .join("\n\n");
+
+          // Add context to the initial state
+          initialState = {
+            ...initialState,
+            metadata: {
+              ...initialState.metadata,
+              retrievedContext: {
+                documents,
+                contextText,
+                timestamp: new Date().toISOString(),
+              },
+            },
+          };
 
           this.logger.log(
-            `Retrieved ${documents.length} relevant documents for context`,
+            `Enhanced state with RAG context for session ${sessionId}`,
           );
-
-          // Format the context for use in the prompts
-          if (documents.length > 0) {
-            const contextText = documents
-              .map((doc) => {
-                return `--- Previous meeting content (${doc.metadata?.meetingTitle || "Untitled"}) ---\n${doc.content}\n--- End of content ---`;
-              })
-              .join("\n\n");
-
-            // Add context to the initial state
-            initialState = {
-              ...initialState,
-              metadata: {
-                ...initialState.metadata,
-                retrievedContext: {
-                  documents,
-                  contextText,
-                  timestamp: new Date().toISOString(),
-                },
-              },
-            };
-
-            this.logger.log(
-              `Enhanced state with RAG context for session ${sessionId}`,
-            );
-          }
-        } catch (error) {
-          this.logger.warn(`Error retrieving RAG context: ${error.message}`);
-          // Continue with analysis even if RAG retrieval fails
         }
+      } catch (error) {
+        this.logger.warn(`Error retrieving RAG context: ${error.message}`);
+        // Continue with analysis even if RAG retrieval fails
       }
 
       // Use the direct graph execution approach
@@ -627,15 +605,14 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
           throw new Error(`Graph execution failed: ${errorMessage}`);
         }
 
-        // Extract results
+        // Extract clean results (no transcript or unnecessary data)
         const result = {
-          transcript,
           topics: finalState.topics || [],
           actionItems: finalState.actionItems || [],
           sentiment: finalState.sentiment || null,
           summary: finalState.summary || null,
           errors: finalState.errors || [],
-          // Include retrieved context in the results
+          // Include minimal context info for RAG tracking
           context: finalState.metadata?.retrievedContext
             ? {
                 usedRag: true,
@@ -702,25 +679,33 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     this.logger.log(`Saving results for session ${sessionId}`);
 
     try {
-      // Update the session in MongoDB with completed status and results
+      // Create clean results object with only essential agent outputs
+      const cleanResults = {
+        topics: result.topics || [],
+        actionItems: result.actionItems || [],
+        sentiment: result.sentiment || null,
+        summary: result.summary || null,
+      };
+
+      // Update the session in MongoDB with completed status and clean results
       await this.sessionRepository.updateSession(sessionId, {
         status: "completed",
         endTime: new Date(),
-        topics: result.topics,
-        actionItems: result.actionItems,
-        sentiment: result.sentiment,
-        summary: result.summary,
-        errors: result.errors,
-        // Include the context/RAG information
+        topics: cleanResults.topics,
+        actionItems: cleanResults.actionItems,
+        sentiment: cleanResults.sentiment,
+        summary: cleanResults.summary,
+        errors: result.errors || [],
+        // Include minimal metadata about RAG usage
         metadata: {
-          context: result.context,
+          processingTime: new Date().toISOString(),
         },
       });
 
-      this.logger.log(`Results saved for session ${sessionId}`);
+      this.logger.log(`Clean results saved for session ${sessionId}`);
 
       // 🚀 NEW: Emit meeting analysis completion event for post-meeting orchestration
-      this.emitMeetingAnalysisCompletedEvent(sessionId, result);
+      this.emitMeetingAnalysisCompletedEvent(sessionId, cleanResults);
     } catch (error) {
       this.logger.error(`Error saving results: ${error.message}`, error.stack);
       throw error;
@@ -827,79 +812,76 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     // Track progress for this node
     await this.trackNodeProgress(this.nodeNames.CONTEXT_RETRIEVAL, state);
     
-    if (this.ragEnabled) {
-      try {
-        // Create a more specific context query from the beginning of the transcript
-        const contextQuery = `${state.transcript.substring(0, 500)}...`;
-        
-        const retrievalOptions = {
-          indexName: "meeting-analysis",
-          namespace: "transcripts",
-          topK: 5,
-          minScore: 0.7,
-        };
+    try {
+      // Create a more specific context query from the beginning of the transcript
+      const contextQuery = `${state.transcript.substring(0, 500)}...`;
+      
+      const retrievalOptions = {
+        indexName: "meeting-analysis",
+        namespace: "transcripts",
+        topK: 5,
+        minScore: 0.7,
+      };
 
-        this.logger.log(`Getting context for query: "${contextQuery.substring(0, 100)}..."`);
-        this.logger.log(`Retrieval options: ${JSON.stringify(retrievalOptions)}`);
+      this.logger.log(`Getting context for query: "${contextQuery.substring(0, 100)}..."`);
+      this.logger.log(`Retrieval options: ${JSON.stringify(retrievalOptions)}`);
 
-        const relevantDocuments = await this.ragService.getContext(
-          contextQuery,
-          retrievalOptions
-        );
+      const relevantDocuments = await this.ragService.getContext(
+        contextQuery,
+        retrievalOptions
+      );
 
-        this.logger.log(`Retrieved ${relevantDocuments.length} relevant documents for context enhancement`);
+      this.logger.log(`Retrieved ${relevantDocuments.length} relevant documents for context enhancement`);
 
-        if (relevantDocuments.length === 0) {
-          this.logger.warn('No relevant documents found - this might be due to:');
-          this.logger.warn('1. Pinecone indexing not yet complete (try waiting longer)');
-          this.logger.warn('2. No similar meetings in the knowledge base');
-          this.logger.warn('3. Query not matching existing document embeddings');
-          this.logger.warn('4. Minimum score threshold too high');
-        } else {
-          this.logger.log(`Context documents retrieved: ${relevantDocuments.map(doc => doc.id).join(', ')}`);
-        }
-
-        return {
-          ...state,
-          metadata: {
-            ...state.metadata,
-            retrievedContext: relevantDocuments,
-            ragEnabled: true,
-            retrievalQuery: contextQuery.substring(0, 100)
-          },
-          stage: "context_retrieved"
-        };
-      } catch (error) {
-        this.logger.warn(`Context retrieval failed: ${error.message}`);
-        this.logger.warn('Continuing analysis without RAG context');
-        return {
-          ...state,
-          metadata: {
-            ...state.metadata,
-            ragEnabled: false,
-            ragError: error.message
-          },
-          stage: "context_retrieval_failed"
-        };
+      if (relevantDocuments.length === 0) {
+        this.logger.warn('No relevant documents found - this might be due to:');
+        this.logger.warn('1. Pinecone indexing not yet complete (try waiting longer)');
+        this.logger.warn('2. No similar meetings in the knowledge base');
+        this.logger.warn('3. Query not matching existing document embeddings');
+        this.logger.warn('4. Minimum score threshold too high');
+      } else {
+        this.logger.log(`Context documents retrieved: ${relevantDocuments.map(doc => doc.id).join(', ')}`);
       }
-    } else {
-      this.logger.log('RAG is disabled - skipping context retrieval');
+
+      return {
+        ...state,
+        metadata: {
+          ...state.metadata,
+          retrievedContext: relevantDocuments,
+          retrievalQuery: contextQuery.substring(0, 100)
+        },
+        stage: "context_retrieved"
+      };
+    } catch (error) {
+      this.logger.warn(`Context retrieval failed: ${error.message}`);
+      this.logger.warn('Continuing analysis without RAG context');
+      return {
+        ...state,
+        metadata: {
+          ...state.metadata,
+          retrievalQuery: null
+        },
+        stage: "context_retrieval_failed"
+      };
     }
-    
-    return {
-      ...state,
-      stage: "context_retrieved"
-    };
   }
 
   private async topicExtractionNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
-    this.logger.log("Starting topic extraction");
+    this.logger.log("Starting topic extraction with RAG agent");
     
     // Track progress for this node
     await this.trackNodeProgress(this.nodeNames.TOPIC_EXTRACTION, state);
     
-    const agent = this.meetingAnalysisAgentFactory.getTopicExtractionAgent();
-    const topics = await agent.extractTopics(state.transcript);
+    // Use RAG-enhanced topic extraction agent
+    const agent = this.meetingAnalysisAgentFactory.getRagTopicExtractionAgent();
+    const topics = await agent.extractTopics(state.transcript, {
+      meetingId: state.meetingId,
+      retrievalOptions: {
+        includeHistoricalTopics: true,
+        topK: 5,
+        minScore: 0.7,
+      }
+    });
     
     const updatedState = {
       ...state,
@@ -908,7 +890,6 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         subtopics: topic.subtopics,
         participants: topic.participants,
         relevance: topic.relevance,
-        duration: topic.duration
       })),
       stage: "topic_extraction" as const
     };
@@ -917,11 +898,12 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
   }
 
   private async actionItemExtractionNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
-    this.logger.log("Starting action item extraction");
+    this.logger.log("Starting action item extraction (using basic agent - no RAG version available)");
     
     // Track progress for this node
     await this.trackNodeProgress(this.nodeNames.ACTION_ITEM_EXTRACTION, state);
     
+    // Use basic action item agent since no RAG version exists yet
     const agent = this.meetingAnalysisAgentFactory.getActionItemAgent();
     const agentActionItems = await agent.extractActionItems(state.transcript);
     
@@ -943,13 +925,20 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
   }
 
   private async sentimentAnalysisNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
-    this.logger.log("Starting sentiment analysis");
+    this.logger.log("Starting sentiment analysis with RAG agent");
     
     // Track progress for this node
     await this.trackNodeProgress(this.nodeNames.SENTIMENT_ANALYSIS, state);
     
-    const agent = this.meetingAnalysisAgentFactory.getSentimentAnalysisAgent();
-    const sentimentAnalysis = await agent.analyzeSentiment(state.transcript);
+    // Use RAG-enhanced sentiment analysis agent
+    const agent = this.meetingAnalysisAgentFactory.getRagSentimentAnalysisAgent();
+    const sentimentAnalysis = await agent.analyzeSentiment(state.transcript, {
+      meetingId: state.meetingId,
+      retrievalOptions: {
+        topK: 3,
+        minScore: 0.7,
+      }
+    });
     
     const updatedState = {
       ...state,
@@ -967,13 +956,22 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
   }
 
   private async summaryGenerationNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
-    this.logger.log("Starting summary generation");
+    this.logger.log("Starting summary generation with RAG agent");
     
     // Track progress for this node
     await this.trackNodeProgress(this.nodeNames.SUMMARY_GENERATION, state);
     
-    const agent = this.meetingAnalysisAgentFactory.getSummaryAgent();
-    const summary = await agent.generateSummary(state.transcript);
+    // Use RAG-enhanced meeting analysis agent for summary generation
+    const agent = this.meetingAnalysisAgentFactory.getRagMeetingAnalysisAgent();
+    const summary = await agent.generateMeetingSummary(state.transcript, {
+      meetingId: state.meetingId,
+      retrievalOptions: {
+        indexName: "meeting-analysis",
+        namespace: "summaries",
+        topK: 3,
+        minScore: 0.7,
+      }
+    });
     
     const updatedState = {
       ...state,

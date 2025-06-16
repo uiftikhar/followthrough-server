@@ -33,16 +33,9 @@ export class ActionItemAgent extends BaseAgent {
   async extractActionItems(transcript: string): Promise<ActionItem[]> {
     const model = this.getChatModel();
 
-    const prompt = `
-    Analyze the following meeting transcript and extract all action items:
-
-    Transcript:
-    ${transcript}
-    `;
-
     const messages = [
       new SystemMessage(this.systemPrompt),
-      new HumanMessage(prompt),
+      new HumanMessage(`${EXTRACT_ACTION_ITEMS_PROMPT}\n\nTranscript:\n${transcript}`),
     ];
 
     const response = await model.invoke(messages);

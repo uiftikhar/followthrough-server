@@ -257,19 +257,24 @@ export class UnifiedWorkflowService {
         session = await this.sessionRepository.getSessionById(sessionId);
       }
 
-      // Format the results to match the expected format
+      // Return only clean agent results without transcript or unnecessary data
       return {
         sessionId: session.sessionId,
         status: session.status,
         createdAt: session.startTime,
         completedAt: session.endTime,
-        transcript: session.transcript,
-        topics: session.topics,
-        actionItems: session.actionItems,
-        summary: session.summary,
-        sentiment: session.sentiment,
-        errors: session.errors,
-        metadata: session.metadata,
+        // Only include essential agent outputs
+        topics: session.topics || [],
+        actionItems: session.actionItems || [],
+        summary: session.summary || null,
+        sentiment: session.sentiment || null,
+        errors: session.errors || [],
+        // Include minimal metadata about processing
+        metadata: {
+          ragEnabled: session.metadata?.ragEnabled || false,
+          ragUsed: session.metadata?.ragUsed || false,
+          processingTime: session.metadata?.processingTime,
+        },
       };
     } catch (error) {
       this.logger.error(

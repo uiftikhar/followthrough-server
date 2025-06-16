@@ -68,7 +68,7 @@ export class RagSentimentAnalysisAgent extends RagEnhancedAgent {
 
     super(llmService, stateService, ragService, {
       name: config.name || "Sentiment Analysis Agent",
-      systemPrompt: config.systemPrompt || SENTIMENT_ANALYSIS_PROMPT,
+      systemPrompt: SENTIMENT_ANALYSIS_PROMPT,
       llmOptions: config.llmOptions,
       ragOptions: ragConfig,
     });

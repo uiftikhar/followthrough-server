@@ -55,7 +55,7 @@ export class RagTopicExtractionAgent extends RagEnhancedAgent {
 
     super(llmService, stateService, ragService, {
       name: config.name || "Topic Extraction Agent",
-      systemPrompt: config.systemPrompt || TOPIC_EXTRACTION_SYSTEM_PROMPT,
+      systemPrompt: TOPIC_EXTRACTION_SYSTEM_PROMPT,
       llmOptions: config.llmOptions,
       ragOptions: ragConfig,
     });
