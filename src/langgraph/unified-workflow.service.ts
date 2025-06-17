@@ -138,7 +138,19 @@ export class UnifiedWorkflowService {
       throw new Error("Meeting analysis handler not found");
     }
 
-    const result = await meetingHandler.process(state.input);
+    const inputWithSessionId = {
+      ...state.input,
+      sessionId: state.sessionId,
+      metadata: {
+        ...state.input.metadata,
+        sessionId: state.sessionId,
+        unifiedWorkflowSessionId: state.sessionId,
+      }
+    };
+
+    this.logger.log(`Passing session ID ${state.sessionId} to meeting analysis handler`);
+
+    const result = await meetingHandler.process(inputWithSessionId);
 
     return {
       ...state,
@@ -200,27 +212,45 @@ export class UnifiedWorkflowService {
     );
 
     try {
+      // Initialize progress tracking
+      this.initProgress(sessionId);
+
+      // CRITICAL FIX: Ensure sessionId is in the initial state
       const initialState = {
-        input: input,
+        sessionId: sessionId, // Ensure sessionId is at root level
+        input: {
+          ...input,
+          sessionId: sessionId, // Also include in input for team handlers
+        },
+        metadata: {
+          ...metadata,
+          sessionId: sessionId,
+        },
+        status: "pending",
         startTime: new Date().toISOString(),
-        routing: undefined,
-        result: undefined,
-        error: undefined,
       };
 
-      // Process through master supervisor graph
-      const finalState = await this.masterSupervisorGraph.invoke(initialState);
+      this.logger.log(`Processing input with session ID: ${sessionId}`);
+      this.logger.log(`Initial state sessionId: ${initialState.sessionId}`);
+
+      // Execute the master supervisor graph
+      const result = await this.masterSupervisorGraph.invoke(initialState);
+
+      this.logger.log(
+        `Master supervisor completed for session ${sessionId}`,
+      );
 
       // Update session with results
       await this.updateSession(sessionId, {
         status: "completed",
-        results: finalState.result,
-        completedAt: new Date(),
+        progress: 100,
+        endTime: new Date(),
+        result: result.result,
       });
 
       this.publishProgressUpdate(
         sessionId,
-        "completion",
+        "completed",
         100,
         "completed",
         "Workflow processing completed",
@@ -229,23 +259,27 @@ export class UnifiedWorkflowService {
       return {
         sessionId,
         status: "completed",
-        results: finalState.result,
+        result: result.result,
       };
     } catch (error) {
-      this.logger.error(`Error processing input: ${error.message}`);
+      this.logger.error(
+        `Error processing input: ${error.message}`,
+        error.stack,
+      );
 
+      // Update session with error
       await this.updateSession(sessionId, {
         status: "failed",
+        endTime: new Date(),
         error: error.message,
-        completedAt: new Date(),
       });
 
       this.publishProgressUpdate(
         sessionId,
-        "error",
+        "failed",
         0,
         "failed",
-        `Error: ${error.message}`,
+        `Processing failed: ${error.message}`,
       );
 
       throw error;

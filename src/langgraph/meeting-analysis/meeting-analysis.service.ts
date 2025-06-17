@@ -126,7 +126,12 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       "Processing meeting transcript with enhanced RAG",
       JSON.stringify(input),
     );
-    this.logger.log("TRACE: ", console.trace());
+
+    // CRITICAL FIX: Use sessionId from input if provided, otherwise generate new one
+    const sessionId = input.sessionId || input.metadata?.sessionId || uuidv4();
+    const meetingId = input.metadata?.meetingId || sessionId; // Use sessionId as meetingId for consistency
+    
+    this.logger.log(`Processing meeting analysis with sessionId: ${sessionId}, meetingId: ${meetingId}`);
 
     // FIXED: Validate and extract transcript from multiple possible sources
     let transcript = input.content || input.transcript || input.text || "";
@@ -154,8 +159,8 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       );
 
       return {
-        meetingId: input.metadata?.meetingId || uuidv4(),
-        sessionId: "", // Default empty sessionId for error case
+        meetingId: meetingId,
+        sessionId: sessionId, // Use the provided sessionId
         transcript: "",
         topics: [
           {
@@ -181,13 +186,10 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
 
     this.logger.log(`✅ Transcript validated: ${transcript.length} characters`);
 
-    // Create a unique ID for this meeting if not provided
-    const meetingId = input.metadata?.meetingId || uuidv4();
-
-    // Prepare initial state with validated transcript
+    // Prepare initial state with validated transcript and consistent IDs
     const initialState: MeetingAnalysisState = {
-      meetingId,
-      sessionId: meetingId, // Use meetingId as sessionId for consistency
+      meetingId: meetingId,
+      sessionId: sessionId, // Use the provided sessionId consistently
       transcript,
       context: input.metadata || {},
     };
@@ -206,58 +208,47 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         `Using enhanced RAG capabilities for meeting analysis ${meetingId}`,
       );
       try {
-        // Determine the best retrieval strategy using adaptive RAG
-        const retrievalStrategy =
-          await this.adaptiveRagService.determineRetrievalStrategy(
-            transcript.substring(0, 500), // Use a sample of the transcript for strategy determination
-          );
-
-        this.logger.log(
-          `Adaptive RAG selected strategy: ${retrievalStrategy.strategy}`,
-        );
-
-        // Use the determined strategy for enhanced context retrieval
-        const retrievalOptions = {
+        // Use the existing RAG service to get context
+        const documents = await this.ragService.getContext(transcript, {
           indexName: "meeting-analysis",
           namespace: "transcripts",
-          topK: retrievalStrategy.settings.topK || 5,
-          minScore: retrievalStrategy.settings.minScore || 0.7,
+          topK: 3,
           filter: input.metadata?.filter,
-        };
-
-        // Get context using the standard RAG service with adaptive settings
-        const documents = await this.ragService.getContext(
-          transcript,
-          retrievalOptions,
-        );
+          minScore: 0.7,
+        });
 
         this.logger.log(
-          `Retrieved ${documents.length} relevant documents with adaptive strategy: ${retrievalStrategy.strategy}`,
+          `Retrieved ${documents.length} relevant documents for context for session ${sessionId}`,
         );
 
-        // Add enhanced context to the initial state
+        // Format the context for use in the prompts
         if (documents.length > 0) {
+          const contextText = documents
+            .map((doc) => {
+              return `--- Previous meeting content (${doc.metadata?.meetingTitle || "Untitled"}) ---\n${doc.content}\n--- End of content ---`;
+            })
+            .join("\n\n");
+
+          // Add context to the initial state
           enhancedState = {
             ...initialState,
-            context: {
-              ...initialState.context,
+            metadata: {
+              ...initialState.metadata,
               retrievedContext: {
                 documents,
-                contextText: this.formatContextForAnalysis(documents),
+                contextText,
                 timestamp: new Date().toISOString(),
-                adaptiveStrategy: retrievalStrategy.strategy,
-                retrievalSettings: retrievalStrategy.settings,
               },
             },
           };
 
           this.logger.log(
-            `Enhanced state with adaptive RAG context for meeting ${meetingId}`,
+            `Enhanced state with RAG context for session ${sessionId}`,
           );
         }
       } catch (error) {
         this.logger.warn(
-          `Error retrieving adaptive RAG context: ${error.message}`,
+          `Error retrieving RAG context for session ${sessionId}: ${error.message}`,
         );
         // Continue with analysis even if RAG retrieval fails
       }
@@ -535,12 +526,17 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         `Running graph analysis for session ${sessionId} with RAG by default`,
       );
 
+      // CRITICAL FIX: Use the provided sessionId consistently throughout
+      const meetingId = metadata?.meetingId || sessionId; // Use sessionId as meetingId for consistency
+      
+      this.logger.log(`Graph analysis - sessionId: ${sessionId}, meetingId: ${meetingId}`);
+
       // Prepare the initial state
       let initialState: any = {
         transcript,
-        sessionId,
+        sessionId: sessionId, // Use the provided sessionId
         userId,
-        meetingId: sessionId, // Use sessionId as meetingId for consistency
+        meetingId: meetingId, // Use consistent meetingId
         startTime: new Date().toISOString(),
         metadata: metadata || {},
         currentPhase: "initialization",
@@ -564,7 +560,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         });
 
         this.logger.log(
-          `Retrieved ${documents.length} relevant documents for context`,
+          `Retrieved ${documents.length} relevant documents for context for session ${sessionId}`,
         );
 
         // Format the context for use in the prompts
@@ -593,7 +589,9 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
           );
         }
       } catch (error) {
-        this.logger.warn(`Error retrieving RAG context: ${error.message}`);
+        this.logger.warn(
+          `Error retrieving RAG context for session ${sessionId}: ${error.message}`,
+        );
         // Continue with analysis even if RAG retrieval fails
       }
 
@@ -1124,96 +1122,60 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
   }
 
   /**
-   * Track progress within a node execution
+   * Track progress for a node execution
    */
-  private async trackNodeProgress(nodeName: string, state: any): Promise<void> {
+  private async trackNodeProgress(
+    nodeName: string,
+    state: MeetingAnalysisState,
+  ): Promise<void> {
     try {
-      // Calculate progress based on the current node
-      const progress =
-        this.graphExecutionService.calculateProgressForNode(nodeName);
-
-      // Only update progress if this is a tracked node
-      if (progress > 0) {
-        // Update progress using GraphExecutionService
-        this.graphExecutionService.updateProgress(
-          state.sessionId,
-          nodeName,
-          progress,
-          "in_progress",
-          `Executing ${nodeName.replace("_", " ")}`,
-        );
-
-        // Update MongoDB with partial results
-        if (state) {
-          const partialUpdate: any = {
-            progress: progress,
-            status: "in_progress",
-          };
-
-          // Add any available results to the update
-          if (nodeName === this.nodeNames.TOPIC_EXTRACTION && state.topics) {
-            partialUpdate.topics = state.topics;
-            this.logger.log(
-              `Saving partial topics result for session ${state.sessionId}: ${state.topics.length} topics`,
-            );
-          } else if (
-            nodeName === this.nodeNames.ACTION_ITEM_EXTRACTION &&
-            state.actionItems
-          ) {
-            partialUpdate.actionItems = state.actionItems;
-            this.logger.log(
-              `Saving partial action items result for session ${state.sessionId}: ${state.actionItems.length} items`,
-            );
-          } else if (
-            nodeName === this.nodeNames.SENTIMENT_ANALYSIS &&
-            state.sentiment
-          ) {
-            partialUpdate.sentiment = state.sentiment;
-            this.logger.log(
-              `Saving partial sentiment result for session ${state.sessionId}`,
-            );
-          } else if (
-            nodeName === this.nodeNames.SUMMARY_GENERATION &&
-            state.summary
-          ) {
-            partialUpdate.summary = state.summary;
-            this.logger.log(
-              `Saving partial summary result for session ${state.sessionId}`,
-            );
-          }
-
-          // Update MongoDB with partial results
-          await this.sessionRepository.updateSession(
-            state.sessionId,
-            partialUpdate,
-          );
-        }
+      // CRITICAL FIX: Use sessionId from state, with fallback to meetingId
+      const sessionId = state.sessionId || state.meetingId;
+      
+      if (!sessionId) {
+        this.logger.warn(`No sessionId or meetingId found in state for node ${nodeName}`);
+        return;
       }
+
+      this.logger.log(`Tracking progress for node ${nodeName}, session: ${sessionId}`);
+
+      // Calculate progress based on node
+      const progress = this.calculateProgressForNode(nodeName);
+
+      // Update session progress with correct properties
+      await this.sessionRepository.updateSession(sessionId, {
+        progress: progress,
+        status: "in_progress",
+        updatedAt: new Date(),
+      });
+
+      this.logger.log(`Updated progress for session ${sessionId}: ${progress}% (${nodeName})`);
     } catch (error) {
+      const sessionId = state.sessionId || state.meetingId || "unknown";
       this.logger.error(
-        `Error in progress tracking: ${error.message}`,
+        `Error in progress tracking: Session ${sessionId} - ${error.message}`,
         error.stack,
       );
+      // Don't throw error to avoid breaking the analysis flow
     }
   }
 
   /**
-   * Calculate progress percentage based on current node
+   * Calculate progress percentage based on node name
    */
   private calculateProgressForNode(nodeName: string): number {
-    // Base progress for each completed node
-    const nodeBaseProgress: Record<string, number> = {
-      [this.nodeNames.INITIALIZATION]: 5,
-      [this.nodeNames.CONTEXT_RETRIEVAL]: 15,
-      [this.nodeNames.TOPIC_EXTRACTION]: 35,
-      [this.nodeNames.ACTION_ITEM_EXTRACTION]: 55,
-      [this.nodeNames.SENTIMENT_ANALYSIS]: 70,
-      [this.nodeNames.SUMMARY_GENERATION]: 85,
-      [this.nodeNames.SUPERVISION]: 95,
-      [this.nodeNames.POST_PROCESSING]: 97,
-      [this.nodeNames.END]: 100,
+    // Define progress points for each node
+    const progressMap: Record<string, number> = {
+      initialization: 10,
+      context_retrieval: 20,
+      topic_extraction: 40,
+      action_item_extraction: 60,
+      sentiment_analysis: 75,
+      summary_generation: 90,
+      document_storage: 95,
+      finalization: 100,
     };
 
-    return nodeBaseProgress[nodeName] || 0;
+    return progressMap[nodeName] || 50;
   }
 }
