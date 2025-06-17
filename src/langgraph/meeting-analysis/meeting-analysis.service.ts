@@ -29,9 +29,9 @@ export interface AnalysisProgressEvent {
 }
 
 /**
- * Service for handling meeting analysis requests
- * Implements TeamHandler to be used by the supervisor
- * Uses RAG agents by default for enhanced analysis
+ * Production-grade service for meeting analysis using LangGraph
+ * Implements TeamHandler interface for unified workflow integration
+ * Uses RAG-enhanced agents for intelligent analysis
  */
 @Injectable()
 export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
@@ -49,8 +49,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     SENTIMENT_ANALYSIS: "sentiment_analysis",
     SUMMARY_GENERATION: "summary_generation",
     DOCUMENT_STORAGE: "document_storage",
-    SUPERVISION: "supervision",
-    POST_PROCESSING: "post_processing",
+    FINALIZATION: "finalization",
     END: "__end__",
   };
 
@@ -66,9 +65,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     private readonly documentProcessorService: DocumentProcessorService,
     private readonly adaptiveRagService: AdaptiveRagService,
   ) {
-    this.logger.log(
-      "MeetingAnalysisService initialized with RAG agents by default",
-    );
+    this.logger.log("MeetingAnalysisService initialized with RAG agents");
     this.initializeMeetingAnalysisGraph();
   }
 
@@ -91,188 +88,65 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
    * Check if this team can handle the given input
    */
   async canHandle(input: any): Promise<boolean> {
-    // Check if input looks like a meeting transcript
-    // This is a simple heuristic and could be improved
     if (typeof input?.content !== "string") {
       return false;
     }
 
     const content = input.content.toLowerCase();
-
-    // Check for common meeting transcript patterns
-    const hasSpeakers =
-      content.includes(":") && (content.match(/\w+\s*:/g) || []).length > 3;
-
+    const hasSpeakers = content.includes(":") && (content.match(/\w+\s*:/g) || []).length > 3;
     const hasMeetingKeywords = [
-      "meeting",
-      "call",
-      "discussion",
-      "agenda",
-      "action item",
-      "minutes",
-      "participant",
-      "attendee",
-      "next steps",
+      "meeting", "call", "discussion", "agenda", "action item", 
+      "minutes", "participant", "attendee", "next steps"
     ].some((keyword) => content.includes(keyword));
 
     return hasSpeakers || hasMeetingKeywords;
   }
 
   /**
-   * Process a meeting transcript
+   * Process a meeting transcript using LangGraph workflow
    */
   async process(input: any): Promise<MeetingAnalysisState> {
-    this.logger.log(
-      "Processing meeting transcript with enhanced RAG",
-      JSON.stringify(input),
-    );
-
-    // CRITICAL FIX: Use sessionId from input if provided, otherwise generate new one
     const sessionId = input.sessionId || input.metadata?.sessionId || uuidv4();
-    const meetingId = input.metadata?.meetingId || sessionId; // Use sessionId as meetingId for consistency
+    const meetingId = input.metadata?.meetingId || sessionId;
     
-    this.logger.log(`Processing meeting analysis with sessionId: ${sessionId}, meetingId: ${meetingId}`);
+    this.logger.log(`Processing meeting analysis: sessionId=${sessionId}, meetingId=${meetingId}`);
 
-    // FIXED: Validate and extract transcript from multiple possible sources
+    // Extract and validate transcript
     let transcript = input.content || input.transcript || input.text || "";
-
-    // If transcript is an object, extract the content
     if (typeof transcript === "object" && transcript !== null) {
-      transcript =
-        transcript.content || transcript.text || JSON.stringify(transcript);
+      transcript = transcript.content || transcript.text || JSON.stringify(transcript);
     }
-
-    // Ensure transcript is a string
     transcript = String(transcript || "").trim();
 
-    this.logger.log(
-      `📝 Transcript validation: length=${transcript.length}, type=${typeof transcript}`,
-    );
-
-    // FIXED: Validate transcript existence
     if (!transcript || transcript.length === 0) {
-      this.logger.error(
-        `❌ No transcript content found in input. Input keys: ${Object.keys(input)}`,
-      );
-      this.logger.error(
-        `📄 Input structure: ${JSON.stringify(input, null, 2).substring(0, 500)}...`,
-      );
-
-      return {
-        meetingId: meetingId,
-        sessionId: sessionId, // Use the provided sessionId
-        transcript: "",
-        topics: [
-          {
-            name: "No Transcript Provided",
-            relevance: 1,
-          },
-        ],
-        actionItems: [],
-        sentiment: { overall: 0, segments: [] },
-        summary: {
-          meetingTitle: "No Content Available",
-          summary: "No transcript content was provided for analysis.",
-          decisions: [],
-        },
-        stage: "completed",
-        error: {
-          message: "No transcript content found in input",
-          stage: "input_validation",
-          timestamp: new Date().toISOString(),
-        },
-      };
+      this.logger.error(`No transcript content found for session ${sessionId}`);
+      return this.createErrorResult(sessionId, meetingId, "No transcript content found");
     }
 
-    this.logger.log(`✅ Transcript validated: ${transcript.length} characters`);
+    this.logger.log(`Transcript validated: ${transcript.length} characters`);
 
-    // Prepare initial state with validated transcript and consistent IDs
     const initialState: MeetingAnalysisState = {
-      meetingId: meetingId,
-      sessionId: sessionId, // Use the provided sessionId consistently
+      meetingId,
+      sessionId,
       transcript,
       context: input.metadata || {},
     };
 
     try {
-      // Step 1: Store current meeting transcript in Pinecone for future RAG retrieval
-      await this.storeMeetingTranscriptForRag(
-        meetingId,
-        transcript,
-        input.metadata,
-      );
+      // Store transcript for RAG retrieval
+      await this.storeMeetingTranscriptForRag(meetingId, transcript, input.metadata);
 
-      // Step 2: Enhanced RAG context retrieval using adaptive RAG
-      let enhancedState = initialState;
-      this.logger.log(
-        `Using enhanced RAG capabilities for meeting analysis ${meetingId}`,
-      );
-      try {
-        // Use the existing RAG service to get context
-        const documents = await this.ragService.getContext(transcript, {
-          indexName: "meeting-analysis",
-          namespace: "transcripts",
-          topK: 3,
-          filter: input.metadata?.filter,
-          minScore: 0.7,
-        });
+      // Enhance state with RAG context
+      const enhancedState = await this.enhanceStateWithRagContext(initialState, transcript);
 
-        this.logger.log(
-          `Retrieved ${documents.length} relevant documents for context for session ${sessionId}`,
-        );
-
-        // Format the context for use in the prompts
-        if (documents.length > 0) {
-          const contextText = documents
-            .map((doc) => {
-              return `--- Previous meeting content (${doc.metadata?.meetingTitle || "Untitled"}) ---\n${doc.content}\n--- End of content ---`;
-            })
-            .join("\n\n");
-
-          // Add context to the initial state
-          enhancedState = {
-            ...initialState,
-            metadata: {
-              ...initialState.metadata,
-              retrievedContext: {
-                documents,
-                contextText,
-                timestamp: new Date().toISOString(),
-              },
-            },
-          };
-
-          this.logger.log(
-            `Enhanced state with RAG context for session ${sessionId}`,
-          );
-        }
-      } catch (error) {
-        this.logger.warn(
-          `Error retrieving RAG context for session ${sessionId}: ${error.message}`,
-        );
-        // Continue with analysis even if RAG retrieval fails
-      }
-      // Step 3: Build and execute the LangGraph StateGraph
+      // Execute LangGraph analysis
       const graph = await this.meetingAnalysisGraph;
-
-      // Initialize progress tracking for this session
       this.graphExecutionService.initProgress(meetingId);
 
-      // Execute the graph with GraphExecutionService
-      this.logger.log(
-        `Executing LangGraph meeting analysis for meeting ${meetingId}`,
-      );
-      const result =
-        await this.graphExecutionService.executeGraph<MeetingAnalysisState>(
-          graph,
-          enhancedState,
-        );
+      this.logger.log(`Executing LangGraph analysis for meeting ${meetingId}`);
+      const result = await this.graphExecutionService.executeGraph<MeetingAnalysisState>(graph, enhancedState);
 
-      this.logger.log(
-        `Completed LangGraph meeting analysis for meeting ${meetingId}`,
-      );
-
-      // CRITICAL FIX: Ensure we always have valid results before saving
+      // Prepare final result
       const finalResult = {
         ...result,
         transcript: result.transcript || transcript,
@@ -284,53 +158,78 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         error: result.error,
       };
 
-            // PRODUCTION FIX: Log what we actually got from LangGraph execution
-      this.logger.log(`LangGraph execution results for session ${sessionId}:`, {
-        topicsCount: finalResult.topics?.length || 0,
-        actionItemsCount: finalResult.actionItems?.length || 0,
-        hasSummary: !!finalResult.summary,
-        hasSentiment: !!finalResult.sentiment,
-        topicsPreview: finalResult.topics?.slice(0, 2),
-        actionItemsPreview: finalResult.actionItems?.slice(0, 2),
-      });
+      this.logger.log(`Analysis completed for session ${sessionId}: ${finalResult.topics?.length || 0} topics, ${finalResult.actionItems?.length || 0} action items`);
 
-      this.logger.log(`Final results for session ${sessionId}:`, {
-        topicsCount: finalResult.topics.length,
-        actionItemsCount: finalResult.actionItems.length,
-        hasSummary: !!finalResult.summary,
-        hasSentiment: !!finalResult.sentiment,
-      });
+      // Save results to database
+      await this.saveResults(sessionId, finalResult);
 
-      // CRITICAL FIX: Save results to database before returning
-      try {
-        await this.saveResults(sessionId, finalResult);
-        this.logger.log(`Results saved to database for session ${sessionId}`);
-      } catch (saveError) {
-        this.logger.error(`Failed to save results for session ${sessionId}: ${saveError.message}`, saveError.stack);
-        // Continue anyway - don't fail the entire process due to save error
-      }
-
-      // Return the final result with guaranteed data
       return finalResult;
     } catch (error) {
-      this.logger.error(
-        `Error analyzing meeting ${meetingId}: ${error.message}`,
-        error.stack,
-      );
-      return {
-        ...initialState,
-        topics: [],
-        actionItems: [],
-        sentiment: undefined,
-        summary: undefined,
-        stage: "completed",
-        error: {
-          message: error.message,
-          stage: "execution",
-          timestamp: new Date().toISOString(),
-        },
-      };
+      this.logger.error(`Error analyzing meeting ${meetingId}: ${error.message}`, error.stack);
+      return this.createErrorResult(sessionId, meetingId, error.message);
     }
+  }
+
+  /**
+   * Create an error result for failed analysis
+   */
+  private createErrorResult(sessionId: string, meetingId: string, errorMessage: string): MeetingAnalysisState {
+    return {
+      meetingId,
+      sessionId,
+      transcript: "",
+      topics: [],
+      actionItems: [],
+      sentiment: undefined,
+      summary: undefined,
+      stage: "completed",
+      error: {
+        message: errorMessage,
+        stage: "execution",
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  /**
+   * Enhance state with RAG context
+   */
+  private async enhanceStateWithRagContext(
+    initialState: MeetingAnalysisState, 
+    transcript: string
+  ): Promise<MeetingAnalysisState> {
+    try {
+      const documents = await this.ragService.getContext(transcript, {
+        indexName: "meeting-analysis",
+        namespace: "transcripts",
+        topK: 3,
+        minScore: 0.7,
+      });
+
+      if (documents.length > 0) {
+        this.logger.log(`Retrieved ${documents.length} relevant documents for context`);
+        
+        const contextText = documents
+          .map((doc) => `--- Previous meeting content (${doc.metadata?.meetingTitle || "Untitled"}) ---\n${doc.content}\n--- End of content ---`)
+          .join("\n\n");
+
+        return {
+          ...initialState,
+          metadata: {
+            ...initialState.metadata,
+            retrievedContext: {
+              documents,
+              contextText,
+              timestamp: new Date().toISOString(),
+            },
+          },
+        };
+      }
+    } catch (error) {
+      this.logger.warn(`Error retrieving RAG context: ${error.message}`);
+    }
+
+    return initialState;
   }
 
   /**
@@ -342,48 +241,26 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     metadata?: Record<string, any>,
   ): Promise<void> {
     try {
-      this.logger.log(
-        `Storing meeting ${meetingId} transcript in Pinecone for RAG`,
-      );
-
-      // FIXED: Validate transcript before storage
       if (!transcript || transcript.trim().length === 0) {
-        this.logger.warn(
-          `❌ Cannot store empty transcript for meeting ${meetingId}`,
-        );
+        this.logger.warn(`Cannot store empty transcript for meeting ${meetingId}`);
         return;
       }
 
-      this.logger.log(`📝 Storing transcript: ${transcript.length} characters`);
+      this.logger.log(`Storing transcript for meeting ${meetingId}: ${transcript.length} characters`);
 
-      // Use semantic chunking for better chunk boundaries
       const chunks = await this.ragService.chunkText(transcript, {
         chunkSize: 1000,
         chunkOverlap: 200,
-        useSemanticChunking: true, // Use semantic chunking for better context
+        useSemanticChunking: true,
       });
 
-      // FIXED: Validate chunks were created
       if (!chunks || chunks.length === 0) {
-        this.logger.warn(
-          `❌ No chunks created for meeting ${meetingId} transcript`,
-        );
+        this.logger.warn(`No chunks created for meeting ${meetingId}`);
         return;
       }
 
-      this.logger.log(`📦 Created ${chunks.length} chunks for storage`);
-
-      // Process and store chunks using DocumentProcessorService
       const documents = chunks
-        .filter((chunk, index) => {
-          if (!chunk || chunk.trim().length === 0) {
-            this.logger.warn(
-              `❌ Skipping empty chunk ${index} for meeting ${meetingId}`,
-            );
-            return false;
-          }
-          return true;
-        })
+        .filter(chunk => chunk && chunk.trim().length > 0)
         .map((chunk, index) => ({
           id: `${meetingId}-chunk-${index}`,
           content: chunk,
@@ -393,42 +270,30 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
             totalChunks: chunks.length,
             timestamp: new Date().toISOString(),
             type: "meeting_transcript",
-            text: chunk, // FIXED: Ensure text is also included in metadata
+            text: chunk,
             ...metadata,
           },
         }));
 
-      // FIXED: Validate we have valid documents to store
       if (documents.length === 0) {
-        this.logger.warn(
-          `❌ No valid documents to store for meeting ${meetingId}`,
-        );
+        this.logger.warn(`No valid documents to store for meeting ${meetingId}`);
         return;
       }
 
-      this.logger.log(`📄 Prepared ${documents.length} documents for storage`);
-
-      // Store in Pinecone for future retrieval
-      const storedChunkIds =
-        await this.documentProcessorService.processAndStoreDocuments(
-          documents,
-          {
-            indexName: "meeting-analysis",
-            namespace: "transcripts",
-            batchSize: 5,
-            concurrency: 2,
-          },
-        );
-
-      this.logger.log(
-        `Successfully stored ${storedChunkIds.length} chunks for meeting ${meetingId} in Pinecone`,
+      const storedChunkIds = await this.documentProcessorService.processAndStoreDocuments(
+        documents,
+        {
+          indexName: "meeting-analysis",
+          namespace: "transcripts",
+          batchSize: 5,
+          concurrency: 2,
+        },
       );
+
+      this.logger.log(`Stored ${storedChunkIds.length} chunks for meeting ${meetingId}`);
     } catch (error) {
-      this.logger.error(
-        `Error storing meeting transcript in Pinecone: ${error.message}`,
-        error.stack,
-      );
-      // Don't throw - analysis can continue without storage
+      this.logger.error(`Error storing meeting transcript: ${error.message}`, error.stack);
+      // Continue analysis even if storage fails
     }
   }
 
@@ -465,14 +330,11 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
   
 
   /**
-   * PRODUCTION FIX: Extract topics directly from transcript using simple text analysis
+   * Extract topics from transcript using pattern-based analysis (production fallback)
    */
   private extractTopicsFromTranscript(transcript: string): Array<{name: string; subtopics?: string[]; participants?: string[]; relevance?: number}> {
     try {
-      this.logger.log('Extracting topics from transcript using direct text analysis');
-      
-             const topics: Array<{name: string; subtopics?: string[]; participants?: string[]; relevance?: number}> = [];
-      const lines = transcript.split('\n').filter(line => line.trim());
+      const topics: Array<{name: string; subtopics?: string[]; participants?: string[]; relevance?: number}> = [];
       
       // Extract participant names
       const participants = new Set<string>();
@@ -483,14 +345,16 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       }
       const participantList = Array.from(participants);
       
-      // Look for key discussion topics based on common patterns
+      // Topic patterns for common meeting discussions
       const topicPatterns = [
         { pattern: /production\s+bug|critical\s+bug|bug\s+fix/gi, name: "Production Bug Resolution", relevance: 9 },
-        { pattern: /monitoring|alerts|logging|datadog/gi, name: "System Monitoring", relevance: 7 },
-        { pattern: /ui\s+alert|user\s+feedback|ux|user\s+experience/gi, name: "User Experience", relevance: 6 },
-        { pattern: /api\s+changes|endpoint|backend|mapping/gi, name: "Backend Development", relevance: 8 },
+        { pattern: /monitoring|alerts|logging/gi, name: "System Monitoring", relevance: 7 },
+        { pattern: /user\s+feedback|ux|user\s+experience/gi, name: "User Experience", relevance: 6 },
+        { pattern: /api\s+changes|endpoint|backend/gi, name: "Backend Development", relevance: 8 },
         { pattern: /deployment|hotfix|rollback/gi, name: "Deployment Strategy", relevance: 7 },
-        { pattern: /communication|stakeholders|teams/gi, name: "Team Communication", relevance: 5 },
+        { pattern: /roadmap|planning|feature/gi, name: "Product Planning", relevance: 6 },
+        { pattern: /authentication|security|access/gi, name: "Security & Authentication", relevance: 8 },
+        { pattern: /performance|optimization|speed/gi, name: "Performance Optimization", relevance: 7 },
       ];
       
       for (const topicPattern of topicPatterns) {
@@ -498,62 +362,57 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
           topics.push({
             name: topicPattern.name,
             relevance: topicPattern.relevance,
-            participants: participantList.slice(0, 4), // Include some participants
+            participants: participantList.slice(0, 3),
           });
         }
       }
       
-      // If no specific patterns found, create a general topic
+      // Default topic if no patterns match
       if (topics.length === 0) {
         topics.push({
-          name: "Meeting Discussion",
+          name: "General Discussion",
           relevance: 5,
           participants: participantList.slice(0, 3),
         });
       }
       
-      this.logger.log(`Extracted ${topics.length} topics from transcript analysis`);
       return topics;
-      
     } catch (error) {
-      this.logger.error(`Error extracting topics from transcript: ${error.message}`);
-      return [{
-        name: "Meeting Discussion",
-        relevance: 3,
-      }];
+      this.logger.error(`Error extracting topics: ${error.message}`);
+      return [{ name: "Analysis Error", relevance: 1 }];
     }
   }
 
   /**
-   * PRODUCTION FIX: Extract action items directly from transcript using simple text analysis
+   * Extract action items from transcript using pattern-based analysis (production fallback)
    */
   private extractActionItemsFromTranscript(transcript: string): Array<{description: string; assignee?: string; dueDate?: string; status?: "pending" | "completed"}> {
     try {
-      this.logger.log('Extracting action items from transcript using direct text analysis');
+      const actionItems: Array<{description: string; assignee?: string; dueDate?: string; status?: "pending" | "completed"}> = [];
       
-             const actionItems: Array<{description: string; assignee?: string; dueDate?: string; status?: "pending" | "completed"}> = [];
-      const lines = transcript.split('\n').filter(line => line.trim());
-      
-      // Look for action-oriented phrases
+      // Action patterns for common meeting tasks
       const actionPatterns = [
-        { pattern: /debug\s+and\s+patch.*backend/gi, description: "Debug and patch backend mapping logic", assignee: "Emily and Adrian", dueDate: "EOD today" },
-        { pattern: /implement.*ui\s+alert/gi, description: "Implement UI alerts for sync failures", assignee: "Dimitri", dueDate: "This week" },
-        { pattern: /configure.*datadog|set.*up.*monitoring/gi, description: "Configure monitoring alerts", assignee: "Jason", dueDate: "After hotfix" },
-        { pattern: /handle.*communication|communicate.*with.*teams/gi, description: "Handle internal team communication", assignee: "Maria", dueDate: "Today" },
+        { pattern: /fix.*bug|debug.*issue|patch.*problem/gi, description: "Fix identified bug or issue", dueDate: "This week" },
+        { pattern: /implement.*feature|build.*component|develop.*functionality/gi, description: "Implement new feature or functionality", dueDate: "Next sprint" },
+        { pattern: /configure.*monitoring|set.*up.*alerts/gi, description: "Configure monitoring and alerts", dueDate: "After deployment" },
+        { pattern: /review.*code|check.*implementation/gi, description: "Review code implementation", dueDate: "Before deployment" },
+        { pattern: /test.*functionality|validate.*feature/gi, description: "Test and validate functionality", dueDate: "This week" },
+        { pattern: /document.*process|write.*documentation/gi, description: "Update documentation", dueDate: "End of sprint" },
+        { pattern: /coordinate.*with.*team|communicate.*status/gi, description: "Coordinate with team members", dueDate: "Ongoing" },
       ];
       
       for (const actionPattern of actionPatterns) {
         if (actionPattern.pattern.test(transcript)) {
           actionItems.push({
             description: actionPattern.description,
-            assignee: actionPattern.assignee,
+            assignee: "Team",
             dueDate: actionPattern.dueDate,
             status: "pending" as const,
           });
         }
       }
       
-      // If no specific patterns found, look for general action indicators
+      // Default action item if no patterns match
       if (actionItems.length === 0) {
         const generalActions = transcript.match(/\b(will|should|need to|going to|plan to)\s+[^.!?]+[.!?]/gi);
         if (generalActions && generalActions.length > 0) {
@@ -566,11 +425,9 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         }
       }
       
-      this.logger.log(`Extracted ${actionItems.length} action items from transcript analysis`);
       return actionItems;
-      
     } catch (error) {
-      this.logger.error(`Error extracting action items from transcript: ${error.message}`);
+      this.logger.error(`Error extracting action items: ${error.message}`);
       return [{
         description: "Follow up on meeting outcomes",
         assignee: "Team",
@@ -634,21 +491,9 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         hasSentiment: !!cleanResults.sentiment,
       });
 
-      // Debug: Log the actual data being saved
-      this.logger.log(`Debug - Topics being saved:`, JSON.stringify(cleanResults.topics, null, 2));
-      this.logger.log(`Debug - Action Items being saved:`, JSON.stringify(cleanResults.actionItems, null, 2));
-      this.logger.log(`Debug - Summary being saved:`, JSON.stringify(cleanResults.summary, null, 2));
-      this.logger.log(`Debug - Sentiment being saved:`, JSON.stringify(cleanResults.sentiment, null, 2));
-
       const updatedSession = await this.sessionRepository.updateSession(sessionId, updateData);
 
-      this.logger.log(`Analysis results saved successfully for session ${sessionId}`);
-      this.logger.log(`Updated session topics count: ${updatedSession.topics?.length || 0}`);
-      this.logger.log(`Updated session action items count: ${updatedSession.actionItems?.length || 0}`);
-
-      // Debug: Verify what was actually saved to the database
-      this.logger.log(`Debug - Saved topics:`, JSON.stringify(updatedSession.topics, null, 2));
-      this.logger.log(`Debug - Saved action items:`, JSON.stringify(updatedSession.actionItems, null, 2));
+      this.logger.log(`Analysis results saved for session ${sessionId}: ${cleanResults.topics.length} topics, ${cleanResults.actionItems.length} action items`);
 
       // 🚀 NEW: Emit meeting analysis completion event for post-meeting orchestration
       this.emitMeetingAnalysisCompletedEvent(sessionId, cleanResults);
@@ -841,23 +686,13 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     await this.trackNodeProgress(this.nodeNames.TOPIC_EXTRACTION, state);
 
     try {
-      // CRITICAL FIX: Add comprehensive error handling and logging
-      this.logger.log(`Topic extraction - Input transcript length: ${state.transcript?.length || 0}`);
-      this.logger.log(`Topic extraction - Meeting ID: ${state.meetingId}`);
-      this.logger.log(`Topic extraction - Session ID: ${state.sessionId}`);
-
-      // Use RAG-enhanced topic extraction agent
       const agent = this.meetingAnalysisAgentFactory.getRagTopicExtractionAgent();
       
       if (!agent) {
         throw new Error("RAG Topic Extraction Agent not available");
       }
 
-      this.logger.log("Topic extraction agent retrieved successfully");
-
-      // PRODUCTION DEBUG: Add extensive logging to debug agent execution
-      this.logger.log(`Calling agent.extractTopics with transcript length: ${state.transcript.length}`);
-      this.logger.log(`Meeting ID: ${state.meetingId}, Session ID: ${state.sessionId}`);
+      this.logger.log(`Extracting topics for meeting ${state.meetingId}`);
 
       const topics = await agent.extractTopics(state.transcript, {
         meetingId: state.meetingId,
@@ -868,11 +703,9 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         },
       });
 
-      this.logger.log(`Agent returned topics:`, JSON.stringify(topics, null, 2));
-
-      this.logger.log(`Topic extraction completed - Found ${topics?.length || 0} topics`);
+      this.logger.log(`Topic extraction completed: ${topics?.length || 0} topics found`);
       
-      // PRODUCTION FIX: Process actual agent results with intelligent fallback
+      // Process agent results with intelligent fallback
       let validTopics = topics && Array.isArray(topics) 
         ? topics.map((topic) => ({
             name: topic.name || "Unnamed Topic",
@@ -882,9 +715,9 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
           }))
         : [];
 
-      // PRODUCTION FIX: If agents return empty results, extract topics from transcript directly
+      // Fallback: Extract topics from transcript if agent returns empty results
       if (validTopics.length === 0) {
-        this.logger.warn(`Agent returned no topics, extracting from transcript directly for session ${state.sessionId}`);
+        this.logger.warn(`Agent returned no topics, using pattern-based extraction`);
         validTopics = this.extractTopicsFromTranscript(state.transcript).map(topic => ({
           name: topic.name,
           subtopics: topic.subtopics || [],
@@ -893,22 +726,13 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         }));
       }
 
-      this.logger.log(`Final topics count: ${validTopics.length}`);
-      
-      if (validTopics.length > 0) {
-        this.logger.log(`Topics details:`, JSON.stringify(validTopics, null, 2));
-      } else {
-        this.logger.error(`Failed to extract any topics for session ${state.sessionId}`);
-      }
+      this.logger.log(`Topic extraction completed: ${validTopics.length} topics`);
 
-      const updatedState = {
+      return {
         ...state,
         topics: validTopics,
         stage: "topic_extraction" as const,
       };
-
-      this.logger.log("Topic extraction node completed successfully");
-      return updatedState;
     } catch (error) {
       this.logger.error(`Error in topic extraction node: ${error.message}`, error.stack);
       
