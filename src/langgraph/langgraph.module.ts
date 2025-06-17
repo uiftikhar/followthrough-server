@@ -21,12 +21,7 @@ import { EventEmitterModule } from "@nestjs/event-emitter";
       delimiter: ".",
     }),
   ],
-  providers: [
-    UnifiedWorkflowService,
-  ],
-  exports: [
-    UnifiedWorkflowService,
-    LanggraphCoreModule,
-  ],
+  providers: [UnifiedWorkflowService],
+  exports: [UnifiedWorkflowService, LanggraphCoreModule],
 })
 export class LanggraphModule {}

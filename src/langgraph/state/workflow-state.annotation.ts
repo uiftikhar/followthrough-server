@@ -50,6 +50,22 @@ export const BaseWorkflowState = {
 export const MeetingAnalysisState = {
   ...BaseWorkflowState,
 
+  // Core identifiers  
+  sessionId: Annotation<string>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => "",
+  }),
+
+  userId: Annotation<string>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => "",
+  }),
+
+  meetingId: Annotation<string>({
+    reducer: (existing, update) => update ?? existing,
+    default: () => "",
+  }),
+
   // Meeting-specific data
   transcript: Annotation<string>({
     reducer: (existing, update) => update ?? existing,
@@ -160,7 +176,7 @@ const CalendarWorkflowStateAnnotation = Annotation.Root({
   sessionId: Annotation<string>(),
   userId: Annotation<string>(),
   eventId: Annotation<string>(),
-  
+
   // Event data
   eventData: Annotation<{
     id: string;
@@ -247,7 +263,7 @@ const CalendarWorkflowStateAnnotation = Annotation.Root({
     reducer: (existing, update) => update ?? existing,
     default: () => null,
   }),
-  
+
   // Context and metadata
   context: Annotation<Record<string, any>>({
     reducer: (existing, update) => ({ ...existing, ...update }),
@@ -270,19 +286,22 @@ const CalendarWorkflowStateAnnotation = Annotation.Root({
       startTime: new Date().toISOString(),
     }),
   }),
-  
+
   // Workflow configuration
-  workflowType: Annotation<"pre_meeting" | "post_meeting" | "context_analysis">({
-    reducer: (existing, update) => update ?? existing,
-    default: () => "pre_meeting",
-  }),
+  workflowType: Annotation<"pre_meeting" | "post_meeting" | "context_analysis">(
+    {
+      reducer: (existing, update) => update ?? existing,
+      default: () => "pre_meeting",
+    },
+  ),
   automationLevel: Annotation<"manual" | "semi_automated" | "fully_automated">({
     reducer: (existing, update) => update ?? existing,
     default: () => "semi_automated",
   }),
 });
 
-export type CalendarWorkflowState = typeof CalendarWorkflowStateAnnotation.State;
+export type CalendarWorkflowState =
+  typeof CalendarWorkflowStateAnnotation.State;
 export type CalendarWorkflowStateType = typeof CalendarWorkflowStateAnnotation;
 export { CalendarWorkflowStateAnnotation };
 

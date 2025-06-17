@@ -86,7 +86,7 @@ export class UnifiedWorkflowController {
       ...(session.metadata?.emailTriageResult && {
         emailTriageResult: session.metadata.emailTriageResult,
       }),
-      errors: session.errors,
+      errors: session.analysisErrors,
     };
   }
 }

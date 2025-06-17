@@ -11,16 +11,13 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
     // Core Services for Team Coordination
     TeamHandlerRegistry,
     GraphExecutionService,
-    
+
     // Event Emitter for Progress Tracking
     {
       provide: "EVENT_EMITTER",
       useClass: EventEmitter2,
     },
   ],
-  exports: [
-    TeamHandlerRegistry,
-    GraphExecutionService,
-  ],
+  exports: [TeamHandlerRegistry, GraphExecutionService],
 })
 export class LanggraphCoreModule {}

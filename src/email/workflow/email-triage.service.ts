@@ -33,7 +33,9 @@ export class EmailTriageService
     private readonly agentFactory: AgentFactory,
     private readonly eventEmitter: EventEmitter2,
   ) {
-    this.logger.log("EmailTriageService constructor called - using LangGraph StateGraph");
+    this.logger.log(
+      "EmailTriageService constructor called - using LangGraph StateGraph",
+    );
     this.initializeEmailTriageGraph();
   }
 
@@ -156,9 +158,7 @@ export class EmailTriageService
         progress: 0,
       };
 
-      this.logger.log(
-        `🚀 Starting email triage for session: ${sessionId}`,
-      );
+      this.logger.log(`🚀 Starting email triage for session: ${sessionId}`);
 
       // Emit immediate triage started event
       this.eventEmitter.emit("email.triage.started", {
@@ -176,9 +176,7 @@ export class EmailTriageService
       // Execute the email triage graph
       const finalState = await this.executeEmailTriageGraph(initialState);
 
-      this.logger.log(
-        `✅ Email triage completed for session: ${sessionId}`,
-      );
+      this.logger.log(`✅ Email triage completed for session: ${sessionId}`);
 
       // Emit completion event with detailed results
       this.eventEmitter.emit("email.triage.completed", {
@@ -266,10 +264,10 @@ export class EmailTriageService
   private async initializeEmailTriageGraph(): Promise<void> {
     try {
       this.logger.log("🏗️ Building email triage LangGraph...");
-      
+
       // Create state annotation for email triage
       const stateAnnotation = this.stateService.createEmailTriageState();
-      
+
       this.emailTriageGraph = new StateGraph(stateAnnotation)
         .addNode("initialize", this.initializeNode.bind(this))
         .addNode("classify", this.classifyEmailNode.bind(this))
@@ -286,70 +284,83 @@ export class EmailTriageService
 
       this.logger.log("✅ Email triage LangGraph built successfully");
     } catch (error) {
-      this.logger.error(`❌ Failed to build email triage graph: ${error.message}`);
+      this.logger.error(
+        `❌ Failed to build email triage graph: ${error.message}`,
+      );
       throw error;
     }
   }
 
   // Graph node implementations
   private async initializeNode(state: any): Promise<any> {
-    this.logger.log(`Initializing email triage for email: ${state.emailData?.id}`);
-    
+    this.logger.log(
+      `Initializing email triage for email: ${state.emailData?.id}`,
+    );
+
     return {
       ...state,
       currentStep: "initialization_completed",
-      progress: 10
+      progress: 10,
     };
   }
 
   private async classifyEmailNode(state: any): Promise<any> {
     this.logger.log("Executing email classification");
-    
+
     try {
       // Create a basic classification agent as fallback
       const classificationAgent = this.agentFactory.createBaseAgent({
         name: "EmailClassificationAgent",
-        systemPrompt: "You are an email classification agent. Classify emails by category and priority. Respond with JSON format: {classification: {category: string, priority: string}}",
-        llmOptions: { temperature: 0.3, model: "gpt-4o" }
+        systemPrompt:
+          "You are an email classification agent. Classify emails by category and priority. Respond with JSON format: {classification: {category: string, priority: string}}",
+        llmOptions: { temperature: 0.3, model: "gpt-4o" },
       });
-      
+
       const classification = await classificationAgent.processState(state);
-      
+
       return {
         ...state,
-        classification: classification.classification || { category: "general", priority: "medium" },
+        classification: classification.classification || {
+          category: "general",
+          priority: "medium",
+        },
         currentStep: "classification_completed",
-        progress: 40
+        progress: 40,
       };
     } catch (error) {
       this.logger.warn(`Email classification failed: ${error.message}`);
       return {
         ...state,
-        classification: { category: "general", priority: "medium", error: error.message },
+        classification: {
+          category: "general",
+          priority: "medium",
+          error: error.message,
+        },
         currentStep: "classification_completed",
-        progress: 40
+        progress: 40,
       };
     }
   }
 
   private async summarizeEmailNode(state: any): Promise<any> {
     this.logger.log("Executing email summarization");
-    
+
     try {
       // Create a basic summarization agent as fallback
       const summarizationAgent = this.agentFactory.createBaseAgent({
         name: "EmailSummarizationAgent",
-        systemPrompt: "You are an email summarization agent. Create concise summaries of email content. Respond with JSON format: {summary: string}",
-        llmOptions: { temperature: 0.3, model: "gpt-4o" }
+        systemPrompt:
+          "You are an email summarization agent. Create concise summaries of email content. Respond with JSON format: {summary: string}",
+        llmOptions: { temperature: 0.3, model: "gpt-4o" },
       });
-      
+
       const summary = await summarizationAgent.processState(state);
-      
+
       return {
         ...state,
         summary: summary.summary || "Email summary not available",
         currentStep: "summarization_completed",
-        progress: 70
+        progress: 70,
       };
     } catch (error) {
       this.logger.warn(`Email summarization failed: ${error.message}`);
@@ -357,29 +368,30 @@ export class EmailTriageService
         ...state,
         summary: "Email summary not available",
         currentStep: "summarization_completed",
-        progress: 70
+        progress: 70,
       };
     }
   }
 
   private async generateReplyNode(state: any): Promise<any> {
     this.logger.log("Executing reply draft generation");
-    
+
     try {
       // Create a basic reply agent as fallback
       const replyAgent = this.agentFactory.createBaseAgent({
         name: "EmailReplyDraftAgent",
-        systemPrompt: "You are an email reply draft agent. Generate appropriate email replies. Respond with JSON format: {replyDraft: string}",
-        llmOptions: { temperature: 0.4, model: "gpt-4o" }
+        systemPrompt:
+          "You are an email reply draft agent. Generate appropriate email replies. Respond with JSON format: {replyDraft: string}",
+        llmOptions: { temperature: 0.4, model: "gpt-4o" },
       });
-      
+
       const replyDraft = await replyAgent.processState(state);
-      
+
       return {
         ...state,
         replyDraft: replyDraft.replyDraft || "Reply draft not available",
         currentStep: "reply_generation_completed",
-        progress: 90
+        progress: 90,
       };
     } catch (error) {
       this.logger.warn(`Reply generation failed: ${error.message}`);
@@ -387,14 +399,14 @@ export class EmailTriageService
         ...state,
         replyDraft: "Reply draft not available",
         currentStep: "reply_generation_completed",
-        progress: 90
+        progress: 90,
       };
     }
   }
 
   private async finalizeNode(state: any): Promise<any> {
     this.logger.log("Finalizing email triage");
-    
+
     return {
       ...state,
       currentStep: "completed",
@@ -404,8 +416,8 @@ export class EmailTriageService
         summary: state.summary,
         replyDraft: state.replyDraft,
         sessionId: state.sessionId,
-        completedAt: new Date().toISOString()
-      }
+        completedAt: new Date().toISOString(),
+      },
     };
   }
 

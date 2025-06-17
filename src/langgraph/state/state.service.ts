@@ -412,12 +412,12 @@ export class StateService {
     });
   }
 
-  /**
+  /** p
    * Create an annotation for an array of objects
    */
   createArrayAnnotation<T>() {
     return Annotation<T[]>({
-      reducer: (x, y) => [...x, ...y],
+      reducer: (x, y) => y ?? x,
       default: () => [],
     });
   }
@@ -582,7 +582,11 @@ export class StateService {
 
       // Routing decisions
       routing: Annotation<{
-        team: "meeting_analysis" | "email_triage" | "calendar_workflow" | "__end__";
+        team:
+          | "meeting_analysis"
+          | "email_triage"
+          | "calendar_workflow"
+          | "__end__";
         confidence: number;
         reasoning: string;
         inputType?: string;
@@ -601,14 +605,14 @@ export class StateService {
       // Processing metadata
       startTime: this.createStringAnnotation(),
       endTime: this.createStringAnnotation(),
-      
+
       // Error handling
       error: this.createStringAnnotation(),
       errors: this.createArrayAnnotation(),
 
       // General metadata
       metadata: this.createRecordAnnotation(),
-      
+
       // Session tracking
       sessionId: this.createStringAnnotation(),
       userId: this.createStringAnnotation(),
@@ -620,7 +624,9 @@ export class StateService {
       }),
 
       // Processing status
-      status: Annotation<"pending" | "routing" | "processing" | "completed" | "failed">({
+      status: Annotation<
+        "pending" | "routing" | "processing" | "completed" | "failed"
+      >({
         reducer: (x, y) => y ?? x,
         default: () => "pending",
       }),

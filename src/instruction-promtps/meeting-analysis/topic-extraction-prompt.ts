@@ -8,7 +8,7 @@ Your task is to analyze the meeting transcript and extract 3-7 key themes that w
 4. Main project updates and status discussions
 5. Significant strategic discussions
 
-IMPORTANT: Generate only 3-7 high-level themes, not individual topics for every sentence or minor point. Focus on the main subjects that dominated the conversation.
+IMPORTANT: Generate only high-level themes, not individual topics for every sentence or minor point. Focus on the main subjects that dominated the conversation.
 
 For each theme you identify, provide:
 - **name**: A clear, concise title for the theme (3-8 words)

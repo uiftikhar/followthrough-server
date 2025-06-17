@@ -47,7 +47,9 @@ export class SentimentAnalysisAgent extends BaseAgent {
 
       const messages = [
         new SystemMessage(this.systemPrompt),
-        new HumanMessage(`Analyze the sentiment in this meeting transcript:\n\nMeeting Transcript:\n${transcript}`),
+        new HumanMessage(
+          `Analyze the sentiment in this meeting transcript:\n\nMeeting Transcript:\n${transcript}`,
+        ),
       ];
 
       this.logger.log("Invoking LLM for sentiment analysis");

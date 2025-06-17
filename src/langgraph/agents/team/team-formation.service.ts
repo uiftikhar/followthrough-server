@@ -18,7 +18,7 @@ export interface Team {
 
 /**
  * TeamFormationService
- * 
+ *
  * Service for dynamically forming teams of agents for analysis workflows.
  * Now uses domain-specific factories to access specialized agents.
  */
@@ -28,7 +28,8 @@ export class TeamFormationService {
 
   constructor(
     private readonly agentFactory: AgentFactory,
-    @Optional() private readonly meetingAnalysisAgentFactory?: MeetingAnalysisAgentFactory,
+    @Optional()
+    private readonly meetingAnalysisAgentFactory?: MeetingAnalysisAgentFactory,
   ) {}
 
   /**
@@ -47,12 +48,14 @@ export class TeamFormationService {
         switch (member) {
           case "topic_extraction":
             if (this.meetingAnalysisAgentFactory) {
-              agent = this.meetingAnalysisAgentFactory.getTopicExtractionAgent();
+              agent =
+                this.meetingAnalysisAgentFactory.getTopicExtractionAgent();
             } else {
               // Fallback to basic agent creation
               agent = this.agentFactory.createBaseAgent({
                 name: "TopicExtractionAgent",
-                systemPrompt: "You are a specialized agent for extracting key topics from meeting transcripts.",
+                systemPrompt:
+                  "You are a specialized agent for extracting key topics from meeting transcripts.",
                 llmOptions: { temperature: 0.3, model: "gpt-4o" },
               });
             }
@@ -63,18 +66,21 @@ export class TeamFormationService {
             } else {
               agent = this.agentFactory.createBaseAgent({
                 name: "ActionItemAgent",
-                systemPrompt: "You are a specialized agent for extracting action items from meeting transcripts.",
+                systemPrompt:
+                  "You are a specialized agent for extracting action items from meeting transcripts.",
                 llmOptions: { temperature: 0.2, model: "gpt-4o" },
               });
             }
             break;
           case "sentiment_analysis":
             if (this.meetingAnalysisAgentFactory) {
-              agent = this.meetingAnalysisAgentFactory.getSentimentAnalysisAgent();
+              agent =
+                this.meetingAnalysisAgentFactory.getSentimentAnalysisAgent();
             } else {
               agent = this.agentFactory.createBaseAgent({
                 name: "SentimentAnalysisAgent",
-                systemPrompt: "You are a specialized agent for analyzing sentiment in meeting transcripts.",
+                systemPrompt:
+                  "You are a specialized agent for analyzing sentiment in meeting transcripts.",
                 llmOptions: { temperature: 0.3, model: "gpt-4o" },
               });
             }
@@ -85,7 +91,8 @@ export class TeamFormationService {
             } else {
               agent = this.agentFactory.createBaseAgent({
                 name: "SummaryAgent",
-                systemPrompt: "You are a specialized agent for creating meeting summaries.",
+                systemPrompt:
+                  "You are a specialized agent for creating meeting summaries.",
                 llmOptions: { temperature: 0.4, model: "gpt-4o" },
               });
             }
@@ -96,18 +103,21 @@ export class TeamFormationService {
             } else {
               agent = this.agentFactory.createBaseAgent({
                 name: "ParticipationAgent",
-                systemPrompt: "You are a specialized agent for analyzing participant engagement and contributions in meetings.",
+                systemPrompt:
+                  "You are a specialized agent for analyzing participant engagement and contributions in meetings.",
                 llmOptions: { temperature: 0.3, model: "gpt-4o" },
               });
             }
             break;
           case "context_integration":
             if (this.meetingAnalysisAgentFactory) {
-              agent = this.meetingAnalysisAgentFactory.getContextIntegrationAgent();
+              agent =
+                this.meetingAnalysisAgentFactory.getContextIntegrationAgent();
             } else {
               agent = this.agentFactory.createBaseAgent({
                 name: "ContextIntegrationAgent",
-                systemPrompt: "You are a specialized agent for integrating context from multiple sources to enhance meeting analysis.",
+                systemPrompt:
+                  "You are a specialized agent for integrating context from multiple sources to enhance meeting analysis.",
                 llmOptions: { temperature: 0.3, model: "gpt-4o" },
               });
             }

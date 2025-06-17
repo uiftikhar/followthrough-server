@@ -2,7 +2,10 @@ import { Injectable } from "@nestjs/common";
 import { BaseAgent, AgentConfig } from "./base-agent";
 import { LlmService } from "../llm/llm.service";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { TOPIC_EXTRACTION_PROMPT, TOPIC_EXTRACTION_SYSTEM_PROMPT } from "../../instruction-promtps";
+import {
+  TOPIC_EXTRACTION_PROMPT,
+  TOPIC_EXTRACTION_SYSTEM_PROMPT,
+} from "../../instruction-promtps";
 
 export interface Topic {
   name: string;
@@ -36,7 +39,9 @@ export class TopicExtractionAgent extends BaseAgent {
 
     const messages = [
       new SystemMessage(this.systemPrompt),
-      new HumanMessage(`${TOPIC_EXTRACTION_PROMPT}\n\nTranscript:\n${transcript}`),
+      new HumanMessage(
+        `${TOPIC_EXTRACTION_PROMPT}\n\nTranscript:\n${transcript}`,
+      ),
     ];
 
     const response = await model.invoke(messages);

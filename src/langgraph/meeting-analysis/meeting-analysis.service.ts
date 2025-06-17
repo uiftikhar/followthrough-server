@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleInit,
-  Inject,
-} from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit, Inject } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { v4 as uuidv4 } from "uuid";
 import { EventEmitter2 } from "@nestjs/event-emitter";
@@ -160,6 +155,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
 
       return {
         meetingId: input.metadata?.meetingId || uuidv4(),
+        sessionId: "", // Default empty sessionId for error case
         transcript: "",
         topics: [
           {
@@ -191,6 +187,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     // Prepare initial state with validated transcript
     const initialState: MeetingAnalysisState = {
       meetingId,
+      sessionId: meetingId, // Use meetingId as sessionId for consistency
       transcript,
       context: input.metadata || {},
     };
@@ -439,66 +436,83 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     userId?: string,
   ): Promise<any> {
     // If no userId is provided, default to system
-    const actualUserId = userId || 'system';
-    
+    const actualUserId = userId || "system";
+
     // Create a unique session ID
     const sessionId = this.generateSessionId();
-    this.logger.log(`Created new analysis session: ${sessionId} for user: ${actualUserId}`);
-    
-    this.logger.log(`Session ${sessionId} will use RAG capabilities by default`);
-    
+    this.logger.log(
+      `Created new analysis session: ${sessionId} for user: ${actualUserId}`,
+    );
+
+    this.logger.log(
+      `Session ${sessionId} will use RAG capabilities by default`,
+    );
+
     // Create initial session object for MongoDB
     const sessionData: Partial<Session> = {
       sessionId,
       userId: actualUserId,
-      status: 'pending',
+      status: "pending",
       transcript,
       startTime: new Date(),
       metadata: metadata || {},
     };
-    
+
     try {
       // Store the session in MongoDB
       await this.sessionRepository.createSession(sessionData);
-      this.logger.log(`Session ${sessionId} stored in MongoDB for user ${actualUserId}`);
-      
+      this.logger.log(
+        `Session ${sessionId} stored in MongoDB for user ${actualUserId}`,
+      );
+
       // Store transcript for RAG retrieval - do this first to allow indexing time
       const meetingId = metadata?.meetingId || sessionId;
       await this.storeMeetingTranscriptForRag(meetingId, transcript, metadata);
-      
+
       // Add a small delay to allow Pinecone indexing to complete
-      this.logger.log('Waiting 2 seconds for Pinecone indexing to complete...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      this.logger.log("Waiting 2 seconds for Pinecone indexing to complete...");
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       // Start real analysis process (non-blocking)
-      this.runGraphAnalysis(sessionId, transcript, actualUserId, metadata)
-        .catch(error => {
-          this.logger.error(`Background analysis failed for session ${sessionId}: ${error.message}`, error.stack);
-        });
-      
+      this.runGraphAnalysis(
+        sessionId,
+        transcript,
+        actualUserId,
+        metadata,
+      ).catch((error) => {
+        this.logger.error(
+          `Background analysis failed for session ${sessionId}: ${error.message}`,
+          error.stack,
+        );
+      });
+
       return {
         sessionId,
-        status: 'pending',
-        message: 'Analysis started successfully'
+        status: "pending",
+        message: "Analysis started successfully",
       };
     } catch (error) {
-      this.logger.error(`Error initiating analysis: ${error.message}`, error.stack);
-      
+      this.logger.error(
+        `Error initiating analysis: ${error.message}`,
+        error.stack,
+      );
+
       // Update session with error
       await this.sessionRepository.updateSession(sessionId, {
-        status: 'failed',
+        status: "failed",
         endTime: new Date(),
-        errors: [{
-          step: 'initialization',
-          error: error.message,
-          timestamp: new Date().toISOString(),
-        }],
+        analysisErrors: [
+          {
+            step: "initialization",
+            error: error.message,
+            timestamp: new Date().toISOString(),
+          },
+        ],
       });
-      
+
       throw error;
     }
   }
-
 
   /**
    * Generate a unique session ID
@@ -517,13 +531,16 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     metadata?: Record<string, any>,
   ): Promise<void> {
     try {
-      this.logger.log(`Running graph analysis for session ${sessionId} with RAG by default`);
+      this.logger.log(
+        `Running graph analysis for session ${sessionId} with RAG by default`,
+      );
 
       // Prepare the initial state
       let initialState: any = {
         transcript,
         sessionId,
         userId,
+        meetingId: sessionId, // Use sessionId as meetingId for consistency
         startTime: new Date().toISOString(),
         metadata: metadata || {},
         currentPhase: "initialization",
@@ -600,8 +617,14 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         this.logger.log(`Graph execution completed for session ${sessionId}`);
 
         // Check if there were any errors during execution
-        if (finalState.error || (finalState.errors && finalState.errors.length > 0)) {
-          const errorMessage = finalState.error?.message || finalState.errors?.[0]?.error || 'Unknown error occurred';
+        if (
+          finalState.error ||
+          (finalState.errors && finalState.errors.length > 0)
+        ) {
+          const errorMessage =
+            finalState.error?.message ||
+            finalState.errors?.[0]?.error ||
+            "Unknown error occurred";
           throw new Error(`Graph execution failed: ${errorMessage}`);
         }
 
@@ -622,9 +645,14 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         };
 
         // Validate that we have some meaningful results
-        const hasResults = result.topics.length > 0 || result.actionItems.length > 0 || result.summary;
+        const hasResults =
+          result.topics.length > 0 ||
+          result.actionItems.length > 0 ||
+          result.summary;
         if (!hasResults) {
-          throw new Error('Analysis completed but no meaningful results were generated');
+          throw new Error(
+            "Analysis completed but no meaningful results were generated",
+          );
         }
 
         // Save results to database
@@ -636,8 +664,9 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
           `Analysis completed with ${result.topics.length} topics and ${result.actionItems.length} action items`,
         );
 
-        this.logger.log(`Successfully completed analysis for session ${sessionId}`);
-
+        this.logger.log(
+          `Successfully completed analysis for session ${sessionId}`,
+        );
       } catch (error) {
         this.logger.error(
           `Error in graph execution: ${error.message}`,
@@ -652,7 +681,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       await this.sessionRepository.updateSession(sessionId, {
         status: "failed",
         endTime: new Date(),
-        errors: [
+        analysisErrors: [
           {
             step: "graph_analysis",
             error: error.message,
@@ -668,7 +697,9 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       );
 
       // Don't re-throw the error here to prevent unhandled rejection
-      this.logger.error(`Analysis failed for session ${sessionId}: ${error.message}`);
+      this.logger.error(
+        `Analysis failed for session ${sessionId}: ${error.message}`,
+      );
     }
   }
 
@@ -687,22 +718,60 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         summary: result.summary || null,
       };
 
+      // Get existing session to preserve original metadata
+      const existingSession = await this.sessionRepository.getSessionById(sessionId);
+      
+      // Merge existing metadata with processing info, preserving original data
+      const updatedMetadata = {
+        ...(existingSession.metadata || {}), // Preserve original metadata
+        processingTime: new Date().toISOString(),
+        ragEnabled: !!result.context?.usedRag,
+        ragUsed: !!result.context?.retrievedContext?.length,
+        retrievedContext: result.context?.retrievedContext || [],
+        analysisCompletedAt: new Date().toISOString(),
+        resultsSummary: {
+          topicsCount: cleanResults.topics.length,
+          actionItemsCount: cleanResults.actionItems.length,
+          hasSummary: !!cleanResults.summary,
+          hasSentiment: !!cleanResults.sentiment,
+        }
+      };
+
       // Update the session in MongoDB with completed status and clean results
-      await this.sessionRepository.updateSession(sessionId, {
+      const updateData = {
         status: "completed",
+        progress: 100,
         endTime: new Date(),
         topics: cleanResults.topics,
         actionItems: cleanResults.actionItems,
         sentiment: cleanResults.sentiment,
         summary: cleanResults.summary,
-        errors: result.errors || [],
-        // Include minimal metadata about RAG usage
-        metadata: {
-          processingTime: new Date().toISOString(),
-        },
+        analysisErrors: result.errors || [],
+        metadata: updatedMetadata,
+      };
+
+      this.logger.log(`Updating session ${sessionId} with analysis results:`, {
+        topicsCount: cleanResults.topics.length,
+        actionItemsCount: cleanResults.actionItems.length,
+        hasSummary: !!cleanResults.summary,
+        hasSentiment: !!cleanResults.sentiment,
       });
 
-      this.logger.log(`Clean results saved for session ${sessionId}`);
+      // Debug: Log the actual data being saved
+      this.logger.log(`Debug - Topics being saved:`, JSON.stringify(cleanResults.topics, null, 2));
+      this.logger.log(`Debug - Action Items being saved:`, JSON.stringify(cleanResults.actionItems, null, 2));
+      this.logger.log(`Debug - Summary being saved:`, JSON.stringify(cleanResults.summary, null, 2));
+      this.logger.log(`Debug - Sentiment being saved:`, JSON.stringify(cleanResults.sentiment, null, 2));
+
+      const updatedSession = await this.sessionRepository.updateSession(sessionId, updateData);
+
+      this.logger.log(`Analysis results saved successfully for session ${sessionId}`);
+      this.logger.log(`Updated session topics count: ${updatedSession.topics?.length || 0}`);
+      this.logger.log(`Updated session action items count: ${updatedSession.actionItems?.length || 0}`);
+
+      // Debug: Verify what was actually saved to the database
+      this.logger.log(`Debug - Saved topics:`, JSON.stringify(updatedSession.topics, null, 2));
+      this.logger.log(`Debug - Saved action items:`, JSON.stringify(updatedSession.actionItems, null, 2));
 
       // 🚀 NEW: Emit meeting analysis completion event for post-meeting orchestration
       this.emitMeetingAnalysisCompletedEvent(sessionId, cleanResults);
@@ -761,12 +830,15 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     try {
       // Create the meeting analysis graph using LangGraph StateGraph
       const stateAnnotation = this.stateService.createMeetingAnalysisState();
-      
+
       const graph = new StateGraph(stateAnnotation)
         .addNode("initialization", this.initializationNode.bind(this))
         .addNode("contextRetrieval", this.contextRetrievalNode.bind(this))
         .addNode("topicExtraction", this.topicExtractionNode.bind(this))
-        .addNode("actionItemExtraction", this.actionItemExtractionNode.bind(this))
+        .addNode(
+          "actionItemExtraction",
+          this.actionItemExtractionNode.bind(this),
+        )
         .addNode("sentimentAnalysis", this.sentimentAnalysisNode.bind(this))
         .addNode("summaryGeneration", this.summaryGenerationNode.bind(this))
         .addNode("documentStorage", this.documentStorageNode.bind(this))
@@ -786,36 +858,45 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       // Compile the graph
       this.meetingAnalysisGraph = Promise.resolve(graph.compile());
 
-      this.logger.log("Meeting analysis graph initialized and compiled successfully");
+      this.logger.log(
+        "Meeting analysis graph initialized and compiled successfully",
+      );
     } catch (error) {
-      this.logger.error(`Error initializing meeting analysis graph: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error initializing meeting analysis graph: ${error.message}`,
+        error.stack,
+      );
       throw error; // Throw the error to prevent the service from starting with a broken graph
     }
   }
 
   // Node implementations
-  private async initializationNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
+  private async initializationNode(
+    state: MeetingAnalysisState,
+  ): Promise<MeetingAnalysisState> {
     this.logger.log("Starting meeting analysis initialization");
-    
+
     // Track progress for this node
     await this.trackNodeProgress(this.nodeNames.INITIALIZATION, state);
-    
+
     return {
       ...state,
-      stage: "initialization"
+      stage: "initialization",
     };
   }
 
-  private async contextRetrievalNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
+  private async contextRetrievalNode(
+    state: MeetingAnalysisState,
+  ): Promise<MeetingAnalysisState> {
     this.logger.log("Starting context retrieval");
-    
+
     // Track progress for this node
     await this.trackNodeProgress(this.nodeNames.CONTEXT_RETRIEVAL, state);
-    
+
     try {
       // Create a more specific context query from the beginning of the transcript
       const contextQuery = `${state.transcript.substring(0, 500)}...`;
-      
+
       const retrievalOptions = {
         indexName: "meeting-analysis",
         namespace: "transcripts",
@@ -823,24 +904,32 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         minScore: 0.7,
       };
 
-      this.logger.log(`Getting context for query: "${contextQuery.substring(0, 100)}..."`);
+      this.logger.log(
+        `Getting context for query: "${contextQuery.substring(0, 100)}..."`,
+      );
       this.logger.log(`Retrieval options: ${JSON.stringify(retrievalOptions)}`);
 
       const relevantDocuments = await this.ragService.getContext(
         contextQuery,
-        retrievalOptions
+        retrievalOptions,
       );
 
-      this.logger.log(`Retrieved ${relevantDocuments.length} relevant documents for context enhancement`);
+      this.logger.log(
+        `Retrieved ${relevantDocuments.length} relevant documents for context enhancement`,
+      );
 
       if (relevantDocuments.length === 0) {
-        this.logger.warn('No relevant documents found - this might be due to:');
-        this.logger.warn('1. Pinecone indexing not yet complete (try waiting longer)');
-        this.logger.warn('2. No similar meetings in the knowledge base');
-        this.logger.warn('3. Query not matching existing document embeddings');
-        this.logger.warn('4. Minimum score threshold too high');
+        this.logger.warn("No relevant documents found - this might be due to:");
+        this.logger.warn(
+          "1. Pinecone indexing not yet complete (try waiting longer)",
+        );
+        this.logger.warn("2. No similar meetings in the knowledge base");
+        this.logger.warn("3. Query not matching existing document embeddings");
+        this.logger.warn("4. Minimum score threshold too high");
       } else {
-        this.logger.log(`Context documents retrieved: ${relevantDocuments.map(doc => doc.id).join(', ')}`);
+        this.logger.log(
+          `Context documents retrieved: ${relevantDocuments.map((doc) => doc.id).join(", ")}`,
+        );
       }
 
       return {
@@ -848,30 +937,32 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         metadata: {
           ...state.metadata,
           retrievedContext: relevantDocuments,
-          retrievalQuery: contextQuery.substring(0, 100)
+          retrievalQuery: contextQuery.substring(0, 100),
         },
-        stage: "context_retrieved"
+        stage: "context_retrieved",
       };
     } catch (error) {
       this.logger.warn(`Context retrieval failed: ${error.message}`);
-      this.logger.warn('Continuing analysis without RAG context');
+      this.logger.warn("Continuing analysis without RAG context");
       return {
         ...state,
         metadata: {
           ...state.metadata,
-          retrievalQuery: null
+          retrievalQuery: null,
         },
-        stage: "context_retrieval_failed"
+        stage: "context_retrieval_failed",
       };
     }
   }
 
-  private async topicExtractionNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
+  private async topicExtractionNode(
+    state: MeetingAnalysisState,
+  ): Promise<MeetingAnalysisState> {
     this.logger.log("Starting topic extraction with RAG agent");
-    
+
     // Track progress for this node
     await this.trackNodeProgress(this.nodeNames.TOPIC_EXTRACTION, state);
-    
+
     // Use RAG-enhanced topic extraction agent
     const agent = this.meetingAnalysisAgentFactory.getRagTopicExtractionAgent();
     const topics = await agent.extractTopics(state.transcript, {
@@ -880,87 +971,98 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         includeHistoricalTopics: true,
         topK: 5,
         minScore: 0.7,
-      }
+      },
     });
-    
+
     const updatedState = {
       ...state,
-      topics: topics.map(topic => ({
+      topics: topics.map((topic) => ({
         name: topic.name,
         subtopics: topic.subtopics,
         participants: topic.participants,
         relevance: topic.relevance,
       })),
-      stage: "topic_extraction" as const
+      stage: "topic_extraction" as const,
     };
-    
+
     return updatedState;
   }
 
-  private async actionItemExtractionNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
-    this.logger.log("Starting action item extraction (using basic agent - no RAG version available)");
-    
+  private async actionItemExtractionNode(
+    state: MeetingAnalysisState,
+  ): Promise<MeetingAnalysisState> {
+    this.logger.log(
+      "Starting action item extraction (using basic agent - no RAG version available)",
+    );
+
     // Track progress for this node
     await this.trackNodeProgress(this.nodeNames.ACTION_ITEM_EXTRACTION, state);
-    
+
     // Use basic action item agent since no RAG version exists yet
     const agent = this.meetingAnalysisAgentFactory.getActionItemAgent();
     const agentActionItems = await agent.extractActionItems(state.transcript);
-    
+
     // Map agent output to MeetingAnalysisState format
-    const actionItems = agentActionItems.map(item => ({
+    const actionItems = agentActionItems.map((item) => ({
       description: item.description,
       assignee: item.assignee,
       dueDate: item.deadline,
-      status: (item.status === "in_progress" ? "pending" : item.status) as "pending" | "completed"
+      status: (item.status === "in_progress" ? "pending" : item.status) as
+        | "pending"
+        | "completed",
     }));
-    
+
     const updatedState = {
       ...state,
       actionItems,
-      stage: "action_item_extraction" as const
+      stage: "action_item_extraction" as const,
     };
-    
+
     return updatedState;
   }
 
-  private async sentimentAnalysisNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
+  private async sentimentAnalysisNode(
+    state: MeetingAnalysisState,
+  ): Promise<MeetingAnalysisState> {
     this.logger.log("Starting sentiment analysis with RAG agent");
-    
+
     // Track progress for this node
     await this.trackNodeProgress(this.nodeNames.SENTIMENT_ANALYSIS, state);
-    
+
     // Use RAG-enhanced sentiment analysis agent
-    const agent = this.meetingAnalysisAgentFactory.getRagSentimentAnalysisAgent();
+    const agent =
+      this.meetingAnalysisAgentFactory.getRagSentimentAnalysisAgent();
     const sentimentAnalysis = await agent.analyzeSentiment(state.transcript, {
       meetingId: state.meetingId,
       retrievalOptions: {
         topK: 3,
         minScore: 0.7,
-      }
+      },
     });
-    
+
     const updatedState = {
       ...state,
       sentiment: {
         overall: sentimentAnalysis.score, // Use score (number) for overall sentiment
-        segments: sentimentAnalysis.segments?.map(segment => ({
+        segments: sentimentAnalysis.segments?.map((segment) => ({
           text: segment.text,
-          score: segment.score
-        }))
+          score: segment.score,
+        })),
       },
-      stage: "sentiment_analysis" as const
+      stage: "sentiment_analysis" as const,
     };
-    
+
     return updatedState;
   }
 
-  private async summaryGenerationNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
+  private async summaryGenerationNode(
+    state: MeetingAnalysisState,
+  ): Promise<MeetingAnalysisState> {
     this.logger.log("Starting summary generation with RAG agent");
-    
+
     // Track progress for this node
     await this.trackNodeProgress(this.nodeNames.SUMMARY_GENERATION, state);
-    
+
     // Use RAG-enhanced meeting analysis agent for summary generation
     const agent = this.meetingAnalysisAgentFactory.getRagMeetingAnalysisAgent();
     const summary = await agent.generateMeetingSummary(state.transcript, {
@@ -970,49 +1072,54 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
         namespace: "summaries",
         topK: 3,
         minScore: 0.7,
-      }
+      },
     });
-    
+
     const updatedState = {
       ...state,
       summary: {
         meetingTitle: summary.meetingTitle,
         summary: summary.summary,
-        decisions: summary.decisions?.map(decision => ({
-          title: decision.title,
-          content: decision.content
-        })) || [],
-        next_steps: summary.next_steps
+        decisions:
+          summary.decisions?.map((decision) => ({
+            title: decision.title,
+            content: decision.content,
+          })) || [],
+        next_steps: summary.next_steps,
       },
-      stage: "summary_generation" as const
+      stage: "summary_generation" as const,
     };
-    
+
     return updatedState;
   }
 
-  private async documentStorageNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
+  private async documentStorageNode(
+    state: MeetingAnalysisState,
+  ): Promise<MeetingAnalysisState> {
     this.logger.log("Starting document storage");
-    
-    // Track progress for this node  
+
+    // Track progress for this node
     await this.trackNodeProgress("document_storage", state);
-    
+
     // Document storage logic would go here
-    
+
     return {
       ...state,
-      stage: "summary_generation"
+      stage: "summary_generation",
     };
   }
 
-  private async finalizationNode(state: MeetingAnalysisState): Promise<MeetingAnalysisState> {
+  private async finalizationNode(
+    state: MeetingAnalysisState,
+  ): Promise<MeetingAnalysisState> {
     this.logger.log("Starting finalization");
-    
+
     // Track progress for this node
     await this.trackNodeProgress("finalization", state);
-    
+
     return {
       ...state,
-      stage: "completed"
+      stage: "completed",
     };
   }
 
@@ -1022,7 +1129,8 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
   private async trackNodeProgress(nodeName: string, state: any): Promise<void> {
     try {
       // Calculate progress based on the current node
-      const progress = this.graphExecutionService.calculateProgressForNode(nodeName);
+      const progress =
+        this.graphExecutionService.calculateProgressForNode(nodeName);
 
       // Only update progress if this is a tracked node
       if (progress > 0) {
@@ -1043,10 +1151,7 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
           };
 
           // Add any available results to the update
-          if (
-            nodeName === this.nodeNames.TOPIC_EXTRACTION &&
-            state.topics
-          ) {
+          if (nodeName === this.nodeNames.TOPIC_EXTRACTION && state.topics) {
             partialUpdate.topics = state.topics;
             this.logger.log(
               `Saving partial topics result for session ${state.sessionId}: ${state.topics.length} topics`,

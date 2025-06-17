@@ -28,6 +28,10 @@ export class CalendarWebhookController {
 
   /**
    * 🚀 Handle Google Calendar webhook notifications
+   * @param body - The body of the webhook request
+   * @param headers - The headers of the webhook request
+   * @param res - The response object
+   * @returns void
    * Following Google Calendar API push notification guide
    */
   @Post()
@@ -37,9 +41,11 @@ export class CalendarWebhookController {
     @Res() res: Response,
   ): Promise<void> {
     this.logger.log("📡 Received Google Calendar webhook notification");
-    
+
     // TEMPORARILY DISABLED FOR TESTING PURE MEETING ANALYSIS
-    this.logger.log("⚠️ Webhook processing is temporarily disabled - focusing on meeting analysis only");
+    this.logger.log(
+      "⚠️ Webhook processing is temporarily disabled - focusing on meeting analysis only",
+    );
     res.status(HttpStatus.OK).send("Webhook disabled during testing");
     return;
 
@@ -118,12 +124,16 @@ export class CalendarWebhookController {
           .send("Internal server error");
       }
     }
-    */ 
+    */
   }
 
   /**
    * 🚀 Handle webhook verification (for initial setup)
    * Google may send verification requests during channel setup
+   * @param body - The body of the webhook request
+   * @param headers - The headers of the webhook request
+   * @param res - The response object
+   * @returns void
    */
   @Post("verify")
   async verifyGoogleWebhook(
@@ -158,6 +168,8 @@ export class CalendarWebhookController {
 
   /**
    * 🚀 Health check endpoint for webhook connectivity
+   * @param res - The response object
+   * @returns void
    */
   @Post("health")
   async healthCheck(@Res() res: Response): Promise<void> {

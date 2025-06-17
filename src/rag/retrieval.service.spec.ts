@@ -75,7 +75,9 @@ describe("RetrievalService", () => {
     } as unknown as Cache;
 
     mockDimensionAdapterService = {
-      adaptDimensionsIfNeeded: jest.fn().mockImplementation((embeddings) => embeddings),
+      adaptDimensionsIfNeeded: jest
+        .fn()
+        .mockImplementation((embeddings) => embeddings),
       getCurrentDimensions: jest.fn().mockReturnValue(1024),
       getTargetDimensions: jest.fn().mockReturnValue(1024),
     };

@@ -35,7 +35,9 @@ export class ActionItemAgent extends BaseAgent {
 
     const messages = [
       new SystemMessage(this.systemPrompt),
-      new HumanMessage(`${EXTRACT_ACTION_ITEMS_PROMPT}\n\nTranscript:\n${transcript}`),
+      new HumanMessage(
+        `${EXTRACT_ACTION_ITEMS_PROMPT}\n\nTranscript:\n${transcript}`,
+      ),
     ];
 
     const response = await model.invoke(messages);

@@ -51,10 +51,10 @@ export class CalendarWorkflowService
   private async initializeGraph(): Promise<void> {
     try {
       this.logger.log("🏗️ Building calendar workflow graph...");
-      
+
       // Create state annotation for calendar workflow
       const stateAnnotation = this.stateService.createCalendarWorkflowState();
-      
+
       this.builtGraph = new StateGraph(stateAnnotation)
         .addNode("initialize", this.initializeNode.bind(this))
         .addNode("syncCalendar", this.syncCalendarNode.bind(this))
@@ -66,12 +66,12 @@ export class CalendarWorkflowService
           "initialize",
           this.routeAfterInitialization.bind(this),
           {
-            "calendar_sync": "syncCalendar",
-            "meeting_brief": "generateBrief", 
-            "meeting_prep": "prepareMeeting",
-            "error": END,
-            "finalize": "finalize"
-          }
+            calendar_sync: "syncCalendar",
+            meeting_brief: "generateBrief",
+            meeting_prep: "prepareMeeting",
+            error: END,
+            finalize: "finalize",
+          },
         )
         .addEdge("syncCalendar", "finalize")
         .addEdge("generateBrief", "finalize")
@@ -89,47 +89,55 @@ export class CalendarWorkflowService
   }
 
   // Graph node implementations
-  private async initializeNode(state: CalendarWorkflowState): Promise<CalendarWorkflowState> {
+  private async initializeNode(
+    state: CalendarWorkflowState,
+  ): Promise<CalendarWorkflowState> {
     this.logger.log(`Initializing calendar workflow for type: ${state.type}`);
-    
+
     return {
       ...state,
       stage: "initialized",
       context: {
         ...state.context,
-        startTime: new Date().toISOString()
-      }
+        startTime: new Date().toISOString(),
+      },
     };
   }
 
-  private async syncCalendarNode(state: CalendarWorkflowState): Promise<CalendarWorkflowState> {
+  private async syncCalendarNode(
+    state: CalendarWorkflowState,
+  ): Promise<CalendarWorkflowState> {
     this.logger.log("Executing calendar sync node");
-    
+
     try {
       // Use calendar sync service
-      const syncResult = await this.calendarSyncService.syncUserCalendar(state.userId);
-      
+      const syncResult = await this.calendarSyncService.syncUserCalendar(
+        state.userId,
+      );
+
       return {
         ...state,
         stage: "calendar_synced",
         upcomingEvents: Array.isArray(syncResult) ? syncResult : [],
         context: {
           ...state.context,
-          syncResult
-        }
+          syncResult,
+        },
       };
     } catch (error) {
       return {
         ...state,
         stage: "error",
-        error: `Calendar sync failed: ${error.message}`
+        error: `Calendar sync failed: ${error.message}`,
       };
     }
   }
 
-  private async generateBriefNode(state: CalendarWorkflowState): Promise<CalendarWorkflowState> {
+  private async generateBriefNode(
+    state: CalendarWorkflowState,
+  ): Promise<CalendarWorkflowState> {
     this.logger.log("Executing meeting brief generation node");
-    
+
     try {
       if (!state.calendarEvent) {
         throw new Error("Calendar event required for brief generation");
@@ -138,62 +146,66 @@ export class CalendarWorkflowService
       // Use calendar agents to generate brief
       const briefAgent = this.calendarAgentFactory.getMeetingBriefAgent();
       const briefResult = await briefAgent.processState(state);
-      
+
       return {
         ...state,
         stage: "brief_generated",
         meetingBrief: briefResult,
         context: {
           ...state.context,
-          briefGenerated: true
-        }
+          briefGenerated: true,
+        },
       };
     } catch (error) {
       return {
         ...state,
         stage: "error",
-        error: `Brief generation failed: ${error.message}`
+        error: `Brief generation failed: ${error.message}`,
       };
     }
   }
 
-  private async prepareMeetingNode(state: CalendarWorkflowState): Promise<CalendarWorkflowState> {
+  private async prepareMeetingNode(
+    state: CalendarWorkflowState,
+  ): Promise<CalendarWorkflowState> {
     this.logger.log("Executing meeting preparation node");
-    
+
     try {
       // Use calendar agents for meeting preparation (simplified since createMeetingPrepAgent doesn't exist)
       // Instead, use the meeting context agent for preparation
       const contextAgent = this.calendarAgentFactory.getMeetingContextAgent();
       const contextResult = await contextAgent.processState(state);
-      
+
       return {
         ...state,
         stage: "meeting_prepared",
         meetingContext: contextResult,
         context: {
           ...state.context,
-          contextResult
-        }
+          contextResult,
+        },
       };
     } catch (error) {
       return {
         ...state,
         stage: "error",
-        error: `Meeting preparation failed: ${error.message}`
+        error: `Meeting preparation failed: ${error.message}`,
       };
     }
   }
 
-  private async finalizeNode(state: CalendarWorkflowState): Promise<CalendarWorkflowState> {
+  private async finalizeNode(
+    state: CalendarWorkflowState,
+  ): Promise<CalendarWorkflowState> {
     this.logger.log("Finalizing calendar workflow");
-    
+
     return {
       ...state,
       stage: "completed",
       context: {
         ...state.context,
-        completedAt: new Date().toISOString()
-      }
+        completedAt: new Date().toISOString(),
+      },
     };
   }
 
@@ -201,7 +213,7 @@ export class CalendarWorkflowService
     if (state.error) {
       return "error";
     }
-    
+
     switch (state.type) {
       case "calendar_sync":
         return "calendar_sync";

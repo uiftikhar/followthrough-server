@@ -42,69 +42,82 @@ export class UnifiedWorkflowService {
     try {
       // Create the master supervisor graph using the proper supervisor state annotation
       const stateAnnotation = this.stateService.createSupervisorState();
-      
+
       this.masterSupervisorGraph = new StateGraph(stateAnnotation)
         .addNode("supervisor", this.supervisorNode.bind(this))
         .addNode("meetingTeam", this.meetingTeamNode.bind(this))
         .addNode("emailTeam", this.emailTeamNode.bind(this))
         .addNode("calendarTeam", this.calendarTeamNode.bind(this))
         .addEdge(START, "supervisor")
-        .addConditionalEdges(
-          "supervisor",
-          this.routeToTeam.bind(this),
-          {
-            "meeting_analysis": "meetingTeam",
-            "email_triage": "emailTeam",
-            "calendar_workflow": "calendarTeam",
-            "__end__": END
-          }
-        )
+        .addConditionalEdges("supervisor", this.routeToTeam.bind(this), {
+          meeting_analysis: "meetingTeam",
+          email_triage: "emailTeam",
+          calendar_workflow: "calendarTeam",
+          __end__: END,
+        })
         .addEdge("meetingTeam", END)
         .addEdge("emailTeam", END)
         .addEdge("calendarTeam", END)
         .compile();
 
-      this.logger.log("Master supervisor graph initialized successfully with proper supervisor state");
+      this.logger.log(
+        "Master supervisor graph initialized successfully with proper supervisor state",
+      );
     } catch (error) {
-      this.logger.error(`Error initializing master supervisor graph: ${error.message}`);
+      this.logger.error(
+        `Error initializing master supervisor graph: ${error.message}`,
+      );
     }
   }
 
   private async supervisorNode(state: any): Promise<any> {
     this.logger.log("Processing supervisor node");
-    
+
     const input = state.input;
-    let routing = { team: "__end__", confidence: 0, reasoning: "Unknown input type" };
+    let routing = {
+      team: "__end__",
+      confidence: 0,
+      reasoning: "Unknown input type",
+    };
 
     // Email routing logic
-    if (input.type === "email" || input.emailData || input.subject || input.from) {
+    if (
+      input.type === "email" ||
+      input.emailData ||
+      input.subject ||
+      input.from
+    ) {
       routing = {
         team: "email_triage",
         confidence: 0.98,
-        reasoning: "Input contains email data structure"
+        reasoning: "Input contains email data structure",
       };
     }
-    // Meeting routing logic  
+    // Meeting routing logic
     else if (input.type === "meeting" || input.transcript || input.meetingId) {
       routing = {
-        team: "meeting_analysis", 
+        team: "meeting_analysis",
         confidence: 0.98,
-        reasoning: "Input contains meeting/transcript data"
+        reasoning: "Input contains meeting/transcript data",
       };
     }
     // Calendar routing logic
-    else if (input.type === "calendar" || input.calendarEvent || input.eventId) {
+    else if (
+      input.type === "calendar" ||
+      input.calendarEvent ||
+      input.eventId
+    ) {
       routing = {
         team: "calendar_workflow",
         confidence: 0.98,
-        reasoning: "Input contains calendar/event data"
+        reasoning: "Input contains calendar/event data",
       };
     }
 
     return {
       ...state,
       routing,
-      status: "routing"
+      status: "routing",
     };
   }
 
@@ -118,49 +131,51 @@ export class UnifiedWorkflowService {
 
   private async meetingTeamNode(state: any): Promise<any> {
     this.logger.log("Processing meeting team node");
-    
-    const meetingHandler = this.teamHandlerRegistry.getHandler("meeting_analysis");
+
+    const meetingHandler =
+      this.teamHandlerRegistry.getHandler("meeting_analysis");
     if (!meetingHandler) {
       throw new Error("Meeting analysis handler not found");
     }
 
     const result = await meetingHandler.process(state.input);
-    
+
     return {
       ...state,
-      result
+      result,
     };
   }
 
   private async emailTeamNode(state: any): Promise<any> {
     this.logger.log("Processing email team node");
-    
+
     const emailHandler = this.teamHandlerRegistry.getHandler("email_triage");
     if (!emailHandler) {
       throw new Error("Email triage handler not found");
     }
 
     const result = await emailHandler.process(state.input);
-    
+
     return {
       ...state,
-      result
+      result,
     };
   }
 
   private async calendarTeamNode(state: any): Promise<any> {
     this.logger.log("Processing calendar team node");
-    
-    const calendarHandler = this.teamHandlerRegistry.getHandler("calendar_workflow");
+
+    const calendarHandler =
+      this.teamHandlerRegistry.getHandler("calendar_workflow");
     if (!calendarHandler) {
       throw new Error("Calendar workflow handler not found");
     }
 
     const result = await calendarHandler.process(state.input);
-    
+
     return {
       ...state,
-      result
+      result,
     };
   }
 
@@ -268,7 +283,7 @@ export class UnifiedWorkflowService {
         actionItems: session.actionItems || [],
         summary: session.summary || null,
         sentiment: session.sentiment || null,
-        errors: session.errors || [],
+        errors: session.analysisErrors || [],
         // Include minimal metadata about processing
         metadata: {
           ragEnabled: session.metadata?.ragEnabled || false,
@@ -393,9 +408,15 @@ export class UnifiedWorkflowService {
   /**
    * Create a new session for tracking workflow progress
    */
-  private async createSession(input: any, metadata?: any, userId?: string): Promise<any> {
-    this.logger.log(`Creating new session for input type: ${input.type || "unknown"}`);
-    
+  private async createSession(
+    input: any,
+    metadata?: any,
+    userId?: string,
+  ): Promise<any> {
+    this.logger.log(
+      `Creating new session for input type: ${input.type || "unknown"}`,
+    );
+
     try {
       const sessionData = {
         sessionId: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -406,13 +427,15 @@ export class UnifiedWorkflowService {
         metadata: {
           ...metadata,
           inputType: input.type,
-          originalInput: input
-        }
+          originalInput: input,
+        },
       };
 
       const session = await this.sessionRepository.createSession(sessionData);
-      this.logger.log(`Created session: ${session.sessionId || sessionData.sessionId}`);
-      
+      this.logger.log(
+        `Created session: ${session.sessionId || sessionData.sessionId}`,
+      );
+
       return session;
     } catch (error) {
       this.logger.error(`Failed to create session: ${error.message}`);
@@ -423,14 +446,19 @@ export class UnifiedWorkflowService {
   /**
    * Update an existing session with new data
    */
-  private async updateSession(sessionId: string, updateData: any): Promise<void> {
+  private async updateSession(
+    sessionId: string,
+    updateData: any,
+  ): Promise<void> {
     this.logger.log(`Updating session: ${sessionId}`);
-    
+
     try {
       await this.sessionRepository.updateSession(sessionId, updateData);
       this.logger.log(`Successfully updated session: ${sessionId}`);
     } catch (error) {
-      this.logger.error(`Failed to update session ${sessionId}: ${error.message}`);
+      this.logger.error(
+        `Failed to update session ${sessionId}: ${error.message}`,
+      );
       throw error;
     }
   }

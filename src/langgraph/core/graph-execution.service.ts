@@ -37,7 +37,7 @@ export class GraphExecutionService {
     if (!graph.invoke || typeof graph.invoke !== "function") {
       throw new Error(
         "Invalid graph provided. Only compiled LangGraph StateGraphs are supported. " +
-        "Please ensure your graph is created using StateGraph and compiled with .compile()"
+          "Please ensure your graph is created using StateGraph and compiled with .compile()",
       );
     }
 
@@ -47,7 +47,10 @@ export class GraphExecutionService {
       this.logger.log("LangGraph execution completed successfully");
       return finalState;
     } catch (error) {
-      this.logger.error(`LangGraph execution failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `LangGraph execution failed: ${error.message}`,
+        error.stack,
+      );
       throw new Error(`Graph execution failed: ${error.message}`);
     }
   }
@@ -87,8 +90,17 @@ export class GraphExecutionService {
   /**
    * Complete progress tracking for a session
    */
-  completeProgress(sessionId: string, message: string = "Graph execution completed"): void {
-    this.publishProgressUpdate(sessionId, "completed", 100, "completed", message);
+  completeProgress(
+    sessionId: string,
+    message: string = "Graph execution completed",
+  ): void {
+    this.publishProgressUpdate(
+      sessionId,
+      "completed",
+      100,
+      "completed",
+      message,
+    );
     // Clean up progress tracking for this session
     this.progressMap.delete(sessionId);
   }
@@ -96,7 +108,10 @@ export class GraphExecutionService {
   /**
    * Fail progress tracking for a session
    */
-  failProgress(sessionId: string, message: string = "Graph execution failed"): void {
+  failProgress(
+    sessionId: string,
+    message: string = "Graph execution failed",
+  ): void {
     this.publishProgressUpdate(sessionId, "failed", 0, "failed", message);
     // Clean up progress tracking for this session
     this.progressMap.delete(sessionId);

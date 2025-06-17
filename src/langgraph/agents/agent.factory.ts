@@ -34,9 +34,9 @@ export class AgentFactory {
 
   /**
    * MIGRATION NOTE:
-   * 
+   *
    * All domain-specific agent methods have been moved to their respective factories:
-   * 
+   *
    * Meeting Analysis Agents:
    * - Use MeetingAnalysisAgentFactory.getTopicExtractionAgent()
    * - Use MeetingAnalysisAgentFactory.getActionItemAgent()
@@ -44,20 +44,20 @@ export class AgentFactory {
    * - Use MeetingAnalysisAgentFactory.getSummaryAgent()
    * - Use MeetingAnalysisAgentFactory.getParticipationAgent()
    * - Use MeetingAnalysisAgentFactory.getContextIntegrationAgent()
-   * 
+   *
    * Email Agents:
    * - Use EmailAgentFactory.getEmailClassificationAgent()
    * - Use EmailAgentFactory.getEmailSummarizationAgent()
    * - Use EmailAgentFactory.getEmailReplyDraftAgent()
-   * 
+   *
    * Calendar Agents:
    * - Use CalendarAgentFactory.getMeetingContextAgent()
    * - Use CalendarAgentFactory.getMeetingBriefAgent()
-   * 
+   *
    * RAG-Enhanced Agents:
    * - Use MeetingAnalysisAgentFactory.getRagTopicExtractionAgent()
    * - Use EmailAgentFactory.getRagEmailReplyDraftAgent()
-   * 
+   *
    * This ensures:
    * 1. No duplication between factory creation methods and specialized agents
    * 2. Proper use of sophisticated agents with specialized logic

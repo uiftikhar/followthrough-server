@@ -8,6 +8,16 @@ export interface MeetingAnalysisState {
   meetingId: string;
 
   /**
+   * Session ID for tracking this analysis session
+   */
+  sessionId: string;
+
+  /**
+   * User ID who initiated the analysis
+   */
+  userId?: string;
+
+  /**
    * Transcript of the meeting
    */
   transcript: string;
@@ -73,7 +83,7 @@ export interface MeetingAnalysisState {
   stage?:
     | "initialization"
     | "context_retrieval"
-    | "context_retrieved" 
+    | "context_retrieved"
     | "context_retrieval_failed"
     | "topic_extraction"
     | "action_item_extraction"

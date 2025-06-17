@@ -21,14 +21,16 @@ import { UserGoogleTokensRepository } from "src/database/repositories/user-googl
 import { TokenEncryptionService } from "src/integrations/google/services/token-encryption.service";
 import { GoogleOAuthModule } from "src/integrations/google/google-oauth.module";
 @Module({
-  imports: [ConfigModule, CalendarAgentsModule, GoogleOAuthModule, SharedCoreModule],
-  controllers: [
-    CalendarWebhookController,
-    CalendarWorkflowController,
+  imports: [
+    ConfigModule,
+    CalendarAgentsModule,
+    GoogleOAuthModule,
+    SharedCoreModule,
   ],
+  controllers: [CalendarWebhookController, CalendarWorkflowController],
   providers: [
     TeamHandlerRegistry,
-    UnifiedWorkflowService, 
+    UnifiedWorkflowService,
     // GoogleOAuthService,
     // UserGoogleTokensRepository,
     // TokenEncryptionService,
@@ -52,7 +54,7 @@ import { GoogleOAuthModule } from "src/integrations/google/google-oauth.module";
     PostMeetingOrchestrationService,
     CalendarEventDetectionService,
     GoogleCalendarService,
-    CalendarAgentsModule
+    CalendarAgentsModule,
   ],
 })
 export class CalendarModule {}

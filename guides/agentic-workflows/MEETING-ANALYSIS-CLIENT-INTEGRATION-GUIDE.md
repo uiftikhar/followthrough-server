@@ -1,502 +1,515 @@
-# Meeting Analysis Agentic Workflow: Complete Integration Guide
+# Meeting Analysis Client Integration Guide
 
 ## 📋 Overview
 
-This guide provides a comprehensive walkthrough of the meeting analysis agentic workflow, including:
-- How the system works internally
-- MongoDB storage patterns and collections
-- Client integration patterns
-- API endpoints and response formats
-- Real-time progress tracking
+This guide provides a complete walkthrough for integrating with the meeting analysis system, covering the full client workflow from triggering analysis to retrieving stored results from the MongoDB sessions collection.
 
-## 🏗️ System Architecture
+## 🔄 Client Workflow
 
-### Core Components
-
-The meeting analysis system follows this flow:
-
-1. **Client Request** → `MeetingAnalysisController`
-2. **Routing** → `UnifiedWorkflowService` 
-3. **Processing** → `MeetingAnalysisService`
-4. **RAG Enhancement** → Context retrieval from Pinecone
-5. **Agent Execution** → Specialized analysis agents
-6. **Storage** → MongoDB `sessions` collection
-7. **Result Retrieval** → Client polling or WebSocket
-
-## 🗄️ MongoDB Storage Pattern
-
-### Primary Collection: `sessions`
-
-The meeting analysis results are stored in the **`sessions`** collection in MongoDB. Here's the schema:
-
-```typescript
-interface Session {
-  sessionId: string;           // Unique identifier (UUID)
-  userId: string;              // User who initiated the analysis
-  status: "pending" | "in_progress" | "completed" | "failed";
-  progress: number;            // 0-100 percentage
-  startTime: Date;             // When analysis started
-  endTime?: Date;              // When analysis completed
-  transcript?: string;         // Original meeting transcript
-  metadata?: Record<string, any>; // Additional metadata
-  
-  // Agent Results (clean outputs only)
-  topics?: Topic[];            // 3-7 key themes
-  actionItems?: ActionItem[];  // 3-10 concrete action items
-  summary?: MeetingSummary;    // Meeting summary
-  sentiment?: SentimentAnalysis; // Sentiment analysis
-  
-  errors?: AnalysisError[];    // Any errors during processing
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-```
-
-### Data Types
-
-```typescript
-interface Topic {
-  name: string;                // Theme title (3-8 words)
-  description: string;         // Comprehensive explanation
-  relevance: number;           // 1-10 importance score
-  subtopics: string[];         // 2-4 specific subtopics
-  keywords: string[];          // 3-5 key terms
-  participants: string[];      // People who discussed this
-  duration: string;            // Time spent (e.g., "15 minutes")
-}
-
-interface ActionItem {
-  description: string;         // Clear, specific task description
-  assignee: string;           // Person responsible
-  deadline?: string;          // Specific deadline if mentioned
-  status: "pending";          // Always "pending" for new items
-  priority?: "high" | "medium" | "low"; // Only if explicitly stated
-  context: string;            // Why this action is needed
-}
-
-interface SentimentAnalysis {
-  overall: number;            // Overall sentiment score (-1 to 1)
-  segments: Array<{
-    text: string;             // Text segment
-    score: number;            // Sentiment score for segment
-  }>;
-}
-
-interface MeetingSummary {
-  meetingTitle: string;       // Meeting title
-  summary: string;            // Brief summary
-  decisions: Array<{
-    title: string;            // Decision title
-    content: string;          // Decision details
-  }>;
-  next_steps?: string[];      // Next steps if identified
-}
-```
-
-## 🚀 Complete Workflow Execution
-
-### Phase 1: Client Request
-
-```bash
-POST /api/meeting-analysis
-Authorization: Bearer <JWT_TOKEN>
-Content-Type: application/json
-
-{
-  "transcript": "[Sophia]: Good morning, everyone. Let's jump right in. We have a critical production bug...",
-  "metadata": {
-    "title": "Production Bug Resolution Meeting",
-    "participants": ["Sophia", "Emily", "Adrian", "Jason"],
-    "date": "2024-01-15T10:00:00Z",
-    "duration": "45 minutes"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "sessionId": "session-1750071201219-ac0gl0c22",
-  "status": "pending",
-  "message": "Analysis started successfully"
-}
-```
-
-### Phase 2: Internal Processing
-
-1. **Session Creation**: Creates entry in `sessions` collection
-2. **RAG Enhancement**: Stores transcript in Pinecone for context retrieval
-3. **Agent Graph Execution**: Runs specialized agents in sequence:
-   - **Topic Extraction**: Identifies 3-7 key themes
-   - **Action Item Extraction**: Finds 3-10 concrete tasks
-   - **Sentiment Analysis**: Analyzes meeting tone
-   - **Summary Generation**: Creates comprehensive summary
-
-### Phase 3: Result Storage
-
-Results are stored in the same `sessions` document with clean agent outputs only.
-
-## 📡 Client Integration Guide
-
-### 1. Authentication
-
-All endpoints require JWT authentication:
-
-```javascript
-const token = 'your-jwt-token';
-const headers = {
-  'Authorization': `Bearer ${token}`,
-  'Content-Type': 'application/json'
-};
-```
-
-### 2. Submit Analysis Request
-
-```javascript
-async function analyzeTranscript(transcript, metadata) {
-  const response = await fetch('/api/meeting-analysis', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      transcript: transcript,
-      metadata: {
-        title: metadata.title || "Meeting Analysis",
-        participants: metadata.participants || [],
-        date: metadata.date || new Date().toISOString(),
-        duration: metadata.duration
-      }
-    })
-  });
-  
-  const result = await response.json();
-  return result.sessionId;
-}
-```
-
-### 3. Poll for Results
-
-```javascript
-async function getAnalysisResults(sessionId) {
-  const response = await fetch(`/api/meeting-analysis/${sessionId}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return await response.json();
-}
-
-// Polling function
-async function waitForResults(sessionId, maxAttempts = 30, interval = 2000) {
-  for (let i = 0; i < maxAttempts; i++) {
-    const result = await getAnalysisResults(sessionId);
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant MeetingService
+    participant MongoDB
     
-    if (result.status === 'completed') {
-      return result;
-    } else if (result.status === 'failed') {
-      throw new Error('Analysis failed: ' + (result.errors?.[0]?.error || 'Unknown error'));
-    }
+    Client->>API: POST /api/meeting-analysis
+    API->>MeetingService: Start Analysis
+    MeetingService->>MongoDB: Create Session (pending)
+    API-->>Client: Return sessionId
     
-    // Wait before next poll
-    await new Promise(resolve => setTimeout(resolve, interval));
-  }
-  
-  throw new Error('Analysis timeout - results not ready after maximum attempts');
-}
+    loop Polling
+        Client->>API: GET /api/meeting-analysis/{sessionId}
+        API->>MongoDB: Query Session
+        MongoDB-->>API: Return Session Data
+        API-->>Client: Return Status & Results
+        
+        alt Analysis Complete
+            break
+        else Analysis In Progress
+            Note over Client: Wait 2-5 seconds
+        end
+    end
+    
+    Client->>API: GET /api/meeting-analysis/{sessionId}
+    API->>MongoDB: Query Final Results
+    MongoDB-->>API: Complete Analysis Results
+    API-->>Client: Full Analysis Results
 ```
 
-### 4. Real-time Progress Tracking (WebSocket)
+## 🚀 Step-by-Step Integration
 
-```javascript
-import io from 'socket.io-client';
+### **Step 1: Submit Meeting Analysis**
 
-function trackProgress(sessionId) {
-  const socket = io('/meeting-analysis', {
-    auth: {
-      token: yourJwtToken
-    }
-  });
-  
-  // Join session room for updates
-  socket.emit('join-session', sessionId);
-  
-  // Listen for progress updates
-  socket.on('progress-update', (data) => {
-    console.log(`Progress: ${data.progress}% - ${data.message}`);
-    updateProgressBar(data.progress);
-  });
-  
-  // Listen for completion
-  socket.on('analysis-complete', (data) => {
-    console.log('Analysis completed!', data);
-    displayResults(data.results);
-  });
-  
-  // Handle errors
-  socket.on('analysis-error', (error) => {
-    console.error('Analysis failed:', error);
-    showError(error.message);
-  });
-  
-  return socket;
-}
-```
+**Endpoint:** `POST /api/meeting-analysis`
 
-## 🎯 Response DTOs and Expected Outputs
-
-### Analysis Result DTO
-
+**Request:**
 ```typescript
-interface AnalysisResultDto {
-  sessionId: string;
-  status: "pending" | "in_progress" | "completed" | "failed";
-  createdAt: Date;
-  completedAt?: Date;
-  
-  // Clean agent outputs (only when completed)
-  topics: Topic[];              // 3-7 key themes
-  actionItems: ActionItem[];    // 3-10 concrete action items
-  summary: MeetingSummary;      // Comprehensive summary
-  sentiment: SentimentAnalysis; // Sentiment analysis
-  
-  errors: AnalysisError[];      // Any processing errors
-  metadata: {
-    ragEnabled: boolean;        // Whether RAG was used
-    ragUsed: boolean;          // Whether RAG context was found
-    processingTime?: string;    // Processing duration
+interface AnalysisRequest {
+  transcript: string;
+  metadata?: {
+    title?: string;
+    participants?: string[];
+    date?: string;
+    duration?: string;
+    meetingType?: string;
   };
 }
 ```
 
-### Example Complete Response
+**Example Request:**
+```javascript
+const response = await fetch('/api/meeting-analysis', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${jwtToken}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    transcript: `[Sophia]: Good morning, everyone. Let's jump right in. We have a critical production bug impacting internal B2B users...`,
+    metadata: {
+      title: "Production Bug Resolution Meeting",
+      participants: ["Sophia", "Maria", "Emily", "Adrian", "Jason"],
+      date: "2025-01-15T10:30:00Z",
+      duration: "30 minutes"
+    }
+  })
+});
 
+const result = await response.json();
+console.log(result.sessionId); // "session-1750162464162-b9qdhaq1n"
+```
+
+**Response:**
+```typescript
+interface AnalysisResponse {
+  sessionId: string;
+  status: "pending";
+  message: string;
+}
+```
+
+### **Step 2: Poll for Analysis Results**
+
+**Endpoint:** `GET /api/meeting-analysis/{sessionId}`
+
+**Polling Strategy:**
+- Poll every 2-5 seconds
+- Maximum 30 attempts (60 seconds total)
+- Check `status` field for completion
+
+**Example Polling:**
+```javascript
+async function pollForResults(sessionId) {
+  const maxAttempts = 30;
+  const pollInterval = 2000; // 2 seconds
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const response = await fetch(`/api/meeting-analysis/${sessionId}`, {
+      headers: { 'Authorization': `Bearer ${jwtToken}` }
+    });
+    
+    const result = await response.json();
+    
+    console.log(`Attempt ${attempt}: ${result.status} (${result.progress}%)`);
+    
+    if (result.status === 'completed') {
+      return result; // Analysis complete!
+    } else if (result.status === 'failed') {
+      throw new Error(`Analysis failed: ${result.analysisErrors?.[0]?.error}`);
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  }
+  
+  throw new Error('Analysis timeout');
+}
+```
+
+### **Step 3: Process Results**
+
+**Complete Response Structure:**
+```typescript
+interface AnalysisResult {
+  sessionId: string;
+  userId: string;
+  status: "completed" | "failed" | "pending" | "in_progress";
+  progress: number; // 0-100
+  startTime: string; // ISO timestamp
+  endTime?: string; // ISO timestamp
+  transcript: string;
+  
+  // Analysis Results
+  topics: Topic[];
+  actionItems: ActionItem[];
+  summary: MeetingSummary;
+  sentiment: SentimentAnalysis;
+  
+  // Metadata
+  metadata: {
+    title?: string;
+    participants?: string[];
+    date?: string;
+    processingTime?: string;
+    ragEnabled?: boolean;
+    ragUsed?: boolean;
+    analysisCompletedAt?: string;
+    resultsSummary?: {
+      topicsCount: number;
+      actionItemsCount: number;
+      hasSummary: boolean;
+      hasSentiment: boolean;
+    };
+  };
+  
+  // Error handling
+  analysisErrors?: AnalysisError[];
+  
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+## 📊 Data Type Definitions
+
+### **Topics**
+```typescript
+interface Topic {
+  name: string;
+  description: string;
+  relevance: number; // 1-10 scale
+  subtopics: string[];
+  keywords: string[];
+  participants: string[];
+  duration?: string;
+}
+```
+
+**Example:**
 ```json
 {
-  "sessionId": "session-1750071201219-ac0gl0c22",
+  "name": "Production Bug Resolution",
+  "description": "Comprehensive discussion of a critical production bug affecting B2B users",
+  "relevance": 9,
+  "subtopics": ["Root cause analysis", "Immediate hotfix deployment", "Monitoring improvements"],
+  "keywords": ["production bug", "CRM sync", "hotfix"],
+  "participants": ["Emily", "Adrian", "Sophia", "Jason"],
+  "duration": "25 minutes"
+}
+```
+
+### **Action Items**
+```typescript
+interface ActionItem {
+  description: string;
+  assignee?: string;
+  deadline?: string;
+  status: "pending" | "in_progress" | "completed";
+  priority?: "high" | "medium" | "low";
+  context?: string;
+}
+```
+
+**Example:**
+```json
+{
+  "description": "Debug and patch the backend to fix data mapping issue causing sync failures",
+  "assignee": "Emily and Adrian",
+  "deadline": "EOD today",
+  "status": "pending",
+  "priority": "high",
+  "context": "Critical production bug affecting B2B users needs immediate resolution"
+}
+```
+
+### **Summary**
+```typescript
+interface MeetingSummary {
+  meetingTitle: string;
+  summary: string;
+  decisions: Decision[];
+  next_steps?: string[];
+}
+
+interface Decision {
+  title: string;
+  content: string;
+}
+```
+
+### **Sentiment Analysis**
+```typescript
+interface SentimentAnalysis {
+  overall: number; // -1 to 1 scale
+  segments: SentimentSegment[];
+}
+
+interface SentimentSegment {
+  text: string;
+  score: number; // -1 to 1 scale
+}
+```
+
+## 🗄️ MongoDB Sessions Collection Structure
+
+**Document Example:**
+```json
+{
+  "_id": ObjectId("68515c203b92b9d90642e2e5"),
+  "sessionId": "session-1750162464162-b9qdhaq1n",
+  "userId": "68515bca3b92b9d90642e2dd",
   "status": "completed",
-  "createdAt": "2024-01-15T10:30:00Z",
-  "completedAt": "2024-01-15T10:31:30Z",
+  "progress": 100,
+  "startTime": ISODate("2025-01-15T10:30:00.000Z"),
+  "endTime": ISODate("2025-01-15T10:31:45.000Z"),
+  "transcript": "[Sophia]: Good morning, everyone. Let's jump right in...",
   "topics": [
     {
       "name": "Production Bug Resolution",
-      "description": "Comprehensive discussion of a critical production bug affecting B2B users, including root cause analysis, immediate fixes, and preventive measures",
+      "description": "Comprehensive discussion of a critical production bug affecting B2B users",
       "relevance": 9,
-      "subtopics": ["Root cause analysis", "Immediate hotfix deployment", "Monitoring improvements", "User communication"],
-      "keywords": ["production bug", "CRM sync", "hotfix", "monitoring"],
+      "subtopics": ["Root cause analysis", "Immediate hotfix deployment"],
+      "keywords": ["production bug", "CRM sync", "hotfix"],
       "participants": ["Emily", "Adrian", "Sophia", "Jason"],
       "duration": "25 minutes"
-    },
-    {
-      "name": "System Monitoring Enhancement",
-      "description": "Discussion of improving system monitoring and alerting to prevent similar issues in the future",
-      "relevance": 7,
-      "subtopics": ["Datadog integration", "Error logging", "Alert configuration"],
-      "keywords": ["monitoring", "alerts", "logging", "Datadog"],
-      "participants": ["Jason", "Emily"],
-      "duration": "10 minutes"
     }
   ],
   "actionItems": [
     {
-      "description": "Debug and patch the backend to fix the data mapping issue causing sync failures with multi-region shipping orders",
+      "description": "Debug and patch the backend to fix data mapping issue",
       "assignee": "Emily and Adrian",
       "deadline": "EOD today",
       "status": "pending",
-      "context": "Critical production bug affecting B2B users needs immediate resolution"
-    },
-    {
-      "description": "Implement a UI alert to indicate sync failure to users",
-      "assignee": "Dimitri",
-      "status": "pending",
-      "context": "Users currently receive no feedback when sync issues occur"
-    },
-    {
-      "description": "Configure Datadog monitoring alerts for sync failures",
-      "assignee": "Jason",
-      "status": "pending",
-      "context": "Need proactive monitoring to catch similar issues earlier"
+      "priority": "high",
+      "context": "Critical production bug affecting B2B users"
     }
   ],
-  "sentiment": {
-    "overall": 0.6,
-    "segments": [
-      {
-        "text": "Good morning, everyone. Let's jump right in. We have a critical production bug impacting internal B2B users.",
-        "score": 0
-      },
-      {
-        "text": "Great. Quick action recap: Emily and Adrian debug and patch the backend, Dimitri implements UI alerts, Jason configures Datadog monitoring, Maria handles user comms.",
-        "score": 0.5
-      }
-    ]
-  },
   "summary": {
     "meetingTitle": "Production Bug Resolution Meeting",
-    "summary": "The meeting, led by Sophia, focused on addressing a critical production bug affecting internal B2B users, specifically involving order sync issues with the CRM system. The team identified the root cause as recent API changes affecting multi-region shipping orders and developed a comprehensive action plan including immediate fixes, monitoring improvements, and user communication.",
+    "summary": "Meeting focused on addressing critical production bug affecting B2B users...",
     "decisions": [
       {
-        "title": "Implement UI Alerts for Sync Failures",
-        "content": "Dimitri was tasked with adding a user interface alert to inform users of order sync failures to improve user experience by providing immediate feedback on sync status."
-      },
+        "title": "Deploy Hotfix by End of Day",
+        "content": "Team decided to deploy a hotfix by EOD to resolve the CRM sync issue"
+      }
+    ],
+    "next_steps": ["Begin debugging session", "Implement UI alerts", "Set up monitoring"]
+  },
+  "sentiment": {
+    "overall": 0.1,
+    "segments": [
       {
-        "title": "Debug and Patch Backend Mapping Logic",
-        "content": "Emily and Adrian were assigned to pair up and debug the backend mapping logic to deploy a hotfix by the end of the day without rolling back other critical updates."
-      },
-      {
-        "title": "Enhance Logging and Monitoring",
-        "content": "The team decided to enhance logging around CRM interactions and set up Datadog alerts for sync failures to improve the team's ability to detect and respond to similar issues in the future."
+        "text": "Good morning, everyone. Let's jump right in.",
+        "score": 0.2
       }
     ]
   },
-  "errors": [],
   "metadata": {
+    "title": "Production Bug Resolution Meeting",
+    "participants": ["Sophia", "Maria", "Emily", "Adrian", "Jason"],
+    "date": "2025-01-15T10:30:00Z",
+    "processingTime": "2025-01-15T10:31:45.000Z",
     "ragEnabled": true,
-    "ragUsed": true,
-    "processingTime": "90 seconds"
+    "ragUsed": false,
+    "analysisCompletedAt": "2025-01-15T10:31:45.000Z",
+    "resultsSummary": {
+      "topicsCount": 2,
+      "actionItemsCount": 5,
+      "hasSummary": true,
+      "hasSentiment": true
+    }
+  },
+  "analysisErrors": [],
+  "createdAt": ISODate("2025-01-15T10:30:00.000Z"),
+  "updatedAt": ISODate("2025-01-15T10:31:45.000Z")
+}
+```
+
+## 🔧 Complete Integration Example
+
+```typescript
+class MeetingAnalysisClient {
+  constructor(private baseUrl: string, private authToken: string) {}
+
+  async analyzeMeeting(transcript: string, metadata?: any): Promise<AnalysisResult> {
+    // Step 1: Submit analysis
+    const sessionId = await this.submitAnalysis(transcript, metadata);
+    
+    // Step 2: Poll for results
+    const results = await this.pollForResults(sessionId);
+    
+    // Step 3: Validate and return
+    this.validateResults(results);
+    return results;
+  }
+
+  private async submitAnalysis(transcript: string, metadata?: any): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/api/meeting-analysis`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.authToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ transcript, metadata })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to submit analysis: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.sessionId;
+  }
+
+  private async pollForResults(sessionId: string): Promise<AnalysisResult> {
+    const maxAttempts = 30;
+    const pollInterval = 2000;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const response = await fetch(`${this.baseUrl}/api/meeting-analysis/${sessionId}`, {
+        headers: { 'Authorization': `Bearer ${this.authToken}` }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch results: ${response.statusText}`);
+      }
+
+      const result: AnalysisResult = await response.json();
+      
+      console.log(`Polling attempt ${attempt}: ${result.status} (${result.progress}%)`);
+
+      if (result.status === 'completed') {
+        console.log('Analysis completed successfully!');
+        return result;
+      } else if (result.status === 'failed') {
+        throw new Error(`Analysis failed: ${result.analysisErrors?.[0]?.error || 'Unknown error'}`);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+
+    throw new Error('Analysis timeout');
+  }
+
+  private validateResults(result: AnalysisResult): void {
+    const hasValidTopics = result.topics && result.topics.length > 0;
+    const hasValidActionItems = result.actionItems && result.actionItems.length > 0;
+    const hasSummary = result.summary && result.summary.summary;
+    
+    if (!hasValidTopics || !hasValidActionItems || !hasSummary) {
+      console.warn('Analysis results may be incomplete:', {
+        topics: result.topics?.length || 0,
+        actionItems: result.actionItems?.length || 0,
+        hasSummary: !!hasSummary
+      });
+    }
   }
 }
-```
 
-## 🔧 Error Handling
+// Usage Example
+const client = new MeetingAnalysisClient('https://your-api.com', 'your-jwt-token');
 
-### Common Error Scenarios
-
-1. **Session Not Found**
-```json
-{
-  "statusCode": 404,
-  "message": "Session not found",
-  "error": "Not Found"
-}
-```
-
-2. **Analysis Failed**
-```json
-{
-  "sessionId": "session-123",
-  "status": "failed",
-  "errors": [
+try {
+  const results = await client.analyzeMeeting(
+    `[Sophia]: Good morning, everyone. Let's jump right in...`,
     {
-      "step": "topic_extraction",
-      "error": "Failed to extract topics from transcript",
-      "timestamp": "2024-01-15T10:31:00Z"
-    }
-  ]
-}
-```
-
-3. **Invalid Input**
-```json
-{
-  "statusCode": 400,
-  "message": ["transcript should not be empty"],
-  "error": "Bad Request"
-}
-```
-
-## 📊 Performance Considerations
-
-### Typical Processing Times
-- **Short meetings** (< 30 min transcript): 30-60 seconds
-- **Medium meetings** (30-60 min transcript): 60-120 seconds  
-- **Long meetings** (> 60 min transcript): 120-300 seconds
-
-### Rate Limits
-- **Analysis requests**: 10 per minute per user
-- **Result queries**: 60 per minute per user
-
-### Best Practices
-
-1. **Implement proper polling intervals** (2-5 seconds)
-2. **Use WebSocket for real-time updates** when available
-3. **Cache results** on the client side once completed
-4. **Handle timeouts gracefully** (max 5 minutes for analysis)
-5. **Validate transcript length** (max 100,000 characters)
-
-## 🧪 Testing the Integration
-
-### Complete Test Script
-
-```javascript
-async function testMeetingAnalysis() {
-  const transcript = `
-[Sophia]: Good morning, everyone. Let's jump right in. We have a critical production bug impacting internal B2B users.
-[Maria]: Sure. Yesterday, internal stakeholders reported that orders from the admin interface aren't syncing correctly to our CRM system.
-[Emily]: Yes, specifically, the endpoint /orders/shipping-region was updated to accommodate a new payload structure.
-[Sophia]: Emily, Adrian, could you pair on debugging this post-meeting?
-[Adrian]: I'm available.
-[Sophia]: Aiming for a hotfix by EOD today. Emily and Adrian, feasible?
-[Emily]: Yes, provided the issue is what we suspect.
-  `;
-
-  try {
-    // 1. Submit analysis
-    console.log('Submitting analysis...');
-    const sessionId = await analyzeTranscript(transcript, {
       title: "Production Bug Resolution",
       participants: ["Sophia", "Maria", "Emily", "Adrian"],
       date: new Date().toISOString()
-    });
-    
-    console.log(`Analysis started with session ID: ${sessionId}`);
-    
-    // 2. Wait for results
-    console.log('Waiting for results...');
-    const results = await waitForResults(sessionId);
-    
-    // 3. Display results
-    console.log('Analysis completed!');
-    console.log(`Topics found: ${results.topics.length}`);
-    console.log(`Action items: ${results.actionItems.length}`);
-    console.log(`Overall sentiment: ${results.sentiment.overall}`);
-    
-    return results;
-    
-  } catch (error) {
-    console.error('Test failed:', error);
-    throw error;
+    }
+  );
+  
+  console.log('Analysis Results:', {
+    topics: results.topics.length,
+    actionItems: results.actionItems.length,
+    sentiment: results.sentiment.overall
+  });
+} catch (error) {
+  console.error('Analysis failed:', error);
+}
+```
+
+## 🚀 Quick Start
+
+1. **Install dependencies** (if using TypeScript):
+```bash
+npm install node-fetch @types/node-fetch
+```
+
+2. **Set up authentication**:
+```javascript
+const authToken = 'your-jwt-token';
+const baseUrl = 'https://your-api-domain.com';
+```
+
+3. **Submit analysis**:
+```javascript
+const response = await fetch('/api/meeting-analysis', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${authToken}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    transcript: 'Your meeting transcript here...',
+    metadata: { title: 'Meeting Title' }
+  })
+});
+```
+
+4. **Poll for results**:
+```javascript
+const { sessionId } = await response.json();
+const results = await pollForResults(sessionId);
+```
+
+## 📈 Expected Results Quality
+
+### **Topics (3-7 per meeting)**
+- **High relevance** (7-10): Core meeting subjects
+- **Medium relevance** (4-6): Supporting discussions  
+- **Low relevance** (1-3): Brief mentions
+
+### **Action Items (1-10 per meeting)**
+- **Clear descriptions** with specific tasks
+- **Assignees identified** from participant list
+- **Deadlines extracted** when mentioned
+- **Priority levels** based on urgency indicators
+
+### **Summary Quality**
+- **Comprehensive overview** of meeting purpose
+- **Key decisions** clearly identified
+- **Next steps** actionable and specific
+- **Participant contributions** acknowledged
+
+### **Sentiment Analysis**
+- **Overall sentiment** (-1 to 1 scale)
+- **Segment-level analysis** for detailed insights
+- **Emotional tone** detection (positive/negative/neutral)
+
+## 🔍 Troubleshooting
+
+### **Common Issues**
+
+1. **Empty Results** - Check transcript format and length
+2. **Timeout Errors** - Increase polling interval or max attempts  
+3. **Authentication Failures** - Verify JWT token validity
+4. **Incomplete Analysis** - Check for processing errors in `analysisErrors`
+
+### **Error Handling**
+```javascript
+try {
+  const results = await client.analyzeMeeting(transcript);
+} catch (error) {
+  if (error.message.includes('timeout')) {
+    // Handle timeout - possibly retry
+  } else if (error.message.includes('authentication')) {
+    // Handle auth error - refresh token
+  } else {
+    // Handle other errors
+    console.error('Unexpected error:', error);
   }
 }
-
-// Run the test
-testMeetingAnalysis()
-  .then(results => console.log('Test successful:', results))
-  .catch(error => console.error('Test failed:', error));
 ```
 
-## 🔍 Monitoring and Debugging
-
-### Useful Endpoints for Debugging
-
-1. **Check session status directly**:
-```bash
-GET /unified-workflow/result/{sessionId}
-```
-
-2. **View raw session data** (admin only):
-```bash
-GET /admin/sessions/{sessionId}
-```
-
-### Log Patterns to Watch
-
-```bash
-# Successful analysis
-[MeetingAnalysisService] Created new analysis session: session-123
-[MeetingAnalysisService] Session session-123 will use RAG capabilities by default
-[MeetingAnalysisService] Successfully completed analysis for session session-123
-
-# Failed analysis
-[MeetingAnalysisService] Error in analysis: <error message>
-[MeetingAnalysisService] Analysis failed for session session-123: <error message>
-```
-
-This guide provides everything needed to integrate with the meeting analysis agentic workflow, from understanding the internal architecture to implementing robust client-side integration patterns. 
+This guide provides everything needed to integrate with the meeting analysis system and retrieve stored results from the MongoDB sessions collection. 

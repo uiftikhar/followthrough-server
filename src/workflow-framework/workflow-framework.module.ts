@@ -18,7 +18,7 @@ import { UnifiedWorkflowService } from "../langgraph/unified-workflow.service";
     InfrastructureModule,
     LanggraphCoreModule, // Use existing core services
     AgentFrameworkModule,
-    SharedCoreModule
+    SharedCoreModule,
   ],
   providers: [
     UnifiedWorkflowService, // Only framework-level services

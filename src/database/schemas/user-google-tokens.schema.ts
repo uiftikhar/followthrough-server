@@ -5,7 +5,7 @@ export type UserGoogleTokensDocument = UserGoogleTokens & Document;
 
 @Schema({ timestamps: true, collection: "user_google_tokens" })
 export class UserGoogleTokens {
-  @Prop({ required: true, type: Types.ObjectId, ref: "User", index: true })
+  @Prop({ required: true, type: Types.ObjectId, ref: "User" })
   userId: Types.ObjectId;
 
   @Prop({ required: true, type: String })
@@ -32,7 +32,7 @@ export class UserGoogleTokens {
   @Prop()
   googlePicture?: string; // Google profile picture URL
 
-  @Prop({ default: true, index: true })
+  @Prop({ default: true })
   isActive: boolean; // For soft deletion
 
   @Prop()
