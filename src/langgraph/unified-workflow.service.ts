@@ -240,11 +240,15 @@ export class UnifiedWorkflowService {
         `Master supervisor completed for session ${sessionId}`,
       );
 
-      // Update session with results
+      // CRITICAL FIX: Do NOT overwrite session data - the MeetingAnalysisService has already saved the results
+      // Just update the status and result field without touching individual analysis fields
+      this.logger.log(`Analysis completed for session ${sessionId}, updating status only`);
+
       await this.updateSession(sessionId, {
         status: "completed",
         progress: 100,
         endTime: new Date(),
+        // Store the full result object but don't overwrite individual fields
         result: result.result,
       });
 
