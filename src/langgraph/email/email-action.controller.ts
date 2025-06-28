@@ -13,6 +13,7 @@ import { EmailDelegationAgent, User } from "./agents/email-delegation.agent";
 import { EmailSnoozeAgent, SnoozeRequest } from "./agents/email-snooze.agent";
 import { AuthGuard } from "@nestjs/passport";
 import { UnifiedWorkflowService } from "../unified-workflow.service";
+import { EmailTriageSessionRepository } from "../../database/repositories/email-triage-session.repository";
 
 // DTOs for request validation
 export class SendReplyDto {
@@ -51,6 +52,7 @@ export class EmailActionController {
     private readonly unifiedWorkflowService: UnifiedWorkflowService,
     private readonly emailDelegationAgent: EmailDelegationAgent,
     private readonly emailSnoozeAgent: EmailSnoozeAgent,
+    private readonly emailTriageSessionRepository: EmailTriageSessionRepository,
   ) {}
 
   /**
@@ -371,6 +373,211 @@ export class EmailActionController {
         error: {
           message: error.message,
           code: "GET_SNOOZE_STATS_FAILED",
+        },
+      };
+    }
+  }
+
+  /**
+   * 🆕 Get triage results for a specific email
+   * GET /api/email/:emailId/triage-results
+   */
+  @Get(":emailId/triage-results")
+  async getTriageResults(
+    @Param("emailId") emailId: string,
+    @Request() req: any,
+  ) {
+    this.logger.log(`Getting triage results for email ${emailId} by user ${req.user?.id}`);
+
+    try {
+      const triageSession = await this.emailTriageSessionRepository.findByEmailId(emailId);
+
+      if (!triageSession) {
+        return {
+          success: false,
+          error: {
+            message: "Triage results not found for this email",
+            code: "TRIAGE_RESULTS_NOT_FOUND",
+          },
+          emailId,
+        };
+      }
+
+      // Check if user owns this email triage session
+      if (triageSession.userId !== req.user.id) {
+        return {
+          success: false,
+          error: {
+            message: "Access denied to triage results",
+            code: "TRIAGE_RESULTS_ACCESS_DENIED",
+          },
+          emailId,
+        };
+      }
+
+      return {
+        success: true,
+        emailId,
+        triageResults: {
+          sessionId: triageSession.sessionId,
+          status: triageSession.status,
+          classification: triageSession.classification,
+          summary: triageSession.summary,
+          replyDraft: triageSession.replyDraft,
+          retrievedContext: triageSession.retrievedContext,
+          processingMetadata: triageSession.processingMetadata,
+          contextRetrievalResults: triageSession.contextRetrievalResults,
+          userToneProfile: triageSession.userToneProfile,
+          startTime: triageSession.startTime,
+          endTime: triageSession.endTime,
+          progress: triageSession.progress,
+          source: triageSession.source,
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get triage results for email ${emailId}: ${error.message}`,
+        error.stack,
+      );
+
+      return {
+        success: false,
+        error: {
+          message: error.message,
+          code: "GET_TRIAGE_RESULTS_FAILED",
+        },
+        emailId,
+      };
+    }
+  }
+
+  /**
+   * 🆕 Get triage results by session ID
+   * GET /api/email/triage-session/:sessionId
+   */
+  @Get("triage-session/:sessionId")
+  async getTriageSession(
+    @Param("sessionId") sessionId: string,
+    @Request() req: any,
+  ) {
+    this.logger.log(`Getting triage session ${sessionId} by user ${req.user?.id}`);
+
+    try {
+      const triageSession = await this.emailTriageSessionRepository.findBySessionId(sessionId);
+
+      if (!triageSession) {
+        return {
+          success: false,
+          error: {
+            message: "Triage session not found",
+            code: "TRIAGE_SESSION_NOT_FOUND",
+          },
+          sessionId,
+        };
+      }
+
+      // Check if user owns this triage session
+      if (triageSession.userId !== req.user.id) {
+        return {
+          success: false,
+          error: {
+            message: "Access denied to triage session",
+            code: "TRIAGE_SESSION_ACCESS_DENIED",
+          },
+          sessionId,
+        };
+      }
+
+      return {
+        success: true,
+        sessionId,
+        triageSession,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get triage session ${sessionId}: ${error.message}`,
+        error.stack,
+      );
+
+      return {
+        success: false,
+        error: {
+          message: error.message,
+          code: "GET_TRIAGE_SESSION_FAILED",
+        },
+        sessionId,
+      };
+    }
+  }
+
+  /**
+   * 🆕 Get user's triage history
+   * GET /api/email/triage-history
+   */
+  @Get("triage-history")
+  async getTriageHistory(@Request() req: any) {
+    this.logger.log(`Getting triage history for user ${req.user?.id}`);
+
+    try {
+      const sessions = await this.emailTriageSessionRepository.findByUserId(
+        req.user.id,
+        {
+          limit: 50,
+          sortBy: 'createdAt',
+          sortOrder: 'desc',
+        }
+      );
+
+      const stats = await this.emailTriageSessionRepository.getUserStats(req.user.id);
+
+      return {
+        success: true,
+        sessions,
+        stats,
+        count: sessions.length,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get triage history for user ${req.user?.id}: ${error.message}`,
+        error.stack,
+      );
+
+      return {
+        success: false,
+        error: {
+          message: error.message,
+          code: "GET_TRIAGE_HISTORY_FAILED",
+        },
+      };
+    }
+  }
+
+  /**
+   * 🆕 Get user's triage statistics
+   * GET /api/email/triage-stats
+   */
+  @Get("triage-stats")
+  async getTriageStats(@Request() req: any) {
+    this.logger.log(`Getting triage statistics for user ${req.user?.id}`);
+
+    try {
+      const stats = await this.emailTriageSessionRepository.getUserStats(req.user.id);
+
+      return {
+        success: true,
+        stats,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get triage stats for user ${req.user?.id}: ${error.message}`,
+        error.stack,
+      );
+
+      return {
+        success: false,
+        error: {
+          message: error.message,
+          code: "GET_TRIAGE_STATS_FAILED",
         },
       };
     }

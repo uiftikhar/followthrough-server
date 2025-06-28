@@ -4,10 +4,12 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { SessionRepository } from "./repositories/session.repository";
 import { UserRepository } from "./repositories/user.repository";
 import { UserGoogleTokensRepository } from "./repositories/user-google-tokens.repository";
+import { EmailTriageSessionRepository } from "./repositories/email-triage-session.repository";
 import { Session, SessionSchema } from "./schemas/session.schema";
 import { User, UserSchema } from "../auth/entities/user.schema";
 import { UserGoogleTokens, UserGoogleTokensSchema } from "./schemas/user-google-tokens.schema";
 import { GmailWatch, GmailWatchSchema } from "./schemas/gmail-watch.schema";
+import { EmailTriageSession, EmailTriageSessionSchema } from "./schemas/email-triage-session.schema";
 import { DatabaseInitializationService } from "./services/database-initialization.service";
 import { TokenEncryptionService } from "../integrations/google/services/token-encryption.service";
 
@@ -95,12 +97,13 @@ import { TokenEncryptionService } from "../integrations/google/services/token-en
         };
       },
     }),
-    // Register all required schemas for meeting analysis flow
+    // Register all required schemas for meeting analysis flow and email triage
     MongooseModule.forFeature([
       { name: Session.name, schema: SessionSchema },
       { name: User.name, schema: UserSchema },
       { name: UserGoogleTokens.name, schema: UserGoogleTokensSchema },
       { name: GmailWatch.name, schema: GmailWatchSchema },
+      { name: EmailTriageSession.name, schema: EmailTriageSessionSchema },
     ]),
   ],
   providers: [
@@ -108,12 +111,14 @@ import { TokenEncryptionService } from "../integrations/google/services/token-en
     SessionRepository,
     UserRepository,
     UserGoogleTokensRepository,
+    EmailTriageSessionRepository,
     DatabaseInitializationService,
   ],
   exports: [
     SessionRepository,
     UserRepository,
     UserGoogleTokensRepository,
+    EmailTriageSessionRepository,
     MongooseModule,
     DatabaseInitializationService,
   ],

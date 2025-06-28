@@ -12,6 +12,7 @@ import { EmailAgentFactory } from "../agents/email-agent.factory";
 import { EmailTriageState } from "../dtos/email-triage.dto";
 import { v4 as uuidv4 } from "uuid";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { EmailTriageSessionRepository } from "../../../database/repositories/email-triage-session.repository";
 
 /**
  * EmailTriageService - Team Handler for Email Domain
@@ -32,6 +33,7 @@ export class EmailTriageService
     private readonly stateService: StateService,
     private readonly emailAgentFactory: EmailAgentFactory,
     private readonly eventEmitter: EventEmitter2,
+    private readonly emailTriageSessionRepository: EmailTriageSessionRepository,
   ) {
     this.logger.log(
       "EmailTriageService constructor called - using specialized EmailAgentFactory",
@@ -160,6 +162,22 @@ export class EmailTriageService
 
       this.logger.log(`🚀 Starting email triage for session: ${sessionId}`);
 
+      // Create database session record
+      const userId = input.emailData.metadata?.userId || input.userId || sessionId;
+      await this.emailTriageSessionRepository.create({
+        sessionId,
+        userId,
+        emailId: input.emailData.id,
+        status: "processing",
+        startTime: new Date(),
+        emailData: {
+          ...initialState.emailData,
+          id: initialState.emailData.id || `email-${Date.now()}`, // Ensure id is always string
+        },
+        source: input.metadata?.source || "langgraph_stategraph_service",
+        metadata: input.metadata || {},
+      });
+
       // Emit immediate triage started event
       this.eventEmitter.emit("email.triage.started", {
         sessionId,
@@ -178,7 +196,18 @@ export class EmailTriageService
 
       this.logger.log(`✅ Email triage completed for session: ${sessionId}`);
 
-      // Emit completion event with detailed results
+      // Save complete results to database
+      const completedSession = await this.emailTriageSessionRepository.complete(sessionId, {
+        classification: finalState.classification,
+        summary: finalState.summary,
+        replyDraft: finalState.replyDraft,
+        retrievedContext: finalState.retrievedContext,
+        processingMetadata: finalState.processingMetadata,
+        contextRetrievalResults: finalState.contextRetrievalResults,
+        userToneProfile: finalState.userToneProfile,
+      });
+
+      // Emit completion event with basic notification
       this.eventEmitter.emit("email.triage.completed", {
         sessionId,
         emailId: input.emailData.id,
@@ -192,6 +221,32 @@ export class EmailTriageService
         replyDraft: finalState.replyDraft,
         retrievedContext: finalState.retrievedContext,
         processingMetadata: finalState.processingMetadata,
+        timestamp: new Date().toISOString(),
+        source: "langgraph_stategraph_service",
+        langGraph: true,
+      });
+
+      // 🆕 Emit NEW enhanced triage results event with complete data
+      this.eventEmitter.emit("email.triage.results", {
+        sessionId,
+        emailId: input.emailData.id,
+        emailAddress:
+          input.emailData.metadata?.to ||
+          input.emailData.metadata?.emailAddress,
+        subject: input.emailData.metadata?.subject,
+        from: input.emailData.metadata?.from,
+        // Complete triage results
+        triageResults: {
+          classification: finalState.classification,
+          summary: finalState.summary,
+          replyDraft: finalState.replyDraft,
+          retrievedContext: finalState.retrievedContext,
+          processingMetadata: finalState.processingMetadata,
+          contextRetrievalResults: finalState.contextRetrievalResults,
+          userToneProfile: finalState.userToneProfile,
+        },
+        // Database session info
+        databaseSession: completedSession,
         timestamp: new Date().toISOString(),
         source: "langgraph_stategraph_service",
         langGraph: true,
@@ -215,9 +270,22 @@ export class EmailTriageService
         error.stack,
       );
 
+      const sessionId = input.sessionId || uuidv4();
+      
+      // Save failed session to database
+      try {
+        await this.emailTriageSessionRepository.markFailed(sessionId, {
+          step: "email_triage_processing",
+          error: error.message,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (dbError) {
+        this.logger.error(`Failed to save error to database: ${dbError.message}`);
+      }
+
       // Emit error event
       this.eventEmitter.emit("email.triage.failed", {
-        sessionId: input.sessionId,
+        sessionId,
         emailId: input.emailData?.id,
         emailAddress: input.emailData?.metadata?.to,
         subject: input.emailData?.metadata?.subject,

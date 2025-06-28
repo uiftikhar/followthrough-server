@@ -7,6 +7,9 @@ import { EmailConnectorFactory } from "./connectors/email-connector.factory";
 import { MCPModule } from "../../mcp/mcp.module";
 import { EmailWorkflowModule } from "./workflow/email-workflow.module";
 import { EmailActionController } from "./email-action.controller";
+import { EnhancedEmailFilterService } from "./filters/enhanced-email-filter.service";
+import { EmailProcessingCacheService } from "./cache/email-processing-cache.service";
+import { DatabaseModule } from "../../database/database.module";
 
 /**
  * EmailModule - Application Layer
@@ -18,6 +21,7 @@ import { EmailActionController } from "./email-action.controller";
   imports: [
     ConfigModule,
     MCPModule,
+    DatabaseModule, // Provides EmailTriageSessionRepository
     EmailWorkflowModule, // Provides workflow services and UnifiedWorkflowService
   ],
   controllers: [
@@ -28,7 +32,14 @@ import { EmailActionController } from "./email-action.controller";
     GmailConnector,
     OutlookConnector,
     EmailConnectorFactory,
+    EnhancedEmailFilterService,
+    EmailProcessingCacheService,
   ],
-  exports: [EmailService, EmailWorkflowModule],
+  exports: [
+    EmailService, 
+    EmailWorkflowModule,
+    EnhancedEmailFilterService,
+    EmailProcessingCacheService,
+  ],
 })
 export class EmailModule {}

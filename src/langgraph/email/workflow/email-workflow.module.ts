@@ -6,6 +6,7 @@ import { EmailTriageService } from "./email-triage.service";
 import { InfrastructureModule } from "src/infrastructure/infrastructure.module";
 import { RagCoreModule } from "src/rag-core/rag-core.module";
 import { WorkflowFrameworkModule } from "src/workflow-framework/workflow-framework.module";
+import { DatabaseModule } from "src/database/database.module";
 
 /**
  * EmailWorkflowModule - Application Services Layer
@@ -17,6 +18,7 @@ import { WorkflowFrameworkModule } from "src/workflow-framework/workflow-framewo
 @Module({
   imports: [
     InfrastructureModule, // For database access and events
+    DatabaseModule, // For EmailTriageSessionRepository
     RagCoreModule, // For RAG services (future enhancement)
     WorkflowFrameworkModule, // For supervisor and graph execution
     EmailAgentsModule, // For email-specific agents

@@ -157,6 +157,15 @@ export class GmailNotificationService {
   }
 
   /**
+   * Disconnect all WebSocket sessions for a specific user email
+   * Used when user explicitly disconnects from email triage
+   */
+  async disconnectUserSessions(userEmail: string): Promise<void> {
+    this.logger.log(`🔌 Disconnecting all WebSocket sessions for user: ${userEmail}`);
+    this.gmailNotificationGateway.disconnectUserSessions(userEmail);
+  }
+
+  /**
    * Enhanced cleanup that also removes Gmail watches for inactive users
    */
   async comprehensiveCleanup(): Promise<{

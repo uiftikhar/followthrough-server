@@ -74,6 +74,18 @@ export class DatabaseInitializationService {
             { key: { userId: 1, isActive: 1 } }, // Compound index for active watches
           ],
         },
+        {
+          name: "email_triage_sessions",
+          indexes: [
+            { key: { sessionId: 1 }, options: { unique: true } },
+            { key: { userId: 1 } },
+            { key: { emailId: 1 } },
+            { key: { status: 1 } },
+            { key: { createdAt: 1 } },
+            { key: { userId: 1, status: 1 } }, // Compound index for user queries
+            { key: { userId: 1, createdAt: -1 } }, // Compound index for user history
+          ],
+        },
       ];
 
       // Get existing collections

@@ -414,4 +414,183 @@ export class GmailDebugController {
       );
     }
   }
+
+  /**
+   * ADMIN: Unsubscribe all users from Google Pub/Sub notifications (nuclear option)
+   * POST /api/gmail/debug/unsubscribe-all-pubsub
+   * This stops ALL Gmail watches and Pub/Sub subscriptions for ALL users
+   */
+  @Post("unsubscribe-all-pubsub")
+  async unsubscribeAllPubSubNotifications() {
+    try {
+      this.logger.log("🚨 ADMIN: Starting nuclear unsubscribe - stopping ALL Gmail watches and Pub/Sub subscriptions");
+
+      const results = {
+        success: true,
+        message: "Nuclear unsubscribe completed",
+        summary: {
+          totalWatchesFound: 0,
+          googleApiUnsubscribed: 0,
+          databaseCleaned: 0,
+          authenticationFailed: 0,
+          errors: [] as string[]
+        },
+        details: {
+          processedWatches: [] as any[],
+          failedWatches: [] as any[]
+        }
+      };
+
+      // Step 1: Get all active watches from database
+      const allWatches = await this.gmailWatchRepository.findAllActive();
+      results.summary.totalWatchesFound = allWatches.length;
+
+      if (allWatches.length === 0) {
+        this.logger.log("ℹ️ No active watches found to unsubscribe");
+        return {
+          ...results,
+          message: "No active Gmail watches found to unsubscribe",
+          recommendation: "Check for orphaned notifications in server logs"
+        };
+      }
+
+      this.logger.log(`📊 Found ${allWatches.length} active watches to unsubscribe`);
+
+      // Step 2: Process each watch - stop Google API watch (Pub/Sub unsubscription) and clean database
+      for (const watch of allWatches) {
+        const watchResult = {
+          watchId: watch.watchId,
+          googleEmail: watch.googleEmail,
+          userId: watch.userId.toString(),
+          googleApiStopped: false,
+          databaseCleaned: false,
+          authenticationValid: false,
+          error: null as string | null
+        };
+
+        try {
+          this.logger.log(`🛑 Processing watch for: ${watch.googleEmail} (${watch.watchId})`);
+
+          // Try to stop Gmail watch via Google API (this unsubscribes from Pub/Sub)
+          try {
+            const client = await this.googleOAuthService.getAuthenticatedClient(
+              watch.userId.toString(),
+            );
+            const gmail = google.gmail({ version: "v1", auth: client });
+
+            // Stop the watch - this stops Pub/Sub notifications
+            await gmail.users.stop({ userId: "me" });
+            watchResult.googleApiStopped = true;
+            watchResult.authenticationValid = true;
+            results.summary.googleApiUnsubscribed++;
+
+            this.logger.log(`✅ Stopped Gmail watch (Pub/Sub unsubscribed) for: ${watch.googleEmail}`);
+          } catch (apiError) {
+            if (apiError.code === 404 || apiError.message?.includes("not found")) {
+              // No active watch on Google's side - consider as success
+              this.logger.log(`ℹ️ No active watch found on Google's side for: ${watch.googleEmail} (already unsubscribed)`);
+              watchResult.googleApiStopped = true;
+              watchResult.authenticationValid = true;
+              results.summary.googleApiUnsubscribed++;
+            } else if (apiError.code === 401 || apiError.code === 403) {
+              // Authentication failed
+              watchResult.authenticationValid = false;
+              watchResult.error = `Authentication failed: ${apiError.message}`;
+              results.summary.authenticationFailed++;
+              this.logger.warn(`🔑 Authentication failed for ${watch.googleEmail}: ${apiError.message}`);
+            } else {
+              // Other API error
+              watchResult.error = `Google API error: ${apiError.message}`;
+              results.summary.errors.push(`Google API error for ${watch.googleEmail}: ${apiError.message}`);
+              this.logger.error(`❌ Google API error for ${watch.googleEmail}: ${apiError.message}`);
+            }
+          }
+
+          // Always try to clean up database record regardless of Google API result
+          try {
+            await this.gmailWatchService.deactivateWatch(watch.userId);
+            watchResult.databaseCleaned = true;
+            results.summary.databaseCleaned++;
+            this.logger.log(`✅ Deactivated database watch for: ${watch.googleEmail}`);
+          } catch (dbError) {
+            watchResult.error = watchResult.error 
+              ? `${watchResult.error}; Database cleanup failed: ${dbError.message}`
+              : `Database cleanup failed: ${dbError.message}`;
+            results.summary.errors.push(`Database cleanup failed for ${watch.googleEmail}: ${dbError.message}`);
+            this.logger.error(`❌ Database cleanup failed for ${watch.googleEmail}: ${dbError.message}`);
+          }
+
+          // Categorize the result
+          if (watchResult.error) {
+            results.details.failedWatches.push(watchResult);
+          } else {
+            results.details.processedWatches.push(watchResult);
+          }
+
+        } catch (error) {
+          // Unexpected error processing this watch
+          watchResult.error = `Unexpected error: ${error.message}`;
+          results.details.failedWatches.push(watchResult);
+          results.summary.errors.push(`Unexpected error for ${watch.googleEmail}: ${error.message}`);
+          this.logger.error(`❌ Unexpected error processing watch for ${watch.googleEmail}: ${error.message}`);
+        }
+      }
+
+      // Step 3: Final assessment
+      const totalProcessed = results.summary.googleApiUnsubscribed + results.summary.authenticationFailed;
+      const hasErrors = results.summary.errors.length > 0;
+
+      if (hasErrors || results.details.failedWatches.length > 0) {
+        results.success = totalProcessed > 0; // Partial success
+        results.message = `Nuclear unsubscribe completed with ${results.summary.errors.length} errors - ${results.summary.googleApiUnsubscribed} successfully unsubscribed`;
+      } else {
+        results.message = `Nuclear unsubscribe completed successfully - ${results.summary.googleApiUnsubscribed} Gmail watches stopped and Pub/Sub unsubscribed`;
+      }
+
+      this.logger.log(`🎯 NUCLEAR UNSUBSCRIBE SUMMARY:
+        - Total watches found: ${results.summary.totalWatchesFound}
+        - Google API unsubscribed: ${results.summary.googleApiUnsubscribed}
+        - Database cleaned: ${results.summary.databaseCleaned}
+        - Authentication failed: ${results.summary.authenticationFailed}
+        - Errors: ${results.summary.errors.length}`);
+
+      if (results.summary.errors.length > 0) {
+        this.logger.warn(`⚠️ Some watches failed to unsubscribe:`, results.summary.errors);
+      }
+
+      return {
+        ...results,
+        impact: {
+          description: "All Gmail push notifications to this server have been stopped",
+          pubsubStatus: "All user Pub/Sub subscriptions have been terminated",
+          userImpact: "Users will no longer receive email triage notifications",
+          recovery: "Users must re-setup notifications individually using POST /gmail/client/setup-notifications"
+        },
+        nextSteps: {
+          immediate: [
+            "Monitor server logs to confirm no more push notifications are received",
+            "Check Google Cloud Console Pub/Sub subscriptions for any remaining subscriptions",
+            "Notify users that email triage has been disabled"
+          ],
+          recovery: [
+            "Users can re-enable email triage using POST /gmail/client/setup-notifications",
+            "Consider implementing user notification system to inform about the reset",
+            "Monitor system for proper re-activation by users"
+          ]
+        }
+      };
+
+    } catch (error) {
+      this.logger.error(`❌ Nuclear unsubscribe failed: ${error.message}`, error.stack);
+      throw new HttpException(
+        {
+          success: false,
+          message: `Nuclear unsubscribe failed: ${error.message}`,
+          error: error.message,
+          recommendation: "Check server logs and try individual cleanup operations instead"
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

@@ -5,6 +5,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 
 // Import workflow services
 import { LanggraphModule } from "../../langgraph/langgraph.module";
+import { EmailModule } from "../../langgraph/email/email.module";
 
 // Schemas
 import {
@@ -71,6 +72,7 @@ import { GmailNotificationGateway } from "./services/gmail-notification.gateway"
     ConfigModule, // For Google OAuth and Pub/Sub configuration
     ScheduleModule.forRoot(), // For cron jobs and background tasks
     LanggraphModule, // For UnifiedWorkflowService integration
+    EmailModule, // For enhanced email filtering and processing cache
     MongooseModule.forFeature([
       { name: UserGoogleTokens.name, schema: UserGoogleTokensSchema },
       { name: GmailWatch.name, schema: GmailWatchSchema },
