@@ -1,10 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { MCPService } from "../../mcp/mcp.service";
 import { Email } from "../models/email.model";
 import { Thread } from "../models/thread.model";
 import { EmailConnector } from "./email-connector.interface";
 import { EmailQueryDto } from "../dtos/email-query.dto";
+import { MCPService } from "../../../mcp/mcp.service";
 
 @Injectable()
 export class GmailConnector implements EmailConnector {

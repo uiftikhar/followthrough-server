@@ -1,12 +1,11 @@
 import { Module } from "@nestjs/common";
-import { InfrastructureModule } from "../../infrastructure/infrastructure.module";
-import { RagCoreModule } from "../../rag-core/rag-core.module";
-import { WorkflowFrameworkModule } from "../../workflow-framework/workflow-framework.module";
 import { EmailAgentsModule } from "../agents/email-agents.module";
 import { SharedCoreModule } from "src/shared/shared-core.module";
 // Email-specific workflow services
-import { EmailTriageManager } from "./email-triage.manager";
 import { EmailTriageService } from "./email-triage.service";
+import { InfrastructureModule } from "src/infrastructure/infrastructure.module";
+import { RagCoreModule } from "src/rag-core/rag-core.module";
+import { WorkflowFrameworkModule } from "src/workflow-framework/workflow-framework.module";
 
 /**
  * EmailWorkflowModule - Application Services Layer
@@ -24,13 +23,11 @@ import { EmailTriageService } from "./email-triage.service";
     SharedCoreModule,
   ],
   providers: [
-    EmailTriageManager, // Coordinates the 3 workers
     EmailTriageService, // Team handler that registers with supervisor using LangGraph
   ],
   exports: [
     WorkflowFrameworkModule, // Re-export for controllers
     EmailAgentsModule, // Re-export for controllers to access agents
-    EmailTriageManager,
     EmailTriageService,
   ],
 })

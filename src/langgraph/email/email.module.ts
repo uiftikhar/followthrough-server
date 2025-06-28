@@ -4,7 +4,7 @@ import { EmailService } from "./email.service";
 import { GmailConnector } from "./connectors/gmail.connector";
 import { OutlookConnector } from "./connectors/outlook.connector";
 import { EmailConnectorFactory } from "./connectors/email-connector.factory";
-import { MCPModule } from "../mcp/mcp.module";
+import { MCPModule } from "../../mcp/mcp.module";
 import { EmailWorkflowModule } from "./workflow/email-workflow.module";
 import { EmailActionController } from "./email-action.controller";
 

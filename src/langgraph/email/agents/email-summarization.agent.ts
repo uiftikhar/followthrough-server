@@ -1,6 +1,7 @@
 import { Injectable, Inject, Logger } from "@nestjs/common";
-import { LLM_SERVICE } from "../../langgraph/llm/constants/injection-tokens";
-import { LlmService } from "../../langgraph/llm/llm.service";
+import { BaseAgent, AgentConfig } from "../../agents/base-agent";
+import { LLM_SERVICE } from "../../llm/constants/injection-tokens";
+import { LlmService } from "../../llm/llm.service";
 import { EMAIL_SUMMARIZATION_CONFIG } from "./constants/injection-tokens";
 import {
   EmailSummary,
@@ -8,14 +9,63 @@ import {
 } from "../dtos/email-triage.dto";
 
 @Injectable()
-export class EmailSummarizationAgent {
-  private readonly logger = new Logger(EmailSummarizationAgent.name);
+export class EmailSummarizationAgent extends BaseAgent {
+  protected readonly logger = new Logger(EmailSummarizationAgent.name);
 
   constructor(
-    @Inject(LLM_SERVICE) private readonly llmService: LlmService,
+    @Inject(LLM_SERVICE) protected readonly llmService: LlmService,
     @Inject(EMAIL_SUMMARIZATION_CONFIG)
     private readonly config: EmailSummarizationConfig,
-  ) {}
+  ) {
+    // Configure BaseAgent with email summarization settings
+    const agentConfig: AgentConfig = {
+      name: config.name || "Email Summarization Agent",
+      systemPrompt: config.systemPrompt,
+      llmOptions: {
+        temperature: 0.3,
+        model: "gpt-4o",
+        maxTokens: 300,
+      },
+    };
+    super(llmService, agentConfig);
+  }
+
+  /**
+   * Process state for LangGraph workflow
+   * This is the main entry point for the agent in the LangGraph flow
+   */
+  async processState(state: any): Promise<any> {
+    this.logger.log("Processing email summarization state");
+
+    if (!state.emailData) {
+      this.logger.warn("No email data found in state");
+      return state;
+    }
+
+    try {
+      const summary = await this.summarizeEmail(
+        state.emailData.body,
+        state.emailData.metadata,
+      );
+
+      return {
+        ...state,
+        summary,
+      };
+    } catch (error) {
+      this.logger.error(`Email summarization failed: ${error.message}`);
+      
+      // Return state with fallback summary
+      return {
+        ...state,
+        summary: {
+          briefSummary: "Unable to generate summary",
+          keyPoints: ["Email processing failed"],
+          sentiment: "neutral",
+        },
+      };
+    }
+  }
 
   async summarizeEmail(
     emailContent: string,

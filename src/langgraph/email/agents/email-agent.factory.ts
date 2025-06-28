@@ -1,13 +1,5 @@
 import { Injectable } from "@nestjs/common";
 
-// Email-specific agents (implement these when needed)
-// import { EmailClassificationAgent } from './email-classification.agent';
-// import { EmailSummarizationAgent } from './email-summarization.agent';
-// import { PriorityAssessmentAgent } from './priority-assessment.agent';
-// import { ReplyDraftAgent } from './reply-draft.agent';
-// import { PatternRecognitionAgent } from './pattern-recognition.agent';
-// import { DelegationAgent } from './delegation.agent';
-// import { ToneAnalysisAgent } from './tone-analysis.agent';
 
 // Import the existing email agents from the email module
 import { EmailClassificationAgent } from "./email-classification.agent";

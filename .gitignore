@@ -53,3 +53,5 @@ config/gmail-push-service-account.json
 config/*.json
 config/service-accounts/
 scripts/setup-pubsub.sh
+
+guides/secrets/

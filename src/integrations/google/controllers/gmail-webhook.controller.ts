@@ -1000,6 +1000,19 @@ export class GmailWebhookController {
         source: "gmail_push",
       });
 
+      // Emit triage processing event BEFORE processing starts
+      this.logger.log(
+        `📡 Emitting triage.processing event for email: ${email.id}`,
+      );
+      this.eventEmitter.emit("email.triage.processing", {
+        emailId: email.id,
+        emailAddress: email.metadata.to,
+        subject: email.metadata.subject,
+        timestamp: new Date().toISOString(),
+        source: "gmail_push",
+        status: "processing",
+      });
+
       // Process through existing unified workflow service
       const result = await this.unifiedWorkflowService.processInput(
         triageInput,
@@ -1013,22 +1026,8 @@ export class GmailWebhookController {
       );
 
       this.logger.log(
-        `✅ Email triage initiated for ${email.id}, session: ${result.sessionId}`,
+        `✅ Email triage completed for ${email.id}, session: ${result.sessionId}`,
       );
-
-      // Emit triage processing event with session info
-      this.logger.log(
-        `📡 Emitting triage.processing event for session: ${result.sessionId}`,
-      );
-      this.eventEmitter.emit("email.triage.processing", {
-        sessionId: result.sessionId,
-        emailId: email.id,
-        emailAddress: email.metadata.to,
-        subject: email.metadata.subject,
-        status: result.status,
-        timestamp: new Date().toISOString(),
-        source: "gmail_push",
-      });
 
       // Note: triage.completed events will be emitted by the workflow system when processing finishes
       // The UnifiedWorkflowService should emit these events automatically

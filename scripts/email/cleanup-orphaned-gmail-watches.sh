@@ -22,7 +22,7 @@ set +a
 API_BASE="${WEBHOOK_BASE_URL:-https://followthrough-server-production.up.railway.app}"
 
 # Default JWT token (provided by user)
-DEFAULT_JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2ODQzZGFjMTgyYmExNWVkMTFmZjljMmYiLCJlbWFpbCI6ImJ1bmQ5ODc2QGdtYWlsLmNvbSIsImlhdCI6MTc0OTI3OTI1NSwiZXhwIjoxNzQ5MzY1NjU1fQ.2RfX7PzvUE0-gofDfv4X37cXKoaP2Js7LxXvA_XehSE"
+DEFAULT_JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2ODUxNWJjYTNiOTJiOWQ5MDY0MmUyZGQiLCJlbWFpbCI6ImJ1bmQ5ODc2QGdtYWlsLmNvbSIsImlhdCI6MTc1MDI1MDk2MywiZXhwIjoxNzUwMzM3MzYzfQ.kuBuTOete13vsUQeHxlaKXzbDk3Sa_I5SgqOpCdsJ3g"
 
 echo "🔍 Checking for orphaned Gmail watches..."
 echo "API Base URL: $API_BASE"

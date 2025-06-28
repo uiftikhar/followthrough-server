@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger } from "@nestjs/common";
-import { LLM_SERVICE } from "../../langgraph/llm/constants/injection-tokens";
-import { LlmService } from "../../langgraph/llm/llm.service";
+import { LLM_SERVICE } from "../../llm/constants/injection-tokens";
+import { LlmService } from "../../llm/llm.service";
 import { DelegationResult } from "../dtos/email-triage.dto";
 
 export interface User {

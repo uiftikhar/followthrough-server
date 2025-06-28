@@ -1,8 +1,8 @@
 import { Injectable, Logger, Inject } from "@nestjs/common";
-import { RAG_SERVICE } from "../../rag/constants/injection-tokens";
-import { RagService } from "../../rag/rag.service";
-import { VectorIndexes } from "../../pinecone/pinecone-index.service";
+
 import { EmailTriageState } from "../dtos/email-triage.dto";
+import { VectorIndexes } from "src/pinecone/pinecone-index.service";
+import { RAG_SERVICE, RagService } from "src/rag";
 
 /**
  * EmailPatternStorageService - Handles storing email triage patterns for learning

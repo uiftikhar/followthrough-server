@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { MCPService } from "../../mcp/mcp.service";
+import { MCPService } from "../../../mcp/mcp.service";
 import { Email } from "../models/email.model";
 import { Thread } from "../models/thread.model";
 import { EmailConnector } from "./email-connector.interface";

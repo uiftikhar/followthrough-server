@@ -1,6 +1,7 @@
 import { Injectable, Inject, Logger } from "@nestjs/common";
-import { LLM_SERVICE } from "../../langgraph/llm/constants/injection-tokens";
-import { LlmService } from "../../langgraph/llm/llm.service";
+import { BaseAgent, AgentConfig } from "../../agents/base-agent";
+import { LLM_SERVICE } from "../../llm/constants/injection-tokens";
+import { LlmService } from "../../llm/llm.service";
 import { EMAIL_REPLY_DRAFT_CONFIG } from "./constants/injection-tokens";
 import {
   EmailReplyDraft,
@@ -10,14 +11,66 @@ import {
 } from "../dtos/email-triage.dto";
 
 @Injectable()
-export class EmailReplyDraftAgent {
-  private readonly logger = new Logger(EmailReplyDraftAgent.name);
+export class EmailReplyDraftAgent extends BaseAgent {
+  protected readonly logger = new Logger(EmailReplyDraftAgent.name);
 
   constructor(
-    @Inject(LLM_SERVICE) private readonly llmService: LlmService,
+    @Inject(LLM_SERVICE) protected readonly llmService: LlmService,
     @Inject(EMAIL_REPLY_DRAFT_CONFIG)
     private readonly config: EmailReplyDraftConfig,
-  ) {}
+  ) {
+    // Configure BaseAgent with email reply draft settings
+    const agentConfig: AgentConfig = {
+      name: config.name || "Email Reply Draft Agent",
+      systemPrompt: config.systemPrompt,
+      llmOptions: {
+        temperature: 0.7,
+        model: "gpt-4o",
+        maxTokens: 500,
+      },
+    };
+    super(llmService, agentConfig);
+  }
+
+  /**
+   * Process state for LangGraph workflow
+   * This is the main entry point for the agent in the LangGraph flow
+   */
+  async processState(state: any): Promise<any> {
+    this.logger.log("Processing email reply draft state");
+
+    if (!state.emailData) {
+      this.logger.warn("No email data found in state");
+      return state;
+    }
+
+    try {
+      const replyDraft = await this.generateReplyDraft(
+        state.emailData.body,
+        state.emailData.metadata,
+        state.classification,
+        state.summary,
+      );
+
+      return {
+        ...state,
+        replyDraft,
+      };
+    } catch (error) {
+      this.logger.error(`Email reply draft generation failed: ${error.message}`);
+      
+      // Return state with fallback reply
+      return {
+        ...state,
+        replyDraft: {
+          subject: `Re: ${state.emailData.metadata?.subject || "Email"}`,
+          body: "Thank you for your email. We have received your message and will respond accordingly.",
+          tone: "professional",
+          confidence: 0.0,
+        },
+      };
+    }
+  }
 
   async generateReplyDraft(
     emailContent: string,

@@ -1,6 +1,7 @@
 import { Injectable, Inject, Logger } from "@nestjs/common";
-import { LLM_SERVICE } from "../../langgraph/llm/constants/injection-tokens";
-import { LlmService } from "../../langgraph/llm/llm.service";
+import { BaseAgent, AgentConfig } from "../../agents/base-agent";
+import { LLM_SERVICE } from "../../llm/constants/injection-tokens";
+import { LlmService } from "../../llm/llm.service";
 import { EMAIL_CLASSIFICATION_CONFIG } from "./constants/injection-tokens";
 import {
   EmailClassification,
@@ -8,15 +9,66 @@ import {
 } from "../dtos/email-triage.dto";
 
 @Injectable()
-export class EmailClassificationAgent {
-  private readonly logger = new Logger(EmailClassificationAgent.name);
+export class EmailClassificationAgent extends BaseAgent {
+  protected readonly logger = new Logger(EmailClassificationAgent.name);
 
   constructor(
-    @Inject(LLM_SERVICE) private readonly llmService: LlmService,
+    @Inject(LLM_SERVICE) protected readonly llmService: LlmService,
     @Inject(EMAIL_CLASSIFICATION_CONFIG)
     private readonly config: EmailClassificationConfig,
-  ) {}
+  ) {
+    // Configure BaseAgent with email classification settings
+    const agentConfig: AgentConfig = {
+      name: config.name || "Email Classification Agent",
+      systemPrompt: config.systemPrompt,
+      llmOptions: {
+        temperature: 0.1,
+        model: "gpt-4o",
+        maxTokens: 200,
+      },
+    };
+    super(llmService, agentConfig);
+  }
 
+  /**
+   * Process state for LangGraph workflow
+   * This is the main entry point for the agent in the LangGraph flow
+   */
+  async processState(state: any): Promise<any> {
+    this.logger.log("Processing email classification state");
+
+    if (!state.emailData) {
+      this.logger.warn("No email data found in state");
+      return state;
+    }
+
+    try {
+      const classification = await this.classifyEmail(
+        state.emailData.body,
+        state.emailData.metadata,
+      );
+
+      return {
+        ...state,
+        classification,
+      };
+    } catch (error) {
+      this.logger.error(`Email classification failed: ${error.message}`);
+      
+      // Return state with fallback classification
+      return {
+        ...state,
+        classification: {
+          priority: "normal",
+          category: "other",
+          reasoning: "Failed to classify email automatically",
+          confidence: 0.0,
+        },
+      };
+    }
+  }
+
+  // Keep existing classifyEmail method for backward compatibility
   async classifyEmail(
     emailContent: string,
     metadata: any,
@@ -42,10 +94,7 @@ Respond in JSON format:
 }`;
 
     try {
-      const model = this.llmService.getChatModel({
-        temperature: 0.1,
-        maxTokens: 200,
-      });
+      const model = this.getChatModel();
 
       const messages = [
         { role: "system", content: this.config.systemPrompt },

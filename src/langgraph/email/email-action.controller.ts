@@ -9,10 +9,10 @@ import {
   Request,
   ValidationPipe,
 } from "@nestjs/common";
-import { UnifiedWorkflowService } from "../langgraph/unified-workflow.service";
 import { EmailDelegationAgent, User } from "./agents/email-delegation.agent";
 import { EmailSnoozeAgent, SnoozeRequest } from "./agents/email-snooze.agent";
 import { AuthGuard } from "@nestjs/passport";
+import { UnifiedWorkflowService } from "../unified-workflow.service";
 
 // DTOs for request validation
 export class SendReplyDto {

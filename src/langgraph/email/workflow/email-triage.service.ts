@@ -4,11 +4,11 @@ import {
   OnModuleInit,
   OnApplicationBootstrap,
 } from "@nestjs/common";
-import { TeamHandlerRegistry } from "../../langgraph/core/team-handler-registry.service";
-import { TeamHandler } from "../../langgraph/core/interfaces/team-handler.interface";
+import { TeamHandlerRegistry } from "src/langgraph/core/team-handler-registry.service";
+import { TeamHandler } from "src/langgraph/core/interfaces/team-handler.interface";
 import { StateGraph, START, END } from "@langchain/langgraph";
-import { StateService } from "../../langgraph/state/state.service";
-import { AgentFactory } from "../../langgraph/agents/agent.factory";
+import { StateService } from "src/langgraph/state/state.service";
+import { EmailAgentFactory } from "../agents/email-agent.factory";
 import { EmailTriageState } from "../dtos/email-triage.dto";
 import { v4 as uuidv4 } from "uuid";
 import { EventEmitter2 } from "@nestjs/event-emitter";
@@ -17,7 +17,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
  * EmailTriageService - Team Handler for Email Domain
  * Implements TeamHandler interface to integrate with Master Supervisor
  * Registers as 'email_triage' team to handle email processing tasks
- * UPDATED: Now uses pure LangGraph StateGraph implementation
+ * UPDATED: Now uses specialized EmailAgentFactory and proper LangGraph pattern
  */
 @Injectable()
 export class EmailTriageService
@@ -30,11 +30,11 @@ export class EmailTriageService
   constructor(
     private readonly teamHandlerRegistry: TeamHandlerRegistry,
     private readonly stateService: StateService,
-    private readonly agentFactory: AgentFactory,
+    private readonly emailAgentFactory: EmailAgentFactory,
     private readonly eventEmitter: EventEmitter2,
   ) {
     this.logger.log(
-      "EmailTriageService constructor called - using LangGraph StateGraph",
+      "EmailTriageService constructor called - using specialized EmailAgentFactory",
     );
     this.initializeEmailTriageGraph();
   }
@@ -124,11 +124,11 @@ export class EmailTriageService
   /**
    * Process email triage tasks - required by TeamHandler interface
    * This is the main entry point for email processing
-   * UPDATED: Now uses pure LangGraph StateGraph implementation
+   * UPDATED: Now uses specialized EmailAgentFactory and proper LangGraph pattern
    */
   async process(input: any): Promise<any> {
     this.logger.log(
-      `Processing email triage task for email: ${input.emailData?.id} using LangGraph StateGraph`,
+      `Processing email triage task for email: ${input.emailData?.id} using specialized EmailAgentFactory`,
     );
 
     try {
@@ -308,100 +308,186 @@ export class EmailTriageService
     this.logger.log("Executing email classification");
 
     try {
-      // Create a basic classification agent as fallback
-      const classificationAgent = this.agentFactory.createBaseAgent({
-        name: "EmailClassificationAgent",
-        systemPrompt:
-          "You are an email classification agent. Classify emails by category and priority. Respond with JSON format: {classification: {category: string, priority: string}}",
-        llmOptions: { temperature: 0.3, model: "gpt-4o" },
-      });
-
-      const classification = await classificationAgent.processState(state);
-
+      // ✅ Use specialized email classification agent
+      const agent = this.emailAgentFactory.getEmailClassificationAgent();
+      const updatedState = await agent.processState(state);
+      
+      this.logger.log(`Email classified: ${updatedState.classification?.category || 'unknown'}`);
+      
       return {
-        ...state,
-        classification: classification.classification || {
-          category: "general",
-          priority: "medium",
-        },
+        ...updatedState,
         currentStep: "classification_completed",
         progress: 40,
       };
     } catch (error) {
-      this.logger.warn(`Email classification failed: ${error.message}`);
+      this.logger.warn(`Email classification failed, using fallback: ${error.message}`);
+      
+      // ✅ Intelligent fallback with pattern-based classification
       return {
         ...state,
-        classification: {
-          category: "general",
-          priority: "medium",
-          error: error.message,
-        },
+        classification: this.fallbackClassification(state),
         currentStep: "classification_completed",
         progress: 40,
       };
     }
+  }
+
+  /**
+   * Fallback classification when AI agent fails
+   */
+  private fallbackClassification(state: any): any {
+    const emailContent = state.emailData?.body || "";
+    const subject = state.emailData?.metadata?.subject || "";
+    const combinedText = `${subject} ${emailContent}`.toLowerCase();
+
+    // Pattern-based classification
+    let priority = "medium";
+    let category = "general";
+
+    // Priority detection
+    if (/urgent|asap|emergency|critical|immediately/.test(combinedText)) {
+      priority = "urgent";
+    } else if (/important|high|priority/.test(combinedText)) {
+      priority = "high";
+    } else if (/low|minor|fyi/.test(combinedText)) {
+      priority = "low";
+    }
+
+    // Category detection
+    if (/bug|error|issue|problem|fix/.test(combinedText)) {
+      category = "bug_report";
+    } else if (/feature|request|enhancement/.test(combinedText)) {
+      category = "feature_request";
+    } else if (/question|how|what|why/.test(combinedText)) {
+      category = "question";
+    } else if (/complain|problem|issue/.test(combinedText)) {
+      category = "complaint";
+    } else if (/thank|great|excellent/.test(combinedText)) {
+      category = "praise";
+    }
+
+    return {
+      priority,
+      category,
+      confidence: 0.6,
+      reasoning: "Pattern-based fallback classification",
+    };
   }
 
   private async summarizeEmailNode(state: any): Promise<any> {
     this.logger.log("Executing email summarization");
 
     try {
-      // Create a basic summarization agent as fallback
-      const summarizationAgent = this.agentFactory.createBaseAgent({
-        name: "EmailSummarizationAgent",
-        systemPrompt:
-          "You are an email summarization agent. Create concise summaries of email content. Respond with JSON format: {summary: string}",
-        llmOptions: { temperature: 0.3, model: "gpt-4o" },
-      });
-
-      const summary = await summarizationAgent.processState(state);
-
+      // ✅ Use specialized email summarization agent
+      const agent = this.emailAgentFactory.getEmailSummarizationAgent();
+      const updatedState = await agent.processState(state);
+      
+      this.logger.log(`Email summarized successfully`);
+      
       return {
-        ...state,
-        summary: summary.summary || "Email summary not available",
+        ...updatedState,
         currentStep: "summarization_completed",
         progress: 70,
       };
     } catch (error) {
-      this.logger.warn(`Email summarization failed: ${error.message}`);
+      this.logger.warn(`Email summarization failed, using fallback: ${error.message}`);
+      
+      // ✅ Intelligent fallback with basic summary
       return {
         ...state,
-        summary: "Email summary not available",
+        summary: this.fallbackSummary(state),
         currentStep: "summarization_completed",
         progress: 70,
       };
     }
   }
 
+  /**
+   * Fallback summarization when AI agent fails
+   */
+  private fallbackSummary(state: any): any {
+    const emailContent = state.emailData?.body || "";
+    const subject = state.emailData?.metadata?.subject || "";
+    const from = state.emailData?.metadata?.from || "";
+
+    // Extract first few sentences as brief summary
+    const sentences = emailContent.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const briefSummary = sentences.slice(0, 2).join('. ').trim() || "Email content unavailable";
+
+    // Generate basic key points
+    const keyPoints = [
+      `From: ${from}`,
+      `Subject: ${subject}`,
+      briefSummary.length > 100 ? "Long email content" : "Short email content",
+    ];
+
+    return {
+      briefSummary: briefSummary.substring(0, 200) + (briefSummary.length > 200 ? "..." : ""),
+      keyPoints,
+      sentiment: "neutral",
+      confidence: 0.5,
+      reasoning: "Pattern-based fallback summarization",
+    };
+  }
+
   private async generateReplyNode(state: any): Promise<any> {
     this.logger.log("Executing reply draft generation");
 
     try {
-      // Create a basic reply agent as fallback
-      const replyAgent = this.agentFactory.createBaseAgent({
-        name: "EmailReplyDraftAgent",
-        systemPrompt:
-          "You are an email reply draft agent. Generate appropriate email replies. Respond with JSON format: {replyDraft: string}",
-        llmOptions: { temperature: 0.4, model: "gpt-4o" },
-      });
-
-      const replyDraft = await replyAgent.processState(state);
-
+      // ✅ Use specialized email reply draft agent
+      const agent = this.emailAgentFactory.getEmailReplyDraftAgent();
+      const updatedState = await agent.processState(state);
+      
+      this.logger.log(`Reply draft generated successfully`);
+      
       return {
-        ...state,
-        replyDraft: replyDraft.replyDraft || "Reply draft not available",
+        ...updatedState,
         currentStep: "reply_generation_completed",
         progress: 90,
       };
     } catch (error) {
-      this.logger.warn(`Reply generation failed: ${error.message}`);
+      this.logger.warn(`Reply generation failed, using fallback: ${error.message}`);
+      
+      // ✅ Intelligent fallback with basic reply
       return {
         ...state,
-        replyDraft: "Reply draft not available",
+        replyDraft: this.fallbackReplyDraft(state),
         currentStep: "reply_generation_completed",
         progress: 90,
       };
     }
+  }
+
+  /**
+   * Fallback reply draft when AI agent fails
+   */
+  private fallbackReplyDraft(state: any): any {
+    const subject = state.emailData?.metadata?.subject || "";
+    const from = state.emailData?.metadata?.from || "";
+    const classification = state.classification;
+
+    // Generate basic reply based on classification
+    let replyBody = "Thank you for your email. ";
+    
+    if (classification?.category === "question") {
+      replyBody += "We have received your question and will provide a response shortly.";
+    } else if (classification?.category === "bug_report") {
+      replyBody += "We have received your bug report and our team will investigate this issue.";
+    } else if (classification?.category === "feature_request") {
+      replyBody += "We have received your feature request and will consider it for future development.";
+    } else if (classification?.category === "complaint") {
+      replyBody += "We sincerely apologize for any inconvenience and will address your concerns promptly.";
+    } else {
+      replyBody += "We have received your message and will respond accordingly.";
+    }
+
+    return {
+      subject: `Re: ${subject}`,
+      body: replyBody,
+      tone: "professional",
+      confidence: 0.6,
+      reasoning: "Pattern-based fallback reply generation",
+    };
   }
 
   private async finalizeNode(state: any): Promise<any> {

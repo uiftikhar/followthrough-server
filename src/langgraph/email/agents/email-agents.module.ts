@@ -1,8 +1,8 @@
 import { Module } from "@nestjs/common";
 import { LlmModule } from "../../llm/llm.module";
-import { LanggraphCoreModule } from "../../langgraph/core/core.module";
-import { AgentFrameworkModule } from "../../agent-framework/agent-framework.module";
-import { SharedCoreModule } from "../../shared/shared-core.module";
+import { LanggraphCoreModule } from "../../core/core.module";
+import { AgentFrameworkModule } from "../../../agent-framework/agent-framework.module";
+import { SharedCoreModule } from "../../../shared/shared-core.module";
 
 // Email-specific worker agents
 import { EmailClassificationAgent } from "./email-classification.agent";

@@ -17,9 +17,9 @@ import { MeetingWorkflowModule } from "./meeting/workflow/meeting-workflow.modul
 import { MeetingAnalysisModule } from "./langgraph/meeting-analysis/meeting-analysis.module";
 
 // Email modules
-import { EmailAgentsModule } from "./email/agents/email-agents.module";
-import { EmailWorkflowModule } from "./email/workflow/email-workflow.module";
-import { EmailModule } from "./email/email.module";
+import { EmailAgentsModule } from "./langgraph/email/agents/email-agents.module";
+import { EmailWorkflowModule } from "./langgraph/email/workflow/email-workflow.module";
+import { EmailModule } from "./langgraph/email/email.module";
 import { GoogleOAuthModule } from "./integrations/google/google-oauth.module";
 import { CalendarModule } from "./calendar/calendar.module";
 

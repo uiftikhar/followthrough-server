@@ -1,14 +1,14 @@
 import { Injectable, Inject, Logger } from "@nestjs/common";
-import { LLM_SERVICE } from "../../langgraph/llm/constants/injection-tokens";
-import { LlmService } from "../../langgraph/llm/llm.service";
-import { RAG_SERVICE } from "../../rag/constants/injection-tokens";
-import { RagService } from "../../rag/rag.service";
-import { VectorIndexes } from "../../pinecone/pinecone-index.service";
-import {
+
+  import {
   EmailSummary,
   EmailSummarizationConfig,
 } from "../dtos/email-triage.dto";
 import { EMAIL_SUMMARIZATION_CONFIG } from "./constants/injection-tokens";
+import { LLM_SERVICE } from "src/langgraph/llm/constants/injection-tokens";
+import { LlmService } from "src/langgraph/llm/llm.service";
+import { VectorIndexes } from "src/pinecone/pinecone-index.service";
+import { RAG_SERVICE, RagService } from "src/rag";
 
 /**
  * RAG-Enhanced Email Summarization Agent
