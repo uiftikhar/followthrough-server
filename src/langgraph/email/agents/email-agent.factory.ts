@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 
-
 // Import the existing email agents from the email module
 import { EmailClassificationAgent } from "./email-classification.agent";
 import { EmailSummarizationAgent } from "./email-summarization.agent";
