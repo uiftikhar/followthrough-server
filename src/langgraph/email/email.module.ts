@@ -22,7 +22,7 @@ import { DatabaseModule } from "../../database/database.module";
     ConfigModule,
     MCPModule,
     DatabaseModule, // Provides EmailTriageSessionRepository
-    EmailWorkflowModule, // Provides workflow services and UnifiedWorkflowService
+    EmailWorkflowModule, // Provides optimized EmailTriageService and centralized event handling
   ],
   controllers: [
     EmailActionController, // User action handlers for email workflow results

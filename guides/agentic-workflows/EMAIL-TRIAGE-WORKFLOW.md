@@ -190,23 +190,38 @@ interface IncomingEmail {
 async triageEmail(@Body() emailData: EmailTriageDto, @Request() req) {
   const userId = req.user?.userId;
   
-  // Prepare input for unified workflow
-  const input = {
-    type: "email",
-    emailData: {
-      id: emailData.id,
-      from: emailData.from,
-      to: emailData.to,
+  // ✅ NEW: Use GmailEmailProcessorService for unified processing
+  const gmailEmailData = {
+    id: emailData.id,
+    threadId: emailData.threadId || `thread-${emailData.id}`,
+    body: emailData.body,
+    metadata: {
       subject: emailData.subject,
-      body: emailData.body,
-      receivedAt: emailData.receivedAt,
-      attachments: emailData.attachments || [],
-      metadata: emailData.metadata || {}
+      from: emailData.from,
+      to: emailData.to.join(', '),
+      timestamp: emailData.receivedAt,
+      headers: emailData.metadata?.headers,
+      gmailSource: false, // Manual test triage
+      messageId: emailData.id,
+      labels: emailData.labels,
+      userId: userId,
     },
-    sessionId: `email-${emailData.id}-${Date.now()}`
   };
 
-  return this.unifiedWorkflowService.processInput(input, emailData.metadata, userId);
+  // Process through unified email processor (includes filtering and LLM routing)
+  const result = await this.gmailEmailProcessor.processEmail(
+    gmailEmailData,
+    'test', // source
+    { userId, skipCache: true } // options
+  );
+
+  return {
+    success: result.status === 'processed',
+    sessionId: result.sessionId,
+    status: result.status,
+    reason: result.reason,
+    error: result.error,
+  };
 }
 ```
 

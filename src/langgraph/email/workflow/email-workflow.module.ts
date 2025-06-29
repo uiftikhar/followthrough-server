@@ -3,6 +3,7 @@ import { EmailAgentsModule } from "../agents/email-agents.module";
 import { SharedCoreModule } from "src/shared/shared-core.module";
 // Email-specific workflow services
 import { EmailTriageService } from "./email-triage.service";
+import { EmailTriageEventService } from "../services/email-triage-event.service";
 import { InfrastructureModule } from "src/infrastructure/infrastructure.module";
 import { RagCoreModule } from "src/rag-core/rag-core.module";
 import { WorkflowFrameworkModule } from "src/workflow-framework/workflow-framework.module";
@@ -26,11 +27,13 @@ import { DatabaseModule } from "src/database/database.module";
   ],
   providers: [
     EmailTriageService, // Team handler that registers with supervisor using LangGraph
+    EmailTriageEventService, // Centralized event emission service
   ],
   exports: [
     WorkflowFrameworkModule, // Re-export for controllers
     EmailAgentsModule, // Re-export for controllers to access agents
     EmailTriageService,
+    EmailTriageEventService, // Export centralized event service
   ],
 })
 export class EmailWorkflowModule {}

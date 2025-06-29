@@ -30,6 +30,7 @@ import { GmailWatchService } from "./services/gmail-watch.service";
 import { GmailBackgroundService } from "./services/gmail-background.service";
 import { GmailShutdownService } from "./services/gmail-shutdown.service";
 import { GmailNotificationService } from "./services/gmail-notification.service";
+import { GmailEmailProcessorService } from "./services/gmail-email-processor.service";
 
 // Controllers
 import { GoogleOAuthController } from "./controllers/google-oauth.controller";
@@ -95,6 +96,7 @@ import { GmailNotificationGateway } from "./services/gmail-notification.gateway"
     GmailBackgroundService, // Background jobs and health monitoring
     GmailShutdownService, // Gmail shutdown service
     GmailNotificationService,
+    GmailEmailProcessorService, // ✅ NEW: Unified email processing service
 
     // Real-time notifications
     GmailNotificationGateway, // WebSocket gateway for real-time client notifications
@@ -115,6 +117,7 @@ import { GmailNotificationGateway } from "./services/gmail-notification.gateway"
     GmailBackgroundService,
     GmailShutdownService,
     GmailNotificationService,
+    GmailEmailProcessorService, // ✅ NEW: Export unified email processing service
     GmailNotificationGateway, // Export gateway for use in other modules
     GoogleAuthGuard,
     UserGoogleTokensRepository,

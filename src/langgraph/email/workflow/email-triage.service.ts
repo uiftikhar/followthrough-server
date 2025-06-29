@@ -13,6 +13,7 @@ import { EmailTriageState } from "../dtos/email-triage.dto";
 import { v4 as uuidv4 } from "uuid";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { EmailTriageSessionRepository } from "../../../database/repositories/email-triage-session.repository";
+import { EmailTriageEventService } from "../services/email-triage-event.service";
 
 /**
  * EmailTriageService - Team Handler for Email Domain
@@ -34,9 +35,10 @@ export class EmailTriageService
     private readonly emailAgentFactory: EmailAgentFactory,
     private readonly eventEmitter: EventEmitter2,
     private readonly emailTriageSessionRepository: EmailTriageSessionRepository,
+    private readonly emailTriageEventService: EmailTriageEventService,
   ) {
     this.logger.log(
-      "EmailTriageService constructor called - using specialized EmailAgentFactory",
+      "EmailTriageService constructor called - using specialized EmailAgentFactory and centralized event service",
     );
     this.initializeEmailTriageGraph();
   }
@@ -124,79 +126,64 @@ export class EmailTriageService
   }
 
   /**
-   * Process email triage tasks - required by TeamHandler interface
-   * This is the main entry point for email processing
-   * UPDATED: Now uses specialized EmailAgentFactory and proper LangGraph pattern
+   * ✅ NEW: Direct processing method (like MeetingAnalysisService.process())
+   * This allows controllers to call EmailTriageService directly without UnifiedWorkflowService
    */
-  async process(input: any): Promise<any> {
-    this.logger.log(
-      `Processing email triage task for email: ${input.emailData?.id} using specialized EmailAgentFactory`,
-    );
+  async processEmailDirectly(
+    emailData: any,
+    metadata?: any,
+    userId?: string
+  ): Promise<any> {
+    const sessionId = `email-${emailData.id}-${Date.now()}`;
+    
+    this.logger.log(`🚀 Direct email processing for session: ${sessionId}`);
+
+    // Create initial state
+    const initialState: EmailTriageState = {
+      sessionId,
+      emailData: {
+        id: emailData.id,
+        body: emailData.body,
+        metadata: {
+          ...emailData.metadata,
+          userId: userId || emailData.metadata?.userId,
+        },
+      },
+      currentStep: "initializing",
+      progress: 0,
+    };
 
     try {
-      // Validate input structure
-      if (!input.emailData) {
-        throw new Error("Invalid input structure: missing emailData");
-      }
-
-      // Create EmailTriageState for the LangGraph StateGraph
-      const sessionId = input.sessionId || uuidv4();
-      const initialState: EmailTriageState = {
-        sessionId,
-        emailData: {
-          id: input.emailData.id || `email-${Date.now()}`,
-          body: input.emailData.body || "",
-          metadata: {
-            subject: input.emailData.metadata?.subject,
-            from: input.emailData.metadata?.from,
-            to: input.emailData.metadata?.to,
-            timestamp:
-              input.emailData.metadata?.timestamp || new Date().toISOString(),
-            headers: input.emailData.metadata?.headers || {},
-            userId: input.emailData.metadata?.userId, // Add userId for tone learning
-          },
-        },
-        currentStep: "initializing",
-        progress: 0,
-      };
-
-      this.logger.log(`🚀 Starting email triage for session: ${sessionId}`);
-
       // Create database session record
-      const userId = input.emailData.metadata?.userId || input.userId || sessionId;
       await this.emailTriageSessionRepository.create({
         sessionId,
-        userId,
-        emailId: input.emailData.id,
+        userId: userId || emailData.metadata?.userId || sessionId,
+        emailId: emailData.id,
         status: "processing",
         startTime: new Date(),
         emailData: {
           ...initialState.emailData,
-          id: initialState.emailData.id || `email-${Date.now()}`, // Ensure id is always string
+          id: initialState.emailData.id || `email-${Date.now()}`,
         },
-        source: input.metadata?.source || "langgraph_stategraph_service",
-        metadata: input.metadata || {},
+        source: metadata?.source || "direct_processing",
+        metadata: metadata || {},
       });
 
-      // Emit immediate triage started event
-      this.eventEmitter.emit("email.triage.started", {
+      // Emit events using centralized service
+      this.emailTriageEventService.emitTriageStarted({
+        emailId: emailData.id,
+        emailAddress: emailData.metadata?.to || emailData.metadata?.emailAddress,
+        subject: emailData.metadata?.subject,
+        from: emailData.metadata?.from,
         sessionId,
-        emailId: input.emailData.id,
-        emailAddress:
-          input.emailData.metadata?.to ||
-          input.emailData.metadata?.emailAddress,
-        subject: input.emailData.metadata?.subject,
-        from: input.emailData.metadata?.from,
         timestamp: new Date().toISOString(),
-        source: "langgraph_stategraph_service",
+        source: metadata?.source || 'manual',
       });
 
-      // Execute the email triage graph
+      // Execute LangGraph workflow
       const finalState = await this.executeEmailTriageGraph(initialState);
-
-      this.logger.log(`✅ Email triage completed for session: ${sessionId}`);
-
-      // Save complete results to database
+      
+      // Save to database
       const completedSession = await this.emailTriageSessionRepository.complete(sessionId, {
         classification: finalState.classification,
         summary: finalState.summary,
@@ -206,36 +193,22 @@ export class EmailTriageService
         contextRetrievalResults: finalState.contextRetrievalResults,
         userToneProfile: finalState.userToneProfile,
       });
-
-      // Emit completion event with basic notification
-      this.eventEmitter.emit("email.triage.completed", {
+      
+      // Emit completion events using centralized service
+      this.emailTriageEventService.emitTriageCompleted({
+        emailId: emailData.id,
+        emailAddress: emailData.metadata?.to || emailData.metadata?.emailAddress,
+        subject: emailData.metadata?.subject,
+        from: emailData.metadata?.from,
         sessionId,
-        emailId: input.emailData.id,
-        emailAddress:
-          input.emailData.metadata?.to ||
-          input.emailData.metadata?.emailAddress,
-        subject: input.emailData.metadata?.subject,
+        timestamp: new Date().toISOString(),
+        source: metadata?.source || 'manual',
         result: finalState.result,
         classification: finalState.classification,
         summary: finalState.summary,
         replyDraft: finalState.replyDraft,
         retrievedContext: finalState.retrievedContext,
         processingMetadata: finalState.processingMetadata,
-        timestamp: new Date().toISOString(),
-        source: "langgraph_stategraph_service",
-        langGraph: true,
-      });
-
-      // 🆕 Emit NEW enhanced triage results event with complete data
-      this.eventEmitter.emit("email.triage.results", {
-        sessionId,
-        emailId: input.emailData.id,
-        emailAddress:
-          input.emailData.metadata?.to ||
-          input.emailData.metadata?.emailAddress,
-        subject: input.emailData.metadata?.subject,
-        from: input.emailData.metadata?.from,
-        // Complete triage results
         triageResults: {
           classification: finalState.classification,
           summary: finalState.summary,
@@ -245,37 +218,25 @@ export class EmailTriageService
           contextRetrievalResults: finalState.contextRetrievalResults,
           userToneProfile: finalState.userToneProfile,
         },
-        // Database session info
         databaseSession: completedSession,
-        timestamp: new Date().toISOString(),
-        source: "langgraph_stategraph_service",
-        langGraph: true,
       });
 
-      // Return the final result in the expected format
-      return (
-        finalState.result || {
-          sessionId,
-          emailId: input.emailData.id,
-          classification: finalState.classification,
-          summary: finalState.summary,
-          replyDraft: finalState.replyDraft,
-          status: finalState.error ? "failed" : "completed",
-          processedAt: new Date(),
-        }
-      );
-    } catch (error) {
-      this.logger.error(
-        `Error processing email triage task: ${error.message}`,
-        error.stack,
-      );
+      return {
+        sessionId,
+        status: finalState.error ? 'failed' : 'completed',
+        classification: finalState.classification,
+        summary: finalState.summary,
+        replyDraft: finalState.replyDraft,
+        processedAt: new Date(),
+      };
 
-      const sessionId = input.sessionId || uuidv4();
+    } catch (error) {
+      this.logger.error(`❌ Direct email processing failed: ${error.message}`, error.stack);
       
       // Save failed session to database
       try {
         await this.emailTriageSessionRepository.markFailed(sessionId, {
-          step: "email_triage_processing",
+          step: "direct_email_processing",
           error: error.message,
           timestamp: new Date().toISOString(),
         });
@@ -283,19 +244,43 @@ export class EmailTriageService
         this.logger.error(`Failed to save error to database: ${dbError.message}`);
       }
 
-      // Emit error event
-      this.eventEmitter.emit("email.triage.failed", {
+      // Emit failure event
+      this.emailTriageEventService.emitTriageFailed({
+        emailId: emailData.id,
+        emailAddress: emailData.metadata?.to || emailData.metadata?.emailAddress,
+        subject: emailData.metadata?.subject,
+        from: emailData.metadata?.from,
         sessionId,
-        emailId: input.emailData?.id,
-        emailAddress: input.emailData?.metadata?.to,
-        subject: input.emailData?.metadata?.subject,
         error: error.message,
         timestamp: new Date().toISOString(),
-        source: "langgraph_stategraph_service",
+        source: metadata?.source || 'manual',
       });
 
       throw error;
     }
+  }
+
+  /**
+   * Process email triage tasks - required by TeamHandler interface
+   * This maintains compatibility with UnifiedWorkflowService
+   * UPDATED: Now delegates to processEmailDirectly() for consistency
+   */
+  async process(input: any): Promise<any> {
+    this.logger.log(
+      `Processing email triage task for email: ${input.emailData?.id} via UnifiedWorkflowService compatibility`,
+    );
+
+    // Validate input structure
+    if (!input.emailData) {
+      throw new Error("Invalid input structure: missing emailData");
+    }
+
+    // Delegate to processEmailDirectly() for consistency
+    return this.processEmailDirectly(
+      input.emailData,
+      input.metadata,
+      input.emailData?.metadata?.userId || input.userId
+    );
   }
 
   /**

@@ -360,11 +360,12 @@ export class CalendarEventDetectionService {
    * 🚀 Perform periodic check for meetings starting/ending soon
    */
   private async performPeriodicMeetingCheck(): Promise<void> {
-    this.logger.debug("🔍 Performing periodic meeting timing check");
-
+    // ✅ REDUCED LOGGING: Only log when there's actual activity to reduce noise during email triage debugging
+    
     try {
       // Get all active channels to check their users
       const activeChannels = this.googleCalendarService.getActiveChannels();
+      let totalEvents = 0;
 
       for (const [userId, channel] of activeChannels) {
         // Check for meetings starting soon
@@ -377,10 +378,20 @@ export class CalendarEventDetectionService {
 
         // Process both sets of events
         const allEvents = [...startingSoon, ...endedRecently];
+        totalEvents += allEvents.length;
+        
         if (allEvents.length > 0) {
+          // Only log when there are actual events to process
+          this.logger.debug(`🔍 Meeting timing check found ${allEvents.length} events for user ${userId}`);
           await this.checkMeetingTimings(userId, allEvents);
         }
       }
+
+      // Only log periodic check when there are no active channels (for debugging setup issues)
+      if (activeChannels.size === 0) {
+        this.logger.debug("🔍 Periodic meeting timing check - no active calendar channels");
+      }
+      
     } catch (error) {
       this.logger.error(
         `❌ Error in periodic meeting check: ${error.message}`,

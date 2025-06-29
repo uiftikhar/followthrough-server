@@ -22,12 +22,10 @@ import {
 import { GmailService } from "../services/gmail.service";
 import { GoogleOAuthService } from "../services/google-oauth.service";
 import { GmailWatchService } from "../services/gmail-watch.service";
-import { UnifiedWorkflowService } from "../../../langgraph/unified-workflow.service";
+import { GmailEmailProcessorService, GmailEmailData } from "../services/gmail-email-processor.service";
 import { gmail_v1 } from "googleapis";
 import * as crypto from "crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { EnhancedEmailFilterService, EmailData } from "../../../langgraph/email/filters/enhanced-email-filter.service";
-import { EmailProcessingCacheService } from "../../../langgraph/email/cache/email-processing-cache.service";
 
 interface PubSubPushPayload {
   message: {
@@ -46,22 +44,7 @@ interface WebhookVerificationParams {
   "hub.verify_token"?: string;
 }
 
-interface GmailEmailData {
-  id: string;
-  threadId: string;
-  body: string;
-  metadata: {
-    subject: string;
-    from: string;
-    to: string;
-    timestamp: string;
-    headers?: any;
-    gmailSource: boolean;
-    messageId: string;
-    labels?: string[];
-    userId: string;
-  };
-}
+// GmailEmailData interface moved to GmailEmailProcessorService
 
 @Controller("api/webhook/google/mail")
 export class GmailWebhookController {
@@ -73,11 +56,9 @@ export class GmailWebhookController {
     private readonly gmailService: GmailService,
     private readonly googleOAuthService: GoogleOAuthService,
     private readonly gmailWatchService: GmailWatchService,
-    private readonly unifiedWorkflowService: UnifiedWorkflowService,
+    private readonly gmailEmailProcessor: GmailEmailProcessorService, // ✅ NEW: Unified email processing
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly enhancedEmailFilter: EnhancedEmailFilterService,
-    private readonly emailProcessingCache: EmailProcessingCacheService,
   ) {
     this.webhookSecret =
       this.configService.get<string>("GMAIL_WEBHOOK_SECRET") || "";
@@ -304,100 +285,64 @@ export class GmailWebhookController {
       );
 
       // 🚀 NEW APPROACH: Get only the most recent email instead of all emails
-      const mostRecentEmail = await this.getMostRecentEmail(
+      // ✅ FIX: Get ALL new emails from history, not just one
+      const newEmails = await this.getNewEmailsFromHistory(
+        watchInfo.watchId,
         notification.emailAddress,
         notification.historyId,
       );
 
-      if (!mostRecentEmail) {
+      if (newEmails.length === 0) {
         this.logger.log(
-          `ℹ️ No new email found for: ${notification.emailAddress} (historyId: ${notification.historyId})`,
+          `📭 No new emails found for: ${notification.emailAddress} (historyId: ${notification.historyId})`,
         );
         return 0;
       }
 
       this.logger.log(
-        `📧 OPTIMIZED: Processing most recent email: ${mostRecentEmail.id} - "${mostRecentEmail.metadata.subject}" from ${mostRecentEmail.metadata.from}`,
+        `📧 PROCESSING: Found ${newEmails.length} new emails for: ${notification.emailAddress}`,
       );
 
-      // ✅ Check if already processed (prevent duplicates)
-      if (await this.emailProcessingCache.has(mostRecentEmail.id)) {
-        this.logger.log(
-          `⏭️ Email ${mostRecentEmail.id} already processed, skipping to prevent duplicates`,
-        );
-        return 0;
+      // Process each new email through unified processor
+      let processedCount = 0;
+      for (const email of newEmails) {
+        try {
+          this.logger.log(
+            `🚀 Processing email: ${email.id} - "${email.metadata.subject}" from ${email.metadata.from}`,
+          );
+
+          const result = await this.gmailEmailProcessor.processEmail(
+            email,
+            'push',
+            { 
+              watchId: watchInfo.watchId, 
+              userId: watchInfo.userId.toString() 
+            }
+          );
+          
+          if (result.status === 'processed') {
+            processedCount++;
+            this.logger.log(`✅ Email ${email.id} processed successfully`);
+          } else {
+            this.logger.log(
+              `ℹ️ Email ${email.id} ${result.status}: ${result.reason || 'No reason provided'}`,
+            );
+          }
+          
+        } catch (error) {
+          this.logger.error(`❌ Failed to process email ${email.id}:`, error);
+        }
       }
 
-      // 🧠 Apply smart filtering BEFORE expensive LLM processing
-      const emailData: EmailData = {
-        id: mostRecentEmail.id,
-        subject: mostRecentEmail.metadata.subject,
-        from: mostRecentEmail.metadata.from,
-        to: mostRecentEmail.metadata.to,
-        body: mostRecentEmail.body,
-        metadata: mostRecentEmail.metadata,
-      };
-
-      const filterResult = await this.enhancedEmailFilter.analyzeEmail(emailData);
-      
-      // Mark as processed regardless of whether we triage it
-      await this.emailProcessingCache.set(mostRecentEmail.id, true, 3600); // 1 hour TTL
-
-      if (!filterResult.shouldProcess) {
+      // Record processing statistics
+      if (processedCount > 0) {
+        await this.gmailWatchService.recordEmailsProcessed(watchInfo.watchId, processedCount);
         this.logger.log(
-          `🚫 FILTERED OUT: ${mostRecentEmail.id} - ${filterResult.category} (${filterResult.reasoning})`,
+          `✅ Successfully processed ${processedCount}/${newEmails.length} emails for: ${notification.emailAddress}`,
         );
-        
-        // Emit filtered event for monitoring
-        this.eventEmitter.emit("email.filtered", {
-          emailId: mostRecentEmail.id,
-          emailAddress: notification.emailAddress,
-          subject: mostRecentEmail.metadata.subject,
-          from: mostRecentEmail.metadata.from,
-          category: filterResult.category,
-          priority: filterResult.priority,
-          reasoning: filterResult.reasoning,
-          confidence: filterResult.confidence,
-          timestamp: new Date().toISOString(),
-          source: "gmail_push",
-        });
-
-        return 0; // Email filtered out, no processing cost
       }
 
-      // 💰 Only process high-value emails that passed filtering
-      this.logger.log(
-        `🎯 PROCESSING: ${mostRecentEmail.id} - ${filterResult.category} (${filterResult.priority} priority)`,
-      );
-
-      try {
-        await this.triggerEmailTriage(watchInfo.watchId, mostRecentEmail, filterResult);
-        
-        // Record processing statistics
-        await this.gmailWatchService.recordEmailsProcessed(watchInfo.watchId, 1);
-        
-        this.logger.log(
-          `✅ OPTIMIZED: Successfully processed 1 email for: ${notification.emailAddress}`,
-        );
-        
-        return 1; // Exactly 1 email processed
-        
-      } catch (error) {
-        this.logger.error(`❌ Failed to process email ${mostRecentEmail.id}:`, error);
-
-        // Emit failure event
-        this.eventEmitter.emit("email.triage.failed", {
-          emailId: mostRecentEmail.id,
-          emailAddress: notification.emailAddress,
-          subject: mostRecentEmail.metadata.subject,
-          from: mostRecentEmail.metadata.from,
-          error: error.message,
-          timestamp: new Date().toISOString(),
-          source: "gmail_push",
-        });
-
-        return 0;
-      }
+      return processedCount;
 
     } catch (error) {
       this.logger.error(
@@ -1073,128 +1018,7 @@ export class GmailWebhookController {
     );
   }
 
-  /**
-   * Trigger email triage for a specific email using UnifiedWorkflowService
-   * ENHANCED: Now accepts optional filter result for context
-   */
-  private async triggerEmailTriage(
-    watchId: string,
-    email: GmailEmailData,
-    filterResult?: any,
-  ): Promise<void> {
-    try {
-      this.logger.log(
-        `🎯 Triggering email triage for email ${email.id} from watch ${watchId}`,
-      );
-      this.logger.log(
-        `📧 Email details - Subject: "${email.metadata.subject}", From: ${email.metadata.from}`,
-      );
 
-      // Get user ID from email metadata or watch info
-      const userId = email.metadata.userId || watchId; // Fallback to watchId if userId not available
-      this.logger.log(`👤 Using userId: ${userId} for triage processing`);
-
-      // Emit immediate email received notification for real-time updates
-      this.logger.log(
-        `📡 Emitting email.received event for immediate notification`,
-      );
-      this.eventEmitter.emit("email.received", {
-        emailId: email.id,
-        emailAddress: email.metadata.to,
-        subject: email.metadata.subject,
-        from: email.metadata.from,
-        to: email.metadata.to,
-        body: email.body.substring(0, 500), // First 500 chars for preview
-        timestamp: email.metadata.timestamp,
-        fullEmail: {
-          id: email.id,
-          threadId: email.threadId,
-          metadata: email.metadata,
-          bodyLength: email.body.length,
-        },
-      });
-
-      // Transform Gmail email data to unified workflow input format
-      const triageInput = {
-        type: "email_triage",
-        emailData: {
-          id: email.id,
-          body: email.body,
-          metadata: email.metadata,
-        },
-        content: email.body, // Include content for processing
-      };
-
-      this.logger.log(
-        `🔄 Submitting email to UnifiedWorkflowService for full triage processing`,
-      );
-
-      // Emit triage started event
-      this.logger.log(`📡 Emitting triage.started event`);
-      this.eventEmitter.emit("email.triage.started", {
-        emailId: email.id,
-        emailAddress: email.metadata.to,
-        subject: email.metadata.subject,
-        from: email.metadata.from,
-        timestamp: new Date().toISOString(),
-        source: "gmail_push",
-      });
-
-      // Emit triage processing event BEFORE processing starts
-      this.logger.log(
-        `📡 Emitting triage.processing event for email: ${email.id}`,
-      );
-      this.eventEmitter.emit("email.triage.processing", {
-        emailId: email.id,
-        emailAddress: email.metadata.to,
-        subject: email.metadata.subject,
-        timestamp: new Date().toISOString(),
-        source: "gmail_push",
-        status: "processing",
-      });
-
-      // Process through existing unified workflow service
-      const result = await this.unifiedWorkflowService.processInput(
-        triageInput,
-        {
-          source: "gmail_push",
-          watchId,
-          emailAddress: email.metadata.to,
-          gmailSource: email.metadata.gmailSource,
-        },
-        userId,
-      );
-
-      this.logger.log(
-        `✅ Email triage completed for ${email.id}, session: ${result.sessionId}`,
-      );
-
-      // Note: triage.completed events will be emitted by the workflow system when processing finishes
-      // The UnifiedWorkflowService should emit these events automatically
-
-      this.logger.log(
-        `🎉 Triage process successfully started for email: ${email.id}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `❌ Failed to trigger email triage for email ${email.id}:`,
-        error,
-      );
-
-      // Emit error event for real-time notifications
-      this.logger.log(`📡 Emitting triage.failed event for email: ${email.id}`);
-      this.eventEmitter.emit("email.triage.failed", {
-        emailId: email.id,
-        emailAddress: email.metadata.to,
-        subject: email.metadata.subject,
-        error: error.message,
-        timestamp: new Date().toISOString(),
-        source: "gmail_push",
-      });
-
-      throw error;
-    }
-  }
 
   /**
    * Verify Google Cloud Pub/Sub request authenticity
@@ -1275,69 +1099,8 @@ export class GmailWebhookController {
   /**
    * Process new emails from Gmail History API and trigger triage
    */
-  private async processNewEmails(
-    newEmails: any[],
-    emailAddress: string,
-  ): Promise<void> {
-    this.logger.log(
-      `Processing ${newEmails.length} new emails for ${emailAddress}`,
-    );
 
-    for (const email of newEmails) {
-      try {
-        const sessionId = `gmail-${emailAddress}-${Date.now()}`;
-
-        // Emit start event for real-time tracking
-        this.eventEmitter.emit("email.triage.started", {
-          sessionId,
-          emailId: email.id,
-          emailAddress,
-          timestamp: new Date().toISOString(),
-        });
-
-        // Process email through unified workflow service
-        const result = await this.unifiedWorkflowService.processInput(
-          {
-            type: "email_triage",
-            content: email.body,
-            emailData: email,
-            metadata: email.metadata,
-          },
-          {
-            source: "gmail_push",
-            emailAddress: emailAddress,
-          },
-          sessionId,
-        );
-
-        this.logger.log(
-          `Email triage completed for ${email.id}, session: ${result.sessionId}`,
-        );
-
-        // Emit completion event for real-time notifications
-        this.eventEmitter.emit("email.triage.completed", {
-          sessionId: result.sessionId,
-          emailId: email.id,
-          emailAddress: emailAddress,
-          result: result,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (error) {
-        this.logger.error(
-          `Failed to trigger email triage for email ${email.id}:`,
-          error,
-        );
-
-        // Emit error event
-        this.eventEmitter.emit("email.triage.failed", {
-          emailId: email.id,
-          emailAddress: emailAddress,
-          error: error.message,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    }
-  }
+  // All email processing now goes through the centralized GmailEmailProcessorService
 
   @Get("debug/:emailAddress")
   async debugEmailHistory(
