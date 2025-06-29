@@ -5,6 +5,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 
 // Import workflow services
 import { LanggraphModule } from "../../langgraph/langgraph.module";
+import { EmailModule } from "../../langgraph/email/email.module";
 
 // Schemas
 import {
@@ -29,6 +30,7 @@ import { GmailWatchService } from "./services/gmail-watch.service";
 import { GmailBackgroundService } from "./services/gmail-background.service";
 import { GmailShutdownService } from "./services/gmail-shutdown.service";
 import { GmailNotificationService } from "./services/gmail-notification.service";
+import { GmailEmailProcessorService } from "./services/gmail-email-processor.service";
 
 // Controllers
 import { GoogleOAuthController } from "./controllers/google-oauth.controller";
@@ -71,6 +73,7 @@ import { GmailNotificationGateway } from "./services/gmail-notification.gateway"
     ConfigModule, // For Google OAuth and Pub/Sub configuration
     ScheduleModule.forRoot(), // For cron jobs and background tasks
     LanggraphModule, // For UnifiedWorkflowService integration
+    EmailModule, // For enhanced email filtering and processing cache
     MongooseModule.forFeature([
       { name: UserGoogleTokens.name, schema: UserGoogleTokensSchema },
       { name: GmailWatch.name, schema: GmailWatchSchema },
@@ -93,6 +96,7 @@ import { GmailNotificationGateway } from "./services/gmail-notification.gateway"
     GmailBackgroundService, // Background jobs and health monitoring
     GmailShutdownService, // Gmail shutdown service
     GmailNotificationService,
+    GmailEmailProcessorService, // ✅ NEW: Unified email processing service
 
     // Real-time notifications
     GmailNotificationGateway, // WebSocket gateway for real-time client notifications
@@ -113,6 +117,7 @@ import { GmailNotificationGateway } from "./services/gmail-notification.gateway"
     GmailBackgroundService,
     GmailShutdownService,
     GmailNotificationService,
+    GmailEmailProcessorService, // ✅ NEW: Export unified email processing service
     GmailNotificationGateway, // Export gateway for use in other modules
     GoogleAuthGuard,
     UserGoogleTokensRepository,

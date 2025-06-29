@@ -14,7 +14,8 @@ export interface GraphProgressEvent {
 }
 
 /**
- * Service for executing agent graphs and tracking progress
+ * Service for executing LangGraph StateGraphs and tracking progress
+ * This service is now focused exclusively on LangGraph execution
  */
 @Injectable()
 export class GraphExecutionService {
@@ -24,184 +25,40 @@ export class GraphExecutionService {
   constructor(private readonly eventEmitter: EventEmitter2) {}
 
   /**
-   * Execute a graph with the given initial state
-   * @param graph The graph to execute
+   * Execute a LangGraph StateGraph with the given initial state
+   * @param graph The compiled LangGraph StateGraph to execute
    * @param initialState The initial state for the graph
    * @returns The final state after graph execution
    */
   async executeGraph<T>(graph: any, initialState: T): Promise<T> {
-    this.logger.log("Executing agent graph");
+    this.logger.log("Executing LangGraph StateGraph");
 
-    // Check if the graph is a CustomGraph
-    if (graph.execute && typeof graph.execute === "function") {
-      this.logger.log("Using graph execute method");
-      const finalState = await graph.execute(initialState);
-      this.logger.log("Graph execution completed");
+    // Ensure this is a compiled LangGraph with invoke method
+    if (!graph.invoke || typeof graph.invoke !== "function") {
+      throw new Error(
+        "Invalid graph provided. Only compiled LangGraph StateGraphs are supported. " +
+          "Please ensure your graph is created using StateGraph and compiled with .compile()",
+      );
+    }
+
+    try {
+      this.logger.log("Using LangGraph invoke method");
+      const finalState = await graph.invoke(initialState);
+      this.logger.log("LangGraph execution completed successfully");
       return finalState;
+    } catch (error) {
+      this.logger.error(
+        `LangGraph execution failed: ${error.message}`,
+        error.stack,
+      );
+      throw new Error(`Graph execution failed: ${error.message}`);
     }
-
-    // Fallback for other graph types
-    this.logger.warn(
-      "Graph has no execute method, using custom execution logic",
-    );
-    let currentState = { ...initialState } as any;
-    let currentNode = "__start__";
-
-    // Keep track of visited nodes to prevent infinite loops
-    const visitedPaths = new Set<string>();
-
-    // Execute the graph until we reach the END node or hit an error
-    while (currentNode !== "__end__") {
-      this.logger.debug(`Processing node: ${currentNode}`);
-
-      // Create a path signature to detect loops
-      const pathSignature = `${currentNode}`;
-
-      // Check for infinite loops
-      if (visitedPaths.has(pathSignature)) {
-        throw new Error(`Infinite loop detected at node ${currentNode}`);
-      }
-
-      visitedPaths.add(pathSignature);
-
-      // Get the next node
-      const nextNodeInfo = this.findNextNode(graph, currentNode, currentState);
-
-      if (!nextNodeInfo) {
-        throw new Error(`No edge found from node ${currentNode}`);
-      }
-
-      this.logger.debug(`Next node: ${nextNodeInfo.target}`);
-
-      // Update current node
-      currentNode = nextNodeInfo.target;
-
-      // Skip execution for START node
-      if (currentNode === "__start__") {
-        continue;
-      }
-
-      // Skip execution for END node
-      if (currentNode === "__end__") {
-        break;
-      }
-
-      // Execute the current node
-      const nodeFn = graph.nodes?.[currentNode];
-      if (!nodeFn) {
-        throw new Error(`Node ${currentNode} not found in graph`);
-      }
-
-      try {
-        this.logger.debug(`Executing node: ${currentNode}`);
-        const prevState = { ...currentState };
-        currentState = await nodeFn(currentState);
-
-        // Run state transition handlers
-        if (graph.stateTransitionHandlers) {
-          for (const handler of graph.stateTransitionHandlers) {
-            currentState = await handler(prevState, currentState, currentNode);
-          }
-        }
-      } catch (error) {
-        this.logger.error(
-          `Error executing node ${currentNode}: ${error.message}`,
-          error.stack,
-        );
-        throw error;
-      }
-    }
-
-    this.logger.log("Graph execution completed");
-    return currentState as T;
-  }
-
-  /**
-   * Find the next node based on the current node and state
-   */
-  private findNextNode(
-    graph: any,
-    currentNode: string,
-    state: any,
-  ): { target: string } | null {
-    // Check if the graph has a getNextNode method
-    if (graph.findNextNode && typeof graph.findNextNode === "function") {
-      return graph.findNextNode(currentNode, state);
-    }
-
-    // Fallback to checking edges manually
-    const edges = graph.edges?.filter((edge) => edge.source === currentNode);
-
-    if (!edges || edges.length === 0) {
-      return null;
-    }
-
-    // Handle conditional edges
-    for (const edge of edges) {
-      if (edge.isConditional && edge.condition) {
-        const target = edge.condition(state);
-        if (target) {
-          return { target };
-        }
-      } else if (!edge.isConditional && edge.target) {
-        return { target: edge.target };
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Attach a progress tracker to the graph
-   * @param graph The graph to attach the tracker to
-   * @param sessionId The session ID for progress updates
-   */
-  attachProgressTracker(graph: any, sessionId: string): void {
-    this.logger.debug(
-      `Attaching progress tracker to graph for session ${sessionId}`,
-    );
-
-    // Initialize progress for this session
-    this.initProgress(sessionId);
-
-    // Attach state transition handler to track progress
-    graph.addStateTransitionHandler(
-      async (prevState: any, newState: any, nodeName: string) => {
-        try {
-          // Calculate progress based on the current node
-          const progress = this.calculateProgressForNode(nodeName);
-
-          // Only update progress if this is a significant change
-          if (
-            progress > 0 &&
-            progress > (this.progressMap.get(sessionId) || 0)
-          ) {
-            // Publish progress update
-            this.publishProgressUpdate(
-              sessionId,
-              nodeName,
-              progress,
-              "in_progress",
-              `Executing ${nodeName.replace("_", " ")}`,
-            );
-          }
-        } catch (error) {
-          this.logger.error(
-            `Error in progress tracking: ${error.message}`,
-            error.stack,
-          );
-        }
-
-        // Always return the newState to continue graph execution
-        return newState;
-      },
-    );
   }
 
   /**
    * Initialize progress tracking for a new session
    */
-  private initProgress(sessionId: string): void {
+  initProgress(sessionId: string): void {
     this.progressMap.set(sessionId, 0);
     this.publishProgressUpdate(
       sessionId,
@@ -214,19 +71,77 @@ export class GraphExecutionService {
   }
 
   /**
-   * Calculate progress percentage based on current node
-   * This is a basic implementation that can be extended by services
+   * Update progress for a specific session
    */
-  private calculateProgressForNode(nodeName: string): number {
+  updateProgress(
+    sessionId: string,
+    phase: string,
+    progress: number,
+    status: "pending" | "in_progress" | "completed" | "failed" = "in_progress",
+    message?: string,
+  ): void {
+    // Only update progress if this is a significant change
+    const currentProgress = this.progressMap.get(sessionId) || 0;
+    if (progress > currentProgress) {
+      this.publishProgressUpdate(sessionId, phase, progress, status, message);
+    }
+  }
+
+  /**
+   * Complete progress tracking for a session
+   */
+  completeProgress(
+    sessionId: string,
+    message: string = "Graph execution completed",
+  ): void {
+    this.publishProgressUpdate(
+      sessionId,
+      "completed",
+      100,
+      "completed",
+      message,
+    );
+    // Clean up progress tracking for this session
+    this.progressMap.delete(sessionId);
+  }
+
+  /**
+   * Fail progress tracking for a session
+   */
+  failProgress(
+    sessionId: string,
+    message: string = "Graph execution failed",
+  ): void {
+    this.publishProgressUpdate(sessionId, "failed", 0, "failed", message);
+    // Clean up progress tracking for this session
+    this.progressMap.delete(sessionId);
+  }
+
+  /**
+   * Calculate progress percentage based on current node
+   */
+  calculateProgressForNode(nodeName: string): number {
     // Default progress values based on common node names
     const progressMap: Record<string, number> = {
       __start__: 0,
-      initialization: 5,
-      routing: 10,
-      analysis: 50,
-      processing: 75,
-      finalization: 90,
+      initialization: 10,
+      contextRetrieval: 20,
+      topicExtraction: 40,
+      actionItemExtraction: 60,
+      sentimentAnalysis: 70,
+      summaryGeneration: 80,
+      documentStorage: 90,
+      finalization: 95,
       __end__: 100,
+      // Email triage specific
+      classify: 25,
+      summarize: 50,
+      generateReply: 75,
+      finalize: 90,
+      // Calendar workflow specific
+      syncCalendar: 30,
+      generateBrief: 60,
+      prepareMeeting: 80,
     };
 
     return progressMap[nodeName] || 0;

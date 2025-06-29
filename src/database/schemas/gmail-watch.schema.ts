@@ -8,7 +8,7 @@ export class GmailWatch {
   @Prop({ required: true, type: Types.ObjectId, ref: "User" })
   userId: Types.ObjectId;
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   watchId: string;
 
   @Prop({ required: true })

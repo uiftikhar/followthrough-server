@@ -32,45 +32,13 @@ import { GraphExecutionService } from "../langgraph/core/graph-execution.service
 // Agent services
 import { AgentFactory } from "../langgraph/agents/agent.factory";
 
-// Individual agents
-import { TopicExtractionAgent } from "../langgraph/agents/topic-extraction.agent";
-import { ActionItemAgent } from "../langgraph/agents/action-item.agent";
-import { SentimentAnalysisAgent } from "../langgraph/agents/sentiment-analysis.agent";
-import { SummaryAgent } from "../langgraph/agents/summary.agent";
-import { ParticipationAgent } from "../langgraph/agents/participation.agent";
-import { ContextIntegrationAgent } from "../langgraph/agents/context-integration.agent";
+// Shared agents only
 import { MasterSupervisorAgent } from "../langgraph/agents/master-supervisor.agent";
 
 // RAG Services
 import { RetrievalService } from "../rag/retrieval.service";
 import { RagService } from "../rag/rag.service";
 import { AdaptiveRagService } from "../rag/adaptive-rag.service";
-
-// RAG Agent imports and types
-import { RagMeetingAnalysisAgent } from "../langgraph/agents/rag-agents/rag-meeting-agent";
-import { RagTopicExtractionAgent } from "../langgraph/agents/rag-agents/rag-topic-extraction-agent";
-import { RagSentimentAnalysisAgent } from "../langgraph/agents/rag-agents/rag-sentiment-analysis-agent";
-
-// RAG Agent configuration types and tokens
-import {
-  RAG_MEETING_ANALYSIS_CONFIG,
-  RagMeetingAnalysisConfig,
-} from "../langgraph/agents/rag-agents/rag-meeting-agent";
-import {
-  RAG_TOPIC_EXTRACTION_CONFIG,
-  RagTopicExtractionConfig,
-} from "../langgraph/agents/rag-agents/rag-topic-extraction-agent";
-import {
-  RAG_SENTIMENT_ANALYSIS_CONFIG,
-  RagSentimentAnalysisConfig,
-} from "../langgraph/agents/rag-agents/rag-sentiment-analysis-agent";
-
-// Expertise and prompts
-import { AgentExpertise } from "../rag/agents/rag-enhanced-agent";
-import {
-  TOPIC_EXTRACTION_SYSTEM_PROMPT,
-  SENTIMENT_ANALYSIS_PROMPT,
-} from "../instruction-promtps";
 
 // Injection tokens
 import { LLM_SERVICE } from "../langgraph/llm/constants/injection-tokens";
@@ -86,8 +54,8 @@ import {
 } from "../pinecone/constants/injection-tokens";
 import { EMBEDDING_SERVICE } from "../embedding";
 
-import { DimensionAdapterService } from "src/embedding/dimension-adapter.service";
-import { OpenAIService } from "src/embedding/openai.service";
+import { DimensionAdapterService } from "../embedding/dimension-adapter.service";
+import { OpenAIService } from "../embedding/openai.service";
 
 /**
  * SharedCoreModule - Directly provides ALL shared services
@@ -144,87 +112,13 @@ import { OpenAIService } from "src/embedding/openai.service";
     // LanggraphCore services - REMOVED EnhancedGraphService (back to LanggraphCoreModule)
     GraphExecutionService,
 
-    // Individual agents
-    TopicExtractionAgent,
-    ActionItemAgent,
-    SentimentAnalysisAgent,
-    SummaryAgent,
-    ParticipationAgent,
-    ContextIntegrationAgent,
+    // Shared agents only
     MasterSupervisorAgent,
 
     // RAG Services
     RetrievalService,
     RagService,
     AdaptiveRagService,
-
-    // RAG Agents configuration
-    {
-      provide: RAG_MEETING_ANALYSIS_CONFIG,
-      useFactory: (): RagMeetingAnalysisConfig => ({
-        name: "Meeting Summary Agent",
-        systemPrompt:
-          "You are an AI assistant specialized in generating comprehensive meeting summaries through chunking and analysis.",
-        chunkSize: 4000, // Size for chunking large transcripts
-        chunkOverlap: 200, // Overlap between chunks
-        ragOptions: {
-          includeRetrievedContext: true,
-          retrievalOptions: {
-            indexName: "meeting-analysis",
-            namespace: "summaries", // Focus on summary-related context
-            topK: 3,
-            minScore: 0.7,
-          },
-        },
-      }),
-    },
-    {
-      provide: RAG_TOPIC_EXTRACTION_CONFIG,
-      useFactory: (): RagTopicExtractionConfig => ({
-        name: "Topic Extraction Agent",
-        systemPrompt: TOPIC_EXTRACTION_SYSTEM_PROMPT,
-        expertise: [AgentExpertise.TOPIC_ANALYSIS],
-        ragOptions: {
-          includeRetrievedContext: true,
-          retrievalOptions: {
-            indexName: "meeting-analysis",
-            namespace: "topics",
-            topK: 5,
-            minScore: 0.7,
-          },
-        },
-        specializedQueries: {
-          [AgentExpertise.TOPIC_ANALYSIS]:
-            "Extract all topics discussed in this meeting transcript, including their relevance, subtopics, and participating speakers.",
-        },
-      }),
-    },
-    {
-      provide: RAG_SENTIMENT_ANALYSIS_CONFIG,
-      useFactory: (): RagSentimentAnalysisConfig => ({
-        name: "Sentiment Analysis Agent",
-        systemPrompt: SENTIMENT_ANALYSIS_PROMPT,
-        expertise: [AgentExpertise.SENTIMENT_ANALYSIS],
-        ragOptions: {
-          includeRetrievedContext: true,
-          retrievalOptions: {
-            indexName: "meeting-analysis",
-            namespace: "sentiment-analysis",
-            topK: 3,
-            minScore: 0.7,
-          },
-        },
-        specializedQueries: {
-          [AgentExpertise.SENTIMENT_ANALYSIS]:
-            "Analyze the sentiment of the meeting transcript, including emotional tone, speaker engagement, and sentiment shifts throughout the discussion.",
-        },
-      }),
-    },
-
-    // RAG Agents
-    RagMeetingAnalysisAgent,
-    RagTopicExtractionAgent,
-    RagSentimentAnalysisAgent,
 
     // Agent factory - depends on all the individual agents above
     AgentFactory,
@@ -297,16 +191,11 @@ import { OpenAIService } from "src/embedding/openai.service";
     GraphExecutionService,
 
     // Export agents
-    TopicExtractionAgent,
-    ActionItemAgent,
-    SentimentAnalysisAgent,
-    SummaryAgent,
-    ParticipationAgent,
-    ContextIntegrationAgent,
+    // Shared agents only
     MasterSupervisorAgent,
-    RagMeetingAnalysisAgent,
-    RagTopicExtractionAgent,
-    RagSentimentAnalysisAgent,
+    // RagMeetingAnalysisAgent,
+    // RagTopicExtractionAgent,
+    // RagSentimentAnalysisAgent,
     AgentFactory,
 
     // Export RAG services

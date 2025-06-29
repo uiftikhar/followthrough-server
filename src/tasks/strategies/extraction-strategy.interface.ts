@@ -1,4 +1,4 @@
-import { Email } from "../../email/models/email.model";
+import { Email } from "src/langgraph/email/models/email.model";
 import { Task } from "../models/task.model";
 
 /**

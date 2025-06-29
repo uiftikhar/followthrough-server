@@ -15,6 +15,7 @@ Welcome to the comprehensive documentation for FollowThrough AI's advanced agent
 ### For Specific Workflows
 - **📊 [Meeting Analysis Workflow](./MEETING-ANALYSIS-WORKFLOW.md)** - Transcript processing and insights
 - **📧 [Email Triage Workflow](./EMAIL-TRIAGE-WORKFLOW.md)** - Email classification and automation
+- **📅 [Calendar Workflow Development Guide](./CALENDAR-WORKFLOW-DEVELOPMENT-GUIDE.md)** - Calendar integration and meeting orchestration
 - **🧠 [RAG System Guide](./RAG-SYSTEM-GUIDE.md)** - Vector search and knowledge retrieval
 
 ## 🏛️ System Architecture at a Glance
@@ -125,6 +126,7 @@ const result = await unifiedWorkflowService.processInput({
 ### Workflow Implementation
 - **[Meeting Analysis Workflow](./MEETING-ANALYSIS-WORKFLOW.md)** - End-to-end meeting processing
 - **[Email Triage Workflow](./EMAIL-TRIAGE-WORKFLOW.md)** - Email automation and intelligent responses
+- **[Calendar Workflow Development Guide](./CALENDAR-WORKFLOW-DEVELOPMENT-GUIDE.md)** - Calendar integration development roadmap
 
 ## 🎯 Common Use Cases
 

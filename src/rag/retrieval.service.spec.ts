@@ -7,12 +7,14 @@ import { server } from "../test/mocks/server";
 import { http, HttpResponse } from "msw";
 import { Cache } from "cache-manager";
 import { VectorIndexes } from "../pinecone/pinecone-index.service";
+import { DimensionAdapterService } from "../embedding/dimension-adapter.service";
 
 describe("RetrievalService", () => {
   let retrievalService: RetrievalService;
   let mockPineconeService: any;
   let mockEmbeddingService: any;
   let mockCacheManager: Cache;
+  let mockDimensionAdapterService: any;
 
   beforeEach(async () => {
     // Setup MSW handlers
@@ -72,6 +74,14 @@ describe("RetrievalService", () => {
       reset: jest.fn().mockResolvedValue(undefined),
     } as unknown as Cache;
 
+    mockDimensionAdapterService = {
+      adaptDimensionsIfNeeded: jest
+        .fn()
+        .mockImplementation((embeddings) => embeddings),
+      getCurrentDimensions: jest.fn().mockReturnValue(1024),
+      getTargetDimensions: jest.fn().mockReturnValue(1024),
+    };
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         RetrievalService,
@@ -86,6 +96,10 @@ describe("RetrievalService", () => {
         {
           provide: CACHE_MANAGER,
           useValue: mockCacheManager,
+        },
+        {
+          provide: DimensionAdapterService,
+          useValue: mockDimensionAdapterService,
         },
       ],
     }).compile();

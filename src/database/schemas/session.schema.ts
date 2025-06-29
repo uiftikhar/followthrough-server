@@ -4,7 +4,7 @@ import { ApiProperty } from "@nestjs/swagger";
 
 export type SessionDocument = Session & Document;
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, suppressReservedKeysWarning: true })
 export class Session {
   @Prop({ required: true })
   @ApiProperty({ description: "Unique session identifier" })
@@ -49,25 +49,101 @@ export class Session {
   @ApiProperty({ description: "Additional metadata about the session" })
   metadata?: Record<string, any>;
 
-  @Prop({ type: Object })
-  @ApiProperty({ description: "Topics extracted from the transcript" })
-  topics?: any[];
+  @Prop({ type: Array, default: [] })
+  @ApiProperty({ 
+    description: "Topics extracted from the transcript",
+    type: [Object],
+    example: [{
+      name: "Production Bug Resolution",
+      description: "Discussion of critical production bug affecting B2B users",
+      relevance: 9,
+      subtopics: ["Root cause analysis", "Immediate fixes"],
+      keywords: ["production bug", "CRM sync"],
+      participants: ["Emily", "Adrian", "Sophia"],
+      duration: "25 minutes"
+    }]
+  })
+  topics?: Array<{
+    name: string;
+    description?: string;
+    relevance?: number;
+    subtopics?: string[];
+    keywords?: string[];
+    participants?: string[];
+    duration?: string;
+  }>;
+
+  @Prop({ type: Array, default: [] })
+  @ApiProperty({ 
+    description: "Action items extracted from the transcript",
+    type: [Object],
+    example: [{
+      description: "Debug and patch backend mapping logic",
+      assignee: "Emily and Adrian",
+      deadline: "EOD today",
+      status: "pending",
+      context: "Critical production bug needs immediate resolution"
+    }]
+  })
+  actionItems?: Array<{
+    description: string;
+    assignee?: string;
+    deadline?: string;
+    status?: string;
+    priority?: string;
+    context?: string;
+  }>;
 
   @Prop({ type: Object })
-  @ApiProperty({ description: "Action items extracted from the transcript" })
-  actionItems?: any[];
+  @ApiProperty({ 
+    description: "Generated summary of the transcript",
+    type: Object,
+    example: {
+      meetingTitle: "Production Bug Resolution",
+      summary: "Meeting focused on addressing critical production bug...",
+      decisions: [
+        {
+          title: "Deploy Hotfix by End of Day",
+          content: "Team decided to deploy a hotfix by EOD..."
+        }
+      ]
+    }
+  })
+  summary?: {
+    meetingTitle?: string;
+    summary?: string;
+    decisions?: Array<{
+      title: string;
+      content: string;
+    }>;
+    next_steps?: string[];
+  };
 
   @Prop({ type: Object })
-  @ApiProperty({ description: "Generated summary of the transcript" })
-  summary?: any;
-
-  @Prop({ type: Object })
-  @ApiProperty({ description: "Sentiment analysis results" })
-  sentiment?: any;
+  @ApiProperty({ 
+    description: "Sentiment analysis results",
+    type: Object,
+    example: {
+      overall: 0.6,
+      segments: [
+        {
+          text: "Good morning, everyone...",
+          score: 0.8
+        }
+      ]
+    }
+  })
+  sentiment?: {
+    overall?: number;
+    segments?: Array<{
+      text: string;
+      score: number;
+    }>;
+  };
 
   @Prop({ type: Array })
   @ApiProperty({ description: "Any errors that occurred during analysis" })
-  errors?: Array<{
+  analysisErrors?: Array<{
     step: string;
     error: string;
     timestamp: string;

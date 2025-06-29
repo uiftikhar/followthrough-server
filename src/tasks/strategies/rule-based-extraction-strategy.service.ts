@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { Email } from "../../email/models/email.model";
+import { Email } from "src/langgraph/email/models/email.model";
 import { Task, TaskPriority, TaskStatus } from "../models/task.model";
 import { IExtractionStrategy } from "./extraction-strategy.interface";
 

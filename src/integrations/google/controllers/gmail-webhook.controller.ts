@@ -22,7 +22,7 @@ import {
 import { GmailService } from "../services/gmail.service";
 import { GoogleOAuthService } from "../services/google-oauth.service";
 import { GmailWatchService } from "../services/gmail-watch.service";
-import { UnifiedWorkflowService } from "../../../langgraph/unified-workflow.service";
+import { GmailEmailProcessorService, GmailEmailData } from "../services/gmail-email-processor.service";
 import { gmail_v1 } from "googleapis";
 import * as crypto from "crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
@@ -44,24 +44,9 @@ interface WebhookVerificationParams {
   "hub.verify_token"?: string;
 }
 
-interface GmailEmailData {
-  id: string;
-  threadId: string;
-  body: string;
-  metadata: {
-    subject: string;
-    from: string;
-    to: string;
-    timestamp: string;
-    headers?: any;
-    gmailSource: boolean;
-    messageId: string;
-    labels?: string[];
-    userId: string;
-  };
-}
+// GmailEmailData interface moved to GmailEmailProcessorService
 
-@Controller("api/gmail/webhooks")
+@Controller("api/webhook/google/mail")
 export class GmailWebhookController {
   private readonly logger = new Logger(GmailWebhookController.name);
   private readonly webhookSecret: string;
@@ -71,7 +56,7 @@ export class GmailWebhookController {
     private readonly gmailService: GmailService,
     private readonly googleOAuthService: GoogleOAuthService,
     private readonly gmailWatchService: GmailWatchService,
-    private readonly unifiedWorkflowService: UnifiedWorkflowService,
+    private readonly gmailEmailProcessor: GmailEmailProcessorService, // ✅ NEW: Unified email processing
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
   ) {
@@ -272,20 +257,18 @@ export class GmailWebhookController {
   }
 
   /**
-   * Process a Gmail notification by fetching new emails and triggering triage
+   * OPTIMIZED: Process Gmail notification with smart filtering and most recent email only
+   * This replaces the old approach that processed ALL emails since last historyId
    */
   private async processGmailNotification(
     notification: GmailNotification,
   ): Promise<number> {
     try {
       this.logger.log(
-        `🔄 Processing Gmail notification for: ${notification.emailAddress}, historyId: ${notification.historyId}`,
+        `🔄 OPTIMIZED: Processing Gmail notification for: ${notification.emailAddress}, historyId: ${notification.historyId}`,
       );
 
       // Find watch info by email address
-      this.logger.log(
-        `🔍 Looking up watch info for email: ${notification.emailAddress}`,
-      );
       const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(
         notification.emailAddress,
       );
@@ -293,24 +276,16 @@ export class GmailWebhookController {
         this.logger.warn(
           `⚠️ No active watch found for email: ${notification.emailAddress}`,
         );
-
-        // This indicates an orphaned watch - try to clean it up if possible
         await this.handleOrphanedWatch(notification.emailAddress);
-
         return 0;
       }
 
       this.logger.log(
         `✅ Found active watch: ${watchInfo.watchId} for email: ${notification.emailAddress}`,
       );
-      this.logger.log(
-        `📊 Watch info - historyId: ${watchInfo.historyId}, userId: ${watchInfo.userId}`,
-      );
 
-      // Get new emails from Gmail history since last known history ID
-      this.logger.log(
-        `📧 Fetching new emails from history ID ${watchInfo.historyId} to ${notification.historyId}`,
-      );
+      // 🚀 NEW APPROACH: Get only the most recent email instead of all emails
+      // ✅ FIX: Get ALL new emails from history, not just one
       const newEmails = await this.getNewEmailsFromHistory(
         watchInfo.watchId,
         notification.emailAddress,
@@ -319,65 +294,173 @@ export class GmailWebhookController {
 
       if (newEmails.length === 0) {
         this.logger.log(
-          `ℹ️ No new emails found for: ${notification.emailAddress} (historyId: ${notification.historyId})`,
+          `📭 No new emails found for: ${notification.emailAddress} (historyId: ${notification.historyId})`,
         );
         return 0;
       }
 
-      this.logger.log(`📬 Found ${newEmails.length} new emails for processing`);
+      this.logger.log(
+        `📧 PROCESSING: Found ${newEmails.length} new emails for: ${notification.emailAddress}`,
+      );
 
-      // ENHANCED: Process each new email through the triage system with better error handling
+      // Process each new email through unified processor
       let processedCount = 0;
       for (const email of newEmails) {
         try {
           this.logger.log(
-            `🚀 Starting triage for email: ${email.id} - "${email.metadata.subject}" from ${email.metadata.from}`,
+            `🚀 Processing email: ${email.id} - "${email.metadata.subject}" from ${email.metadata.from}`,
           );
 
-          // Trigger the email triage process
-          await this.triggerEmailTriage(watchInfo.watchId, email);
-          processedCount++;
-
-          this.logger.log(
-            `✅ Triage initiated successfully for email: ${email.id}`,
+          const result = await this.gmailEmailProcessor.processEmail(
+            email,
+            'push',
+            { 
+              watchId: watchInfo.watchId, 
+              userId: watchInfo.userId.toString() 
+            }
           );
+          
+          if (result.status === 'processed') {
+            processedCount++;
+            this.logger.log(`✅ Email ${email.id} processed successfully`);
+          } else {
+            this.logger.log(
+              `ℹ️ Email ${email.id} ${result.status}: ${result.reason || 'No reason provided'}`,
+            );
+          }
+          
         } catch (error) {
           this.logger.error(`❌ Failed to process email ${email.id}:`, error);
-
-          // Still emit a failed event for this email
-          this.eventEmitter.emit("email.triage.failed", {
-            emailId: email.id,
-            emailAddress: notification.emailAddress,
-            subject: email.metadata.subject,
-            from: email.metadata.from,
-            error: error.message,
-            timestamp: new Date().toISOString(),
-            source: "gmail_push",
-          });
         }
       }
 
-      // Record processed emails in watch statistics
+      // Record processing statistics
       if (processedCount > 0) {
-        await this.gmailWatchService.recordEmailsProcessed(
-          watchInfo.watchId,
-          processedCount,
-        );
+        await this.gmailWatchService.recordEmailsProcessed(watchInfo.watchId, processedCount);
         this.logger.log(
-          `📊 Recorded ${processedCount} processed emails for watch: ${watchInfo.watchId}`,
+          `✅ Successfully processed ${processedCount}/${newEmails.length} emails for: ${notification.emailAddress}`,
         );
       }
 
-      this.logger.log(
-        `✅ Processed ${processedCount}/${newEmails.length} new emails for: ${notification.emailAddress}`,
-      );
       return processedCount;
+
     } catch (error) {
       this.logger.error(
         `❌ Failed to process Gmail notification for ${notification.emailAddress}:`,
         error,
       );
       throw error;
+    }
+  }
+
+  /**
+   * OPTIMIZED: Get only the most recent email from Gmail history
+   * Replaces getNewEmailsFromHistory to process exactly 1 email per notification
+   */
+  private async getMostRecentEmail(
+    emailAddress: string,
+    currentHistoryId: string,
+  ): Promise<GmailEmailData | null> {
+    try {
+      // Get watch info
+      const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(emailAddress);
+      if (!watchInfo) {
+        this.logger.warn(`No watch found for email: ${emailAddress}`);
+        return null;
+      }
+
+      // Get authenticated client
+      const authClient = await this.googleOAuthService.getAuthenticatedClient(
+        watchInfo.userId.toString(),
+      );
+      const gmail = google.gmail({ version: "v1", auth: authClient });
+
+      // Verify authentication and get current Gmail historyId
+      const profile = await gmail.users.getProfile({ userId: "me" });
+      const currentGmailHistoryId = profile.data.historyId!;
+
+      this.logger.log(
+        `📊 History analysis: Watch=${watchInfo.historyId}, Current=${currentGmailHistoryId}`,
+      );
+
+      // Check for stale historyId
+      const historyIdDiff = parseInt(currentGmailHistoryId) - parseInt(watchInfo.historyId);
+      if (historyIdDiff > 1000000) {
+        this.logger.warn(`🚨 Stale historyId detected, resetting watch`);
+        await this.gmailWatchService.updateHistoryId(watchInfo.watchId, currentGmailHistoryId);
+        return null;
+      }
+
+      // Get history with maxResults: 1 to get only the most recent
+      const historyResponse = await gmail.users.history.list({
+        userId: "me",
+        startHistoryId: watchInfo.historyId,
+        historyTypes: ["messageAdded"],
+        maxResults: 1, // CRITICAL: Only get the most recent email
+      });
+
+      const histories = historyResponse.data.history || [];
+      if (histories.length === 0) {
+        this.logger.log(`No history found for ${emailAddress}`);
+        return null;
+      }
+
+      const latestHistory = histories[0];
+      const messagesAdded = latestHistory.messagesAdded || [];
+      if (messagesAdded.length === 0) {
+        this.logger.log(`No messages in latest history for ${emailAddress}`);
+        return null;
+      }
+
+      const latestMessage = messagesAdded[0].message;
+      if (!latestMessage) {
+        this.logger.log(`No message data in latest history for ${emailAddress}`);
+        return null;
+      }
+
+      // Check if message has INBOX label
+      const messageLabels = latestMessage.labelIds || [];
+      if (!messageLabels.includes("INBOX")) {
+        this.logger.log(
+          `⏭️ Skipping message ${latestMessage.id} - not in INBOX (labels: ${messageLabels.join(", ")})`,
+        );
+        return null;
+      }
+
+      // Transform only the most recent message
+      const transformedEmail = await this.transformGmailMessage(
+        gmail,
+        latestMessage,
+        emailAddress,
+        watchInfo.userId.toString(),
+      );
+
+      if (transformedEmail) {
+        this.logger.log(
+          `✅ Retrieved most recent email: ${transformedEmail.id} - "${transformedEmail.metadata.subject}"`,
+        );
+      }
+
+      return transformedEmail;
+
+    } catch (error) {
+      this.logger.error(`❌ Failed to get most recent email for ${emailAddress}:`, error);
+      
+      // Handle specific errors
+      if (error.code === 404) {
+        this.logger.warn(`History not found, resetting watch for ${emailAddress}`);
+        const watchInfo = await this.gmailWatchService.getWatchInfoByEmail(emailAddress);
+        if (watchInfo) {
+          const authClient = await this.googleOAuthService.getAuthenticatedClient(
+            watchInfo.userId.toString(),
+          );
+          const gmail = google.gmail({ version: "v1", auth: authClient });
+          const profile = await gmail.users.getProfile({ userId: "me" });
+          await this.gmailWatchService.updateHistoryId(watchInfo.watchId, profile.data.historyId!);
+        }
+      }
+      
+      return null;
     }
   }
 
@@ -692,7 +775,7 @@ export class GmailWebhookController {
 
               const emailData = await this.transformGmailMessage(
                 gmail,
-                messageAdded.message!,
+                messageAdded.message,
                 emailAddress,
                 userId,
               );
@@ -935,127 +1018,7 @@ export class GmailWebhookController {
     );
   }
 
-  /**
-   * Trigger email triage for a specific email using UnifiedWorkflowService
-   */
-  private async triggerEmailTriage(
-    watchId: string,
-    email: GmailEmailData,
-  ): Promise<void> {
-    try {
-      this.logger.log(
-        `🎯 Triggering email triage for email ${email.id} from watch ${watchId}`,
-      );
-      this.logger.log(
-        `📧 Email details - Subject: "${email.metadata.subject}", From: ${email.metadata.from}`,
-      );
 
-      // Get user ID from email metadata or watch info
-      const userId = email.metadata.userId || watchId; // Fallback to watchId if userId not available
-      this.logger.log(`👤 Using userId: ${userId} for triage processing`);
-
-      // Emit immediate email received notification for real-time updates
-      this.logger.log(
-        `📡 Emitting email.received event for immediate notification`,
-      );
-      this.eventEmitter.emit("email.received", {
-        emailId: email.id,
-        emailAddress: email.metadata.to,
-        subject: email.metadata.subject,
-        from: email.metadata.from,
-        to: email.metadata.to,
-        body: email.body.substring(0, 500), // First 500 chars for preview
-        timestamp: email.metadata.timestamp,
-        fullEmail: {
-          id: email.id,
-          threadId: email.threadId,
-          metadata: email.metadata,
-          bodyLength: email.body.length,
-        },
-      });
-
-      // Transform Gmail email data to unified workflow input format
-      const triageInput = {
-        type: "email_triage",
-        emailData: {
-          id: email.id,
-          body: email.body,
-          metadata: email.metadata,
-        },
-        content: email.body, // Include content for processing
-      };
-
-      this.logger.log(
-        `🔄 Submitting email to UnifiedWorkflowService for full triage processing`,
-      );
-
-      // Emit triage started event
-      this.logger.log(`📡 Emitting triage.started event`);
-      this.eventEmitter.emit("email.triage.started", {
-        emailId: email.id,
-        emailAddress: email.metadata.to,
-        subject: email.metadata.subject,
-        from: email.metadata.from,
-        timestamp: new Date().toISOString(),
-        source: "gmail_push",
-      });
-
-      // Process through existing unified workflow service
-      const result = await this.unifiedWorkflowService.processInput(
-        triageInput,
-        {
-          source: "gmail_push",
-          watchId,
-          emailAddress: email.metadata.to,
-          gmailSource: email.metadata.gmailSource,
-        },
-        userId,
-      );
-
-      this.logger.log(
-        `✅ Email triage initiated for ${email.id}, session: ${result.sessionId}`,
-      );
-
-      // Emit triage processing event with session info
-      this.logger.log(
-        `📡 Emitting triage.processing event for session: ${result.sessionId}`,
-      );
-      this.eventEmitter.emit("email.triage.processing", {
-        sessionId: result.sessionId,
-        emailId: email.id,
-        emailAddress: email.metadata.to,
-        subject: email.metadata.subject,
-        status: result.status,
-        timestamp: new Date().toISOString(),
-        source: "gmail_push",
-      });
-
-      // Note: triage.completed events will be emitted by the workflow system when processing finishes
-      // The UnifiedWorkflowService should emit these events automatically
-
-      this.logger.log(
-        `🎉 Triage process successfully started for email: ${email.id}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `❌ Failed to trigger email triage for email ${email.id}:`,
-        error,
-      );
-
-      // Emit error event for real-time notifications
-      this.logger.log(`📡 Emitting triage.failed event for email: ${email.id}`);
-      this.eventEmitter.emit("email.triage.failed", {
-        emailId: email.id,
-        emailAddress: email.metadata.to,
-        subject: email.metadata.subject,
-        error: error.message,
-        timestamp: new Date().toISOString(),
-        source: "gmail_push",
-      });
-
-      throw error;
-    }
-  }
 
   /**
    * Verify Google Cloud Pub/Sub request authenticity
@@ -1136,69 +1099,8 @@ export class GmailWebhookController {
   /**
    * Process new emails from Gmail History API and trigger triage
    */
-  private async processNewEmails(
-    newEmails: any[],
-    emailAddress: string,
-  ): Promise<void> {
-    this.logger.log(
-      `Processing ${newEmails.length} new emails for ${emailAddress}`,
-    );
 
-    for (const email of newEmails) {
-      try {
-        const sessionId = `gmail-${emailAddress}-${Date.now()}`;
-
-        // Emit start event for real-time tracking
-        this.eventEmitter.emit("email.triage.started", {
-          sessionId,
-          emailId: email.id,
-          emailAddress,
-          timestamp: new Date().toISOString(),
-        });
-
-        // Process email through unified workflow service
-        const result = await this.unifiedWorkflowService.processInput(
-          {
-            type: "email_triage",
-            content: email.body,
-            emailData: email,
-            metadata: email.metadata,
-          },
-          {
-            source: "gmail_push",
-            emailAddress: emailAddress,
-          },
-          sessionId,
-        );
-
-        this.logger.log(
-          `Email triage completed for ${email.id}, session: ${result.sessionId}`,
-        );
-
-        // Emit completion event for real-time notifications
-        this.eventEmitter.emit("email.triage.completed", {
-          sessionId: result.sessionId,
-          emailId: email.id,
-          emailAddress: emailAddress,
-          result: result,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (error) {
-        this.logger.error(
-          `Failed to trigger email triage for email ${email.id}:`,
-          error,
-        );
-
-        // Emit error event
-        this.eventEmitter.emit("email.triage.failed", {
-          emailId: email.id,
-          emailAddress: emailAddress,
-          error: error.message,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    }
-  }
+  // All email processing now goes through the centralized GmailEmailProcessorService
 
   @Get("debug/:emailAddress")
   async debugEmailHistory(

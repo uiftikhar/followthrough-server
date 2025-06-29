@@ -16,7 +16,7 @@ import { OnEvent } from "@nestjs/event-emitter";
  * Provides real-time WebSocket notifications for Gmail push notifications and email triage results
  */
 @WebSocketGateway({
-  namespace: "/gmail-notifications",
+  namespace: "/gmail-triage",
   cors: {
     origin: [
       "http://localhost:8080",
@@ -133,6 +133,43 @@ export class GmailNotificationGateway
     if (cleanedUp > 0) {
       this.logger.log(`Cleaned up ${cleanedUp} inactive user sessions`);
     }
+  }
+
+  /**
+   * Disconnect all sessions for a specific user email
+   * Used when user explicitly disconnects from email triage
+   */
+  disconnectUserSessions(userEmail: string): void {
+    const userClients = this.userSessions.get(userEmail);
+    if (!userClients || userClients.size === 0) {
+      this.logger.log(`No active sessions found for user: ${userEmail}`);
+      return;
+    }
+
+    this.logger.log(`Disconnecting ${userClients.size} sessions for user: ${userEmail}`);
+
+    // Disconnect all clients for this user
+    let disconnectedCount = 0;
+    for (const clientId of userClients) {
+      const client = this.connectedClients.get(clientId);
+      if (client) {
+        // Notify client they're being disconnected
+        client.emit("force_disconnect", {
+          reason: "User requested disconnect from email triage",
+          userEmail,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Disconnect the client
+        client.disconnect(true);
+        disconnectedCount++;
+      }
+    }
+
+    // Clean up the user session
+    this.userSessions.delete(userEmail);
+    
+    this.logger.log(`Disconnected ${disconnectedCount} sessions for user: ${userEmail}`);
   }
 
   /**
@@ -312,6 +349,125 @@ export class GmailNotificationGateway
       timestamp: payload.timestamp,
       source: payload.source,
     });
+  }
+
+  /**
+   * 🆕 Listen for enhanced email triage results events (NEW FEATURE)
+   */
+  @OnEvent("email.triage.results")
+  handleTriageResults(payload: any) {
+    this.logger.log(
+      `📡 Broadcasting enhanced triage results for email: ${payload.emailId}`,
+    );
+
+    // Broadcast to all clients in email room
+    const emailRoom = `email:${payload.emailAddress}`;
+    this.server.emit("triage.results", {
+      type: "triage.results",
+      sessionId: payload.sessionId,
+      emailId: payload.emailId,
+      emailAddress: payload.emailAddress,
+      subject: payload.subject,
+      from: payload.from,
+      // Complete triage analysis results
+      classification: payload.triageResults.classification,
+      summary: payload.triageResults.summary,
+      replyDraft: payload.triageResults.replyDraft,
+      retrievedContext: payload.triageResults.retrievedContext,
+      processingMetadata: payload.triageResults.processingMetadata,
+      contextRetrievalResults: payload.triageResults.contextRetrievalResults,
+      userToneProfile: payload.triageResults.userToneProfile,
+      // Database session info
+      databaseSessionId: payload.databaseSession?.sessionId,
+      timestamp: payload.timestamp,
+      source: payload.source,
+      langGraph: payload.langGraph,
+    });
+
+    // Also broadcast to general notifications for monitoring
+    this.server.emit("notification", {
+      type: "triage_results_completed",
+      sessionId: payload.sessionId,
+      emailId: payload.emailId,
+      emailAddress: payload.emailAddress,
+      summary: `Email triage completed: ${payload.triageResults.classification?.category} - ${payload.triageResults.classification?.priority} priority`,
+      classification: payload.triageResults.classification,
+      timestamp: payload.timestamp,
+    });
+
+    this.logger.log(
+      `✅ Enhanced triage results notification broadcasted: ${payload.emailId}`,
+    );
+  }
+
+  /**
+   * 🆕 Listen for email filtered events (new optimization feature)
+   */
+  @OnEvent("email.filtered")
+  handleEmailFiltered(payload: any) {
+    this.logger.log(
+      `📡 Broadcasting email filtered: ${payload.emailId} - ${payload.category} (${payload.reasoning})`,
+    );
+
+    // Broadcast to all clients in email room
+    const emailRoom = `email:${payload.emailAddress}`;
+    this.server.emit("email.filtered", {
+      type: "email.filtered",
+      emailId: payload.emailId,
+      emailAddress: payload.emailAddress,
+      subject: payload.subject,
+      from: payload.from,
+      category: payload.category,
+      priority: payload.priority,
+      reasoning: payload.reasoning,
+      confidence: payload.confidence,
+      timestamp: payload.timestamp,
+      source: payload.source,
+    });
+
+    // Also broadcast to general notifications for monitoring
+    this.server.emit("notification", {
+      type: "email_filtered",
+      emailId: payload.emailId,
+      emailAddress: payload.emailAddress,
+      category: payload.category,
+      summary: `Email filtered: ${payload.category} - ${payload.reasoning}`,
+      timestamp: payload.timestamp,
+    });
+
+    this.logger.log(
+      `✅ Email filtered notification broadcasted: ${payload.emailId}`,
+    );
+  }
+
+  /**
+   * 🆕 Listen for email triage disconnected events (new feature)
+   */
+  @OnEvent("email.triage.disconnected")
+  handleTriageDisconnected(payload: any) {
+    this.logger.log(
+      `📡 Broadcasting triage disconnected for user: ${payload.userId}`,
+    );
+
+    // Broadcast to user's room
+    const userRoom = `user:${payload.userId}`;
+    this.server.emit("triage.disconnected", {
+      type: "triage.disconnected",
+      userId: payload.userId,
+      timestamp: payload.timestamp,
+      source: payload.source,
+    });
+
+    // Also broadcast system notification
+    this.server.emit("system.notification", {
+      type: "info",
+      message: `User ${payload.userId} disconnected from email triage`,
+      timestamp: payload.timestamp,
+    });
+
+    this.logger.log(
+      `✅ Triage disconnected notification broadcasted for user: ${payload.userId}`,
+    );
   }
 
   /**

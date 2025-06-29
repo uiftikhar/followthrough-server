@@ -45,16 +45,11 @@ export class SentimentAnalysisAgent extends BaseAgent {
       this.logger.log("Starting sentiment analysis");
       const model = this.getChatModel();
 
-      const prompt = `
-      Analyze the sentiment in this meeting transcript and provide a comprehensive analysis.
-      
-      Meeting Transcript:
-      ${transcript}
-      `;
-
       const messages = [
         new SystemMessage(this.systemPrompt),
-        new HumanMessage(prompt),
+        new HumanMessage(
+          `Analyze the sentiment in this meeting transcript:\n\nMeeting Transcript:\n${transcript}`,
+        ),
       ];
 
       this.logger.log("Invoking LLM for sentiment analysis");

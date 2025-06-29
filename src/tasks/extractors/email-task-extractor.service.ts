@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { LlmService } from "../../langgraph/llm/llm.service";
-import { Email } from "../../email/models/email.model";
+import { LlmService } from "src/langgraph/llm/llm.service";
+import { Email } from "src/langgraph/email/models/email.model";
 import { Task, TaskPriority } from "../models/task.model";
 import { IExtractionStrategy } from "../strategies/extraction-strategy.interface";
 import { LlmExtractionStrategy } from "../strategies/llm-extraction-strategy.service";
