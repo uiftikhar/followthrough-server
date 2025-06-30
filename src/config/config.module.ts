@@ -37,6 +37,10 @@ import { join } from "path";
             apiKey: process.env.OPENAI_API_KEY,
             anthropicApiKey: process.env.ANTHROPIC_API_KEY,
           },
+          audio: {
+            elevenlabsApiKey: process.env.ELEVENLABS_API_KEY,
+            outputDirectory: process.env.AUDIO_OUTPUT_DIR || "./generated_audio",
+          },
         }),
       ],
     }),

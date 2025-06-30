@@ -22,6 +22,7 @@ import { EmailWorkflowModule } from "./langgraph/email/workflow/email-workflow.m
 import { EmailModule } from "./langgraph/email/email.module";
 import { GoogleOAuthModule } from "./integrations/google/google-oauth.module";
 import { CalendarModule } from "./calendar/calendar.module";
+import { MeetingAudioModule } from "./meeting-audio/meeting-audio.module";
 
 /**
  * AppModule - Root application module
@@ -55,6 +56,7 @@ import { CalendarModule } from "./calendar/calendar.module";
     MeetingAnalysisModule,
     EmailModule, // NEW - Provides email triage endpoints
     CalendarModule, // NEW - Provides calendar workflow endpoints
+    MeetingAudioModule, // NEW - Provides meeting audio generation
 
     // External modules
     AppConfigModule,

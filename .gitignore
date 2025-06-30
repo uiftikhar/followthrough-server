@@ -55,3 +55,6 @@ config/service-accounts/
 scripts/setup-pubsub.sh
 
 guides/secrets/
+guides/transcripts/
+generated_audio/
+custom_audio_output/
