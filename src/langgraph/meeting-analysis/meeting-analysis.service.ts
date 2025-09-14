@@ -789,15 +789,17 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
           }))
         : [];
 
-      // PRODUCTION FIX: If agents return empty results, extract action items from transcript directly
-      if (validActionItems.length === 0) {
-        this.logger.warn(`Agent returned no action items, extracting from transcript directly for session ${state.sessionId}`);
+      // Only use fallback extraction if agent failed completely (not if it returned empty array intentionally)
+      if (validActionItems.length === 0 && agentActionItems === null) {
+        this.logger.warn(`Agent failed completely, attempting fallback extraction for session ${state.sessionId}`);
         validActionItems = this.extractActionItemsFromTranscript(state.transcript).map(item => ({
           description: item.description,
           assignee: item.assignee || "Unassigned",
           dueDate: item.dueDate || "No deadline specified",
           status: item.status || "pending" as const,
         }));
+      } else if (validActionItems.length === 0) {
+        this.logger.log(`Agent returned empty array - no action items found in transcript for session ${state.sessionId}`);
       }
 
       this.logger.log(`Final action items count: ${validActionItems.length}`);
