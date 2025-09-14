@@ -761,8 +761,8 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
     try {
       this.logger.log(`Action item extraction - Input transcript length: ${state.transcript?.length || 0}`);
 
-      // Use basic action item agent since no RAG version exists yet
-      const agent = this.meetingAnalysisAgentFactory.getActionItemAgent();
+      // Use RAG-enhanced action item agent for better extraction
+      const agent = this.meetingAnalysisAgentFactory.getRagActionItemAgent();
       
       if (!agent) {
         throw new Error("Action Item Agent not available");
@@ -773,7 +773,13 @@ export class MeetingAnalysisService implements TeamHandler, OnModuleInit {
       // PRODUCTION DEBUG: Add extensive logging to debug agent execution
       this.logger.log(`Calling agent.extractActionItems with transcript length: ${state.transcript.length}`);
 
-      const agentActionItems = await agent.extractActionItems(state.transcript);
+      const agentActionItems = await agent.extractActionItems(state.transcript, {
+        meetingId: state.meetingId,
+        retrievalOptions: {
+          topK: 5,
+          minScore: 0.7,
+        },
+      });
 
       this.logger.log(`Agent returned action items:`, JSON.stringify(agentActionItems, null, 2));
 

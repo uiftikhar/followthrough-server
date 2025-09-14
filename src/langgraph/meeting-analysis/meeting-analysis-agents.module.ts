@@ -25,9 +25,15 @@ import {
   RagSentimentAnalysisAgent,
   RagSentimentAnalysisConfig,
 } from "../agents/rag-agents/rag-sentiment-analysis-agent";
+import {
+  RAG_ACTION_ITEM_CONFIG,
+  RagActionItemAgent,
+  RagActionItemConfig,
+} from "../agents/rag-agents/rag-action-item-agent";
 import { TOPIC_EXTRACTION_SYSTEM_PROMPT } from "src/instruction-promtps/meeting-analysis/topic-extraction-prompt";
 import { AgentExpertise } from "src/rag/agents/rag-enhanced-agent";
 import { SENTIMENT_ANALYSIS_PROMPT } from "src/instruction-promtps/meeting-analysis/sentiment-analysis.prompt";
+import { EXTRACT_ACTION_ITEMS_PROMPT } from "src/instruction-promtps";
 
 // Meeting analysis agent factory
 import { MeetingAnalysisAgentFactory } from "./meeting-analysis-agent.factory";
@@ -55,6 +61,7 @@ import { MeetingAnalysisAgentFactory } from "./meeting-analysis-agent.factory";
     RagMeetingAnalysisAgent,
     RagTopicExtractionAgent,
     RagSentimentAnalysisAgent,
+    RagActionItemAgent,
 
     // Export meeting analysis agent factory for easy access
     MeetingAnalysisAgentFactory,
@@ -119,6 +126,27 @@ import { MeetingAnalysisAgentFactory } from "./meeting-analysis-agent.factory";
         },
       }),
     },
+    {
+      provide: RAG_ACTION_ITEM_CONFIG,
+      useFactory: (): RagActionItemConfig => ({
+        name: "Action Item Extraction Agent",
+        systemPrompt: EXTRACT_ACTION_ITEMS_PROMPT,
+        expertise: [AgentExpertise.ACTION_ITEM_EXTRACTION],
+        ragOptions: {
+          includeRetrievedContext: true,
+          retrievalOptions: {
+            indexName: "meeting-analysis",
+            namespace: "action-items",
+            topK: 5,
+            minScore: 0.7,
+          },
+        },
+        specializedQueries: {
+          [AgentExpertise.ACTION_ITEM_EXTRACTION]:
+            "Extract specific, actionable tasks with clear assignees from this meeting transcript. Focus on explicit commitments and assignments.",
+        },
+      }),
+    },
   ],
   exports: [
     // Export all meeting analysis agents
@@ -131,6 +159,7 @@ import { MeetingAnalysisAgentFactory } from "./meeting-analysis-agent.factory";
     RagMeetingAnalysisAgent,
     RagTopicExtractionAgent,
     RagSentimentAnalysisAgent,
+    RagActionItemAgent,
 
     // Export the meeting analysis agent factory
     MeetingAnalysisAgentFactory,
