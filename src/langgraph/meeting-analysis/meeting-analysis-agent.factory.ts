@@ -9,6 +9,7 @@ import { ContextIntegrationAgent } from "../agents/context-integration.agent";
 import { RagMeetingAnalysisAgent } from "../agents/rag-agents/rag-meeting-agent";
 import { RagTopicExtractionAgent } from "../agents/rag-agents/rag-topic-extraction-agent";
 import { RagSentimentAnalysisAgent } from "../agents/rag-agents/rag-sentiment-analysis-agent";
+import { RagActionItemAgent } from "../agents/rag-agents/rag-action-item-agent";
 
 /**
  * MeetingAnalysisAgentFactory
@@ -32,6 +33,7 @@ export class MeetingAnalysisAgentFactory {
     private readonly ragMeetingAnalysisAgent: RagMeetingAnalysisAgent,
     private readonly ragTopicExtractionAgent: RagTopicExtractionAgent,
     private readonly ragSentimentAnalysisAgent: RagSentimentAnalysisAgent,
+    private readonly ragActionItemAgent: RagActionItemAgent,
   ) {}
 
   /**
@@ -98,6 +100,13 @@ export class MeetingAnalysisAgentFactory {
   }
 
   /**
+   * Get the RAG-enhanced action item agent
+   */
+  getRagActionItemAgent(): RagActionItemAgent {
+    return this.ragActionItemAgent;
+  }
+
+  /**
    * Get all basic meeting analysis agents
    */
   getAllBasicAgents() {
@@ -119,6 +128,7 @@ export class MeetingAnalysisAgentFactory {
       ragMeetingAnalysis: this.ragMeetingAnalysisAgent,
       ragTopicExtraction: this.ragTopicExtractionAgent,
       ragSentimentAnalysis: this.ragSentimentAnalysisAgent,
+      ragActionItem: this.ragActionItemAgent,
     };
   }
 
